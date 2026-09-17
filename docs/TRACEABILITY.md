@@ -8,11 +8,11 @@
 
 | Пункт ТЗ | Требование | Файл(ы) | Статус |
 |---|---|---|---|
-| §2.1 | `POST /predict` | `backend/app/api/routes/predict.py` | TODO |
-| §2.1 | `GET /health` | `backend/app/api/routes/health.py` | TODO |
-| §2.1 | `GET /stats` | `backend/app/api/routes/stats.py` | TODO |
-| §2.1 | Swagger / OpenAPI | `backend/app/main.py` | TODO |
-| §3 | Поля транзакции | `backend/app/schemas/transaction.py` | TODO |
+| §2.1 | `POST /predict` | `backend/app/api/routes/predict.py` | DONE |
+| §2.1 | `GET /health` | `backend/app/api/routes/health.py` | DONE |
+| §2.1 | `GET /stats` | `backend/app/api/routes/stats.py` | DONE |
+| §2.1 | Swagger / OpenAPI | `backend/app/main.py` | DONE |
+| §3 | Поля транзакции | `backend/app/schemas/transaction.py` | DONE |
 | §4.1 | Отклонение суммы | `backend/app/features/builder.py` | DONE |
 | §4.2 | Необычная страна | `backend/app/features/builder.py` | DONE |
 | §4.3 | Новый device | `backend/app/features/builder.py` | DONE |
@@ -29,7 +29,7 @@
 | §5 | Сохранение модели | `backend/models/fraud_model.joblib` | DONE |
 | §5 | Метрики P/R/F1/ROC-AUC | `backend/app/ml/metrics.py` | DONE |
 | §5 | Дисбаланс классов | `backend/app/ml/pipeline.py` (`compute_scale_pos_weight`) | DONE |
-| §5 | Загрузка модели при старте | `backend/app/ml/pipeline.py` (`load_model`); подключение к API — этап 08 | WIP |
+| §5 | Загрузка модели при старте | `backend/app/api/deps.py` (`build_state`), lifespan в `main.py` | DONE |
 | §6 | Risk Score 0–100 | `backend/app/risk_engine/engine.py` | DONE |
 | §6 | Конфигурируемые пороги | `backend/app/config/settings.py`, `risk_engine/engine.py` | DONE |
 | §6 | Бизнес-правила поверх ML | `backend/app/risk_engine/rules.py` | DONE |
@@ -41,7 +41,7 @@
 | §9 | Сценарии hand-testing | `backend/app/services/scenarios.py`, `docs/HAND_TESTING.md` | TODO |
 | §10 | Business Cost | `backend/app/business/cost_model.py`, `frontend/src/pages/BusinessCostPage.tsx` | TODO |
 | §12 | `.env.example` | `.env.example` | DONE |
-| §12 | CORS | `backend/app/main.py` | TODO |
+| §12 | CORS | `backend/app/main.py` | DONE |
 | §12 | `requirements.txt` | `backend/requirements.txt` | DONE |
 | §13 | Dockerfile backend | `docker/backend.Dockerfile` | TODO |
 | §13 | Dockerfile frontend | `docker/frontend.Dockerfile` | TODO |

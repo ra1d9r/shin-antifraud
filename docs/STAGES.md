@@ -27,7 +27,7 @@
 | 05 | Feature Engineering | `DONE` | [stage-05](stages/stage-05-feature-engineering.md) |
 | 06 | Risk Engine | `DONE` | [stage-06](stages/stage-06-risk-engine.md) |
 | 07 | XAI | `DONE` | [stage-07](stages/stage-07-xai.md) |
-| 08 | FastAPI | `TODO` | — |
+| 08 | FastAPI | `DONE` | [stage-08](stages/stage-08-fastapi.md) |
 | 09 | Проверка API через Swagger | `TODO` | — |
 | 10 | Frontend (React + Vite) | `TODO` | — |
 | 11 | Simulator подключён к API | `TODO` | — |
