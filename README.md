@@ -26,9 +26,16 @@ Shin принимает финансовую транзакцию, обогащ�
 3–5 главных факторов риска с величиной и направлением вклада каждого — это то, что
 антифрод-аналитик может прочитать, а комплаенс — защитить перед регулятором.
 
-Пороги решений конфигурируемые, а встроенный модуль **Business Cost** показывает,
-во что эти пороги обходятся бизнесу: потери от пропущенного фрода против потерь
-от ложных блокировок.
+Пороги решений конфигурируемые. Стоимость выбранной конфигурации — потери от
+пропущенного фрода против трения у добросовестных клиентов — считает скрипт
+`backend/scripts/evaluate_risk_engine.py`.
+
+> **Ревизия 2 ТЗ (2026-09-17).** Вместо полноценного Dashboard проект делает
+> **минимальный Test Web Interface** для ручной проверки. Overview, таблица
+> транзакций и экран Business Cost отложены — см.
+> [ТЗ §8.5](docs/TZ.md#85-отложено-полноценный-dashboard) и
+> [§10](docs/TZ.md#10-business-cost--отложено). Backend для них уже готов:
+> `GET /stats` и `GET /transactions` работают и покрыты тестами.
 
 ---
 
@@ -38,8 +45,8 @@ Shin принимает финансовую транзакцию, обогащ�
 
 ```
                             ┌──────────────────────────┐
-  React Dashboard  ──POST /predict──►   FastAPI (api/routes)
-  (Vite + TS)                         └────────────┬─────────────┘
+  Test Web Interface ─POST /predict─►   FastAPI (api/routes)
+  (React + Vite + TS)                 └────────────┬─────────────┘
         ▲                                          │ Pydantic-валидация
         │                                          ▼
         │                              PredictionService (services/)
@@ -72,7 +79,6 @@ Shin принимает финансовую транзакцию, обогащ�
 | **ML** | `backend/app/ml/` | датасет, обучение, загрузка модели, метрики | HTTP, Risk Score |
 | **Risk Engine** | `backend/app/risk_engine/` | probability -> score -> decision, бизнес-правила | FastAPI |
 | **XAI** | `backend/app/xai/` | вклады признаков и человекочитаемые причины | HTTP |
-| **Business** | `backend/app/business/` | Fraud Loss / Customer Inconvenience / Total Cost | HTTP |
 | **Config** | `backend/app/config/` | типизированные настройки из `.env` | всё остальное |
 
 Принцип: **feature engineering живёт в одном модуле и используется и при обучении,
@@ -125,14 +131,20 @@ LightGBM  ->  (если недоступен)  sklearn HistGradientBoostingClass
 
 ### 3.4 Frontend
 
+Минимальный тестовый интерфейс: одна страница, без роутинга и графиков.
+
 | Технология | Роль |
 |---|---|
 | **React 18** | UI |
-| **TypeScript** | типы, общие с контрактами API |
+| **TypeScript** | типы, зеркалящие Pydantic-схемы |
 | **Vite 5** | dev-сервер и сборка |
-| **React Router** | навигация между Overview / Transactions / Simulator / Business Cost |
-| **Recharts** | графики Risk Score и Business Cost |
-| **CSS Modules / plain CSS** | тёмная тема без тяжёлых UI-фреймворков |
+| **обычный CSS** | без UI-фреймворков |
+| **fetch** | запросы к `POST /predict` |
+
+Frontend делает ровно одно: `Input -> POST /predict -> Display Response`.
+Дублировать Risk Engine, пороги или расчёт признаков на клиенте запрещено —
+такая копия разойдётся с backend и начнёт показывать не то, что система
+решила на самом деле.
 
 ### 3.5 Инфраструктура и качество
 
@@ -149,7 +161,7 @@ LightGBM  ->  (если недоступен)  sklearn HistGradientBoostingClass
 | PostgreSQL / Redis | для hackathon-демо достаточно in-memory store; БД добавляет инфраструктуру, не добавляя ценности демонстрации |
 | Kafka / очереди | прототип синхронный: «ввёл транзакцию — увидел решение» |
 | Auth / JWT | демо-стенд без чувствительных данных; см. «Возможные улучшения» |
-| Tailwind / MUI | лишний вес для 4 страниц; нужен читаемый студенту CSS |
+| Tailwind / MUI | интерфейс — одна страница; нужен читаемый студенту CSS |
 
 ---
 
@@ -169,7 +181,6 @@ Shin/
 │   │   ├── ml/                     # dataset, pipeline, metrics, loader
 │   │   ├── risk_engine/            # score, decision, бизнес-правила
 │   │   ├── xai/                    # explainer + narrator
-│   │   ├── business/               # модель бизнес-стоимости
 │   │   ├── store/                  # in-memory профили клиентов и транзакции
 │   │   ├── core/                   # логирование, исключения
 │   │   └── config/                 # settings.py (единый источник конфигурации)
@@ -178,14 +189,13 @@ Shin/
 │   ├── scripts/                    # generate_dataset.py, train_model.py
 │   ├── tests/                      # pytest
 │   └── requirements.txt
-├── frontend/
+├── frontend/                       # минимальный Test Web Interface
 │   └── src/
-│       ├── components/             # переиспользуемые UI-блоки
-│       ├── pages/                  # Overview / Transactions / Simulator / BusinessCost
-│       ├── services/               # типизированный API-клиент
-│       ├── types/                  # TS-типы, зеркалящие Pydantic-схемы
-│       ├── hooks/                  # загрузка данных
-│       └── styles/                 # тема
+│       ├── App.tsx                 # одна страница целиком
+│       ├── api.ts                  # клиент POST /predict
+│       ├── types.ts                # типы, зеркалящие Pydantic-схемы
+│       ├── scenarios.ts            # пресеты кнопок
+│       └── styles.css
 ├── docs/
 │   ├── TZ.md                       # ТЗ — source of truth
 │   ├── STAGES.md                   # план и статус этапов
@@ -308,7 +318,7 @@ uvicorn app.main:app --reload --port 8000 --app-dir backend
 cd frontend && npm run dev
 ```
 
-Dashboard: http://localhost:5173
+Test Web Interface: http://localhost:5173
 
 ---
 
@@ -320,7 +330,7 @@ docker compose up --build
 
 | Сервис | URL |
 |---|---|
-| Frontend Dashboard | http://localhost:3000 |
+| Test Web Interface | http://localhost:3000 |
 | Backend API | http://localhost:8000 |
 | Swagger | http://localhost:8000/docs |
 
@@ -497,7 +507,7 @@ curl -X POST http://localhost:8000/predict   -H "Content-Type: application/json"
 
 ## 12. Инструкция по hand-testing
 
-Пять обязательных сценариев ([ТЗ §9](docs/TZ.md#9-hand-testing--обязательные-сценарии)):
+Шесть сценариев ([ТЗ §9](docs/TZ.md#9-hand-testing--обязательные-сценарии)):
 
 | # | Сценарий | Ожидание |
 |---|---|---|
@@ -516,6 +526,7 @@ curl -X POST http://localhost:8000/predict   -H "Content-Type: application/json"
 | 3 | Unusual country | **55** | `CHALLENGE` | политики `high_risk_country`, `unusual_country` (модель дала 6) |
 | 4 | Large amount | **73** | `BLOCK` | **только модель**, политики не срабатывали |
 | 5 | Multiple anomalies | **100** | `BLOCK` | модель 100 + пять политик |
+| 6 | High frequency | **60** | `CHALLENGE` | политика `velocity_burst` (модель дала 5) |
 
 Рост монотонный. Сценарий 4 показателен отдельно: крупную сумму распознаёт
 сама модель, без помощи правил.
@@ -607,9 +618,10 @@ Risk Score считается как `probability × 100`, поэтому вер
 | 31–70 | `MEDIUM` | `CHALLENGE` |
 | 71–100 | `HIGH` | `BLOCK` |
 
-Границы задаются в `.env` (`RISK_APPROVE_MAX`, `RISK_CHALLENGE_MAX`) и меняются
-в рантайме через API — endpoint порогов используется страницей Business Cost,
-чтобы показать влияние порогов на стоимость решений.
+Границы задаются в `.env` (`RISK_APPROVE_MAX`, `RISK_CHALLENGE_MAX`).
+`RiskEngine` принимает пороги объектом, поэтому один и тот же поток можно
+пересчитать при разных границах без перезапуска — этим пользуется
+`backend/scripts/evaluate_risk_engine.py`.
 
 ### Слой бизнес-правил
 

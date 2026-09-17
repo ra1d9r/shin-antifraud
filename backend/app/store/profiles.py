@@ -73,11 +73,18 @@ class UserProfile:
     def typical_daily_frequency(self) -> float | None:
         """Обычное число операций в сутки.
 
-        Считается по фактическому размаху истории. Пока истории меньше
-        суток, величина не определена — лучше вернуть None и дать
-        feature builder применить нейтральное значение, чем выдумать число.
+        Считается по операциям **внутри окна** и размаху этого же окна.
+        Смешивать нельзя: `transaction_count` растёт за всё время жизни
+        профиля, а `recent_timestamps` обрезан сутками. Деление одного
+        на другое давало завышение в десятки раз — у клиента с месячной
+        историей выходило 114 операций в сутки вместо 3.4, и признак
+        `frequency_ratio` переставал что-либо значить.
+
+        Пока в окне меньше двух операций или размах меньше часа, величина
+        не определена: лучше вернуть None и дать feature builder применить
+        нейтральное значение, чем выдумать число.
         """
-        if self.transaction_count < 2 or not self.recent_timestamps:
+        if len(self.recent_timestamps) < 2:
             return None
 
         span_hours = (
@@ -85,7 +92,7 @@ class UserProfile:
         ).total_seconds() / 3600.0
         if span_hours < 1.0:
             return None
-        return self.transaction_count / (span_hours / 24.0)
+        return len(self.recent_timestamps) / (span_hours / 24.0)
 
 
 class UserProfileStore:
@@ -147,7 +154,12 @@ class UserProfileStore:
 
             profile.recent_timestamps.append(timestamp)
             profile.recent_timestamps.sort()
-            cutoff = timestamp - timedelta(hours=FREQUENCY_WINDOW_HOURS)
+            # Окно отсчитывается от САМОЙ ПОЗДНЕЙ известной операции, а не от
+            # входящей. Транзакции приходят не строго по порядку (симулятор
+            # позволяет задать любое время), и отсчёт от входящей метки
+            # означал бы, что одна операция «из прошлого» отменяет обрезку
+            # и окно растёт без границ.
+            cutoff = profile.recent_timestamps[-1] - timedelta(hours=FREQUENCY_WINDOW_HOURS)
             profile.recent_timestamps = [
                 moment for moment in profile.recent_timestamps if moment >= cutoff
             ]

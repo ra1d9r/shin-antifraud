@@ -7,6 +7,11 @@
 > **Проект:** Shin (от каз. «шын» — *правда*)
 > **Тип:** FinTech Anti-Fraud System, hackathon-прототип
 > **Дата фиксации ТЗ:** 2026-09-17
+> **Ревизия 2 от 2026-09-17:** вместо полноценного Dashboard требуется
+> **минимальный Test Web Interface** для ручного тестирования. Затронуты
+> §8 (переписан), §9 (добавлен шестой сценарий), §10 (отложен),
+> §11, §13, §14, §15, §16. Добавлены §15-bis (стек) и §15-ter
+> (фактический контракт `/predict`).
 
 ---
 
@@ -166,37 +171,80 @@ Reasons:
 
 ---
 
-## 8. Dashboard
+## 8. Test Web Interface
 
-Простой современный web dashboard (React + Vite).
+> **Ревизия ТЗ от 2026-09-17.** Пункт переписан. Раньше здесь требовался
+> полноценный Dashboard с Overview, таблицей транзакций и фильтрами.
+> Теперь обязателен **минимальный тестовый интерфейс** — инструмент, чтобы
+> руками проверять реакцию системы на изменение параметров транзакции.
+> Прежние требования сохранены ниже как отложенные (§8.5).
 
-### 8.1 Overview
-- количество транзакций;
-- количество подозрительных;
-- количество заблокированных;
-- средний Risk Score;
-- fraud rate.
+### 8.1 Назначение
 
-### 8.2 Transactions
+Это **не** production dashboard. Цель — за 10 секунд:
 
-Таблица: `Transaction ID | Amount | Country | Device | Risk Score | Decision`
+1. открыть сайт;
+2. изменить `amount`;
+3. изменить `country`;
+4. изменить `device_id`;
+5. изменить `transaction_frequency`;
+6. нажать **Analyze Transaction**;
+7. увидеть новый Risk Score, Decision и объяснение.
 
-Фильтрация по: `decision`, `risk score`, `country`, `fraud status`.
+Одна страница. Без авторизации, ролей, аналитики, графиков, анимаций
+и landing page.
 
-### 8.3 Transaction Simulator (обязательная часть)
+### 8.2 Transaction Simulator
 
-Форма ручного ввода: `amount`, `country`, `device`, `IP`, `merchant`, `timestamp`,
-`transaction frequency`, предыдущая сумма, предыдущая страна, геолокация.
+Форма со всеми полями [ТЗ §3](#3-данные-транзакции):
 
-Кнопка **«Analyze Transaction»** отправляет `POST /predict` и отображает:
+`transaction_id`, `user_id`, `amount`, `timestamp`, `merchant`, `country`,
+`device_id`, `ip_address`, `latitude`, `longitude`, `transaction_frequency`,
+`previous_transaction_amount`, `previous_transaction_country`,
+`account_age_days`.
 
-- Risk Score;
-- Decision;
-- Risk level;
-- Reasons;
-- Feature contributions.
+Кнопка **«Analyze Transaction»** отправляет **реальный** `POST /predict`.
+Mock-данные и поддельные ответы запрещены.
 
-Система должна полностью hand-тестироваться через интерфейс.
+### 8.3 Result
+
+После ответа API показать:
+
+- **Risk Score** (0–100);
+- **Decision**: `APPROVE` / `CHALLENGE` / `BLOCK`;
+- **Risk Level**;
+- основные причины риска;
+- **Feature Contributions / XAI**;
+- **исходный JSON-ответ** API целиком.
+
+### 8.4 Быстрые тестовые сценарии
+
+Кнопки, заполняющие форму готовыми данными:
+
+| Кнопка | Сценарий |
+|---|---|
+| Normal Transaction | `normal` |
+| Large Amount | `large_amount` |
+| New Device | `new_device` |
+| Unusual Country | `unusual_country` |
+| **High Frequency** | `high_frequency` — **новый сценарий**, см. §9 |
+| Multiple Anomalies | `multiple_anomalies` |
+
+После выбора сценария значения должны **оставаться редактируемыми**:
+пользователь меняет поле руками и снова нажимает Analyze.
+
+### 8.5 Отложено: полноценный Dashboard
+
+Требования прежней редакции сохранены, но **вынесены за рамки текущей работы**
+и будут возвращены отдельным решением заказчика.
+
+- **Overview**: количество транзакций, подозрительных, заблокированных,
+  средний Risk Score, fraud rate.
+- **Transactions**: таблица `Transaction ID | Amount | Country | Device |
+  Risk Score | Decision` с фильтрацией по `decision`, `risk score`,
+  `country`, `fraud status`.
+
+Backend для них **уже готов**: `GET /stats` и `GET /transactions` с фильтрами.
 
 ---
 
@@ -209,21 +257,38 @@ Reasons:
 | 3 | Unusual country | транзакция из непривычной страны | повышенный риск |
 | 4 | Large amount | сумма значительно выше обычной | повышенный риск |
 | 5 | Multiple anomalies | большая сумма + новый device + необычная страна + высокая частота | высокий Risk Score / `BLOCK` |
+| 6 | **High frequency** | всплеск числа операций при прочих привычных параметрах | повышенный риск |
+
+Сценарий 6 добавлен ревизией от 2026-09-17: он нужен кнопке **High Frequency**
+в тестовом интерфейсе (§8.4). Изолирует признак частоты — остальные параметры
+остаются обычными.
 
 **Важно:** тесты должны демонстрировать **изменение** Risk Score при изменении
 входных параметров.
 
+Все сценарии описывают **одного клиента**: меняется ровно то, что заявлено
+в названии. Иначе сравнивать Risk Score между ними бессмысленно.
+
 ---
 
-## 10. Business Cost
+## 10. Business Cost — отложено
 
-Модуль оценки бизнес-стоимости решений:
+> **Ревизия ТЗ от 2026-09-17.** Пункт выведен за рамки текущей работы вместе
+> с полноценным Dashboard (§8.5): интерфейс сознательно минимальный, графиков
+> и аналитики в нём нет.
+
+Требования прежней редакции сохранены на будущее:
 
 - **Fraud Loss** — стоимость пропущенного мошенничества;
-- **Customer Inconvenience** — стоимость ложных блокировок / лишних проверок.
+- **Customer Inconvenience** — стоимость ложных блокировок / лишних проверок;
+- график или summary по `Fraud Loss`, `Customer Inconvenience`, `Total Cost`;
+- возможность менять thresholds и видеть влияние на показатели.
 
-На Dashboard: график или summary по `Fraud Loss`, `Customer Inconvenience`, `Total Cost`.
-Плюс возможность **менять thresholds** и видеть влияние на показатели.
+**Что уже сделано.** Параметры стоимости заданы в `.env`
+(`COST_FRAUD_LOSS_RATIO`, `COST_FRAUD_FIXED`, `COST_FALSE_BLOCK`,
+`COST_FALSE_CHALLENGE`), а расчёт стоимости конфигурации уже реализован
+в `backend/scripts/evaluate_risk_engine.py` — он сравнивает чистый ML
+с ML + политики. Не хватает только HTTP-эндпоинта и экрана.
 
 ---
 
@@ -244,18 +309,27 @@ backend/
   data/
   scripts/
   requirements.txt
-frontend/
+frontend/                      # минимальный тестовый интерфейс (React + Vite + TS)
   src/
-    components/
-    pages/
-    services/
-    types/
+    App.tsx                    # одна страница целиком
+    api.ts                     # типизированный клиент POST /predict
+    types.ts                   # типы, зеркалящие Pydantic-схемы
+    scenarios.ts               # пресеты кнопок (или загрузка с GET /scenarios)
+    styles.css
+  index.html
+  package.json
+  vite.config.ts
 README.md
 docker-compose.yml
 ```
 
 Структуру можно изменить, если предложена более правильная архитектура,
 но код должен оставаться **понятным студенту** и **удобным для демонстрации**.
+
+Frontend делает ровно одно: `Input -> POST /predict -> Display Response`.
+**Запрещено** дублировать на клиенте Risk Engine, пороги решений или расчёт
+признаков: любое такое дублирование рано или поздно разойдётся с backend
+и начнёт показывать не то, что система решила на самом деле.
 
 ---
 
@@ -285,7 +359,7 @@ docker-compose.yml
 docker compose up --build
 ```
 
-После запуска доступны: Backend API, Swagger, Frontend Dashboard.
+После запуска доступны: Backend API, Swagger, Test Web Interface.
 
 ---
 
@@ -298,7 +372,7 @@ docker compose up --build
 5. Установка зависимостей
 6. Запуск ML training
 7. Запуск backend
-8. Запуск frontend
+8. Запуск frontend (Test Web Interface)
 9. Запуск через Docker
 10. Пример API request
 11. Пример API response
@@ -316,11 +390,59 @@ docker compose up --build
 Должна работать реальная цепочка:
 
 ```
-Frontend -> FastAPI -> Feature Engineering -> ML Model -> Risk Score
-         -> Risk Engine -> XAI -> JSON Response -> Dashboard
+React + TypeScript -> HTTP -> FastAPI /predict -> Feature Engineering
+  -> ML Model -> Risk Score -> Risk Engine -> XAI -> JSON -> React
 ```
 
 При изменении параметров транзакции результат **пересчитывается**.
+
+---
+
+## 15-bis. Технологический стек (зафиксирован 2026-09-17)
+
+| Слой | Стек |
+|---|---|
+| **Frontend** | React, Vite, TypeScript, обычный CSS или минимальный UI-kit, `fetch` либо `axios` |
+| **Backend** | Python, FastAPI, Pydantic, существующий `/predict` |
+| **ML** | Python, pandas, scikit-learn, LightGBM, SHAP для XAI |
+
+Backend и ML **уже существуют** и менять их без необходимости нельзя.
+ML-логику не трогать.
+
+---
+
+## 15-ter. Фактический контракт `POST /predict`
+
+Frontend подстраивается под **существующий** ответ, а не наоборот.
+
+**Запрос** — обязательны 14 полей [ТЗ §3](#3-данные-транзакции).
+`transaction_id` и `timestamp` можно не передавать: первый генерируется,
+второй берётся как текущее время UTC.
+
+Опционально принимается контекст клиента (`user_avg_amount`,
+`user_amount_std`, `user_home_country`, `user_typical_frequency`,
+`known_device_ids`, `previous_ip_address`, `previous_timestamp`,
+`previous_latitude`, `previous_longitude`, `txn_count_last_hour`,
+`merchant_category`) и флаг `persist`.
+
+**Ответ:**
+
+| Поле | Смысл |
+|---|---|
+| `risk_score` | 0–100, итоговая оценка после политик |
+| `model_score` | 0–100, оценка только модели |
+| `probability` | вероятность фрода |
+| `decision` | `APPROVE` / `CHALLENGE` / `BLOCK` |
+| `risk_level` | `LOW` / `MEDIUM` / `HIGH` / `CRITICAL` |
+| `raised_by_rules` | подняли ли политики оценку выше модели |
+| `triggered_rules[]` | `key`, `title`, `min_score` |
+| `explanation.reasons[]` | причины строками — сначала политики, затем факторы |
+| `explanation.factors[]` | `feature`, `value`, `display_value`, `contribution`, `direction`, `reason`, `description` |
+| `explanation.method` | `shap` / `lightgbm_native` / `ablation` |
+| `explanation.units` | `logit` или `probability` — в чём измерен вклад |
+| `thresholds` | `approve_max`, `challenge_max`, `critical_min` |
+| `features` | полный вектор из 27 признаков |
+| `processing_ms` | время обработки на сервере |
 
 ---
 
@@ -337,15 +459,24 @@ Frontend -> FastAPI -> Feature Engineering -> ML Model -> Risk Score
 | 7 | Реализовать XAI |
 | 8 | Создать FastAPI |
 | 9 | Проверить API через Swagger |
-| 10 | Создать frontend |
-| 11 | Подключить Simulator к API |
-| 12 | Создать Dashboard |
-| 13 | Добавить Business Cost |
+| 10 | Создать frontend (Test Web Interface) |
+| 11 | Подключить Simulator к реальному `POST /predict` |
+| ~~12~~ | ~~Создать Dashboard~~ — **отложено** (см. §8.5) |
+| ~~13~~ | ~~Добавить Business Cost~~ — **отложено** (см. §10) |
 | 14 | Добавить Docker |
 | 15 | Написать README |
 | 16 | Провести финальную проверку всех сценариев |
 
 После каждого этапа проверять, что код действительно запускается.
+
+### Ревизия плана от 2026-09-17
+
+Этапы 1–9 закрыты. Этапы 10 и 11 переопределены под минимальный тестовый
+интерфейс и фактически сливаются в один: одна страница, которая сразу
+работает с настоящим API. Этапы 12 и 13 отложены.
+
+Дополнительно к этапу 10 требуется добавить шестой сценарий
+`high_frequency` (§9) — под кнопку **High Frequency** в §8.4.
 
 ---
 
@@ -379,6 +510,9 @@ Risk Score + решение + объяснение.
 | D-1 | §11 структура | `backend/app/models/` переименован в `backend/app/schemas/` (Pydantic-модели), ML-артефакты лежат в `backend/models/` | слово *models* перегружено: Pydantic-схемы это не ML-модели. Разделение убирает путаницу |
 | D-2 | §5 ML | автоматически выбирается LightGBM, при его отсутствии — sklearn `HistGradientBoosting`; `GradientBoosting` доступен флагом `--algorithm`. Фактически установлен LightGBM 4.7.0 | среда Python 3.14: бинарные колёса LightGBM/XGBoost могут отсутствовать. Fallback гарантирует запуск на любой машине |
 | D-3 | §7 XAI | SHAP это опциональная зависимость. При её отсутствии работает собственный explainer (вклады признаков + правила). Фактически установлен SHAP 0.52.0 | SHAP тянет компилируемые расширения; прототип обязан запускаться без них |
+| D-8 | §8 Dashboard | ревизия 2: вместо Dashboard делается минимальный Test Web Interface; Overview, таблица транзакций и Business Cost отложены | решение заказчика от 2026-09-17: нужен инструмент для быстрой ручной проверки реакции системы, а не витрина. Backend для отложенного (`GET /stats`, `GET /transactions`) уже готов и работает |
+| D-9 | §9 сценарии | добавлен шестой сценарий `high_frequency` | в §8.4 требуется кнопка **High Frequency**, а среди пяти сценариев прежней редакции такого нет |
+| D-10 | §8.2 форма | форма содержит 14 полей ТЗ §3, но интерфейс дополнительно отправляет контекст клиента из выбранного сценария | без контекста повторные нажатия Analyze дают разные ответы: профиль клиента накапливается между запросами, и устройство перестаёт быть новым. Для инструмента ручной проверки это выглядело бы как дефект |
 | D-7 | §5 ML | вероятности калибруются методом sigmoid на отдельной части выборки | Risk Score = probability × 100. Взвешивание классов завышает вероятности, а изотоническая калибровка на этой задаче вырождается в ступеньку 0/100 и делает полосу CHALLENGE недостижимой |
 | D-4 | §3 данные | добавлены опциональные поля профиля клиента (`user_avg_amount`, `user_home_country`, `known_device_ids`, `previous_ip_address`, `previous_timestamp`, `previous_latitude`, `previous_longitude`) | без истории клиента невозможно посчитать «отклонение от обычного поведения» из §4. Поля опциональные: при отсутствии берутся из in-memory профиля |
 | D-5 | §2 API | добавлены вспомогательные эндпоинты (`/transactions`, `/scenarios`, `/business-cost`, `/config/thresholds`) | нужны Dashboard (§8) и Business Cost (§10); обязательные три эндпоинта сохранены без изменений |

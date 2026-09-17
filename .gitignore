@@ -15,8 +15,6 @@ env/
 
 # --- ML artifacts (перегенерируются скриптами) ---
 backend/data/raw/*.csv
-backend/data/processed/*.csv
-backend/data/processed/*.parquet
 backend/models/*.joblib
 backend/models/*.pkl
 # model_metrics.json намеренно НЕ игнорируется: метрики — часть документации

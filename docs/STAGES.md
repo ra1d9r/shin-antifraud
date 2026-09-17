@@ -29,10 +29,10 @@
 | 07 | XAI | `DONE` | [stage-07](stages/stage-07-xai.md) |
 | 08 | FastAPI | `DONE` | [stage-08](stages/stage-08-fastapi.md) |
 | 09 | Проверка API через Swagger | `DONE` | [stage-09](stages/stage-09-swagger-hand-testing.md) |
-| 10 | Frontend (React + Vite) | `TODO` | — |
-| 11 | Simulator подключён к API | `TODO` | — |
-| 12 | Dashboard (Overview + Transactions) | `TODO` | — |
-| 13 | Business Cost | `TODO` | — |
+| 10 | Test Web Interface (React + Vite + TS) | `TODO` | — |
+| 11 | Simulator подключён к реальному `/predict` | `TODO` | — |
+| ~~12~~ | ~~Dashboard (Overview + Transactions)~~ | `ОТЛОЖЕН` | ТЗ §8.5 |
+| ~~13~~ | ~~Business Cost~~ | `ОТЛОЖЕН` | ТЗ §10 |
 | 14 | Docker | `TODO` | — |
 | 15 | README | `TODO` | — |
 | 16 | Финальная проверка сценариев | `TODO` | — |
@@ -219,46 +219,73 @@
 
 ---
 
-## Этап 10 — Frontend
+## Этап 10 — Test Web Interface
 
-**Цель.** React + Vite + TypeScript, тёмная «продуктовая» тема, типизированный API-клиент.
+> **Переопределён ревизией 2 ТЗ (2026-09-17).** Раньше здесь был полноценный
+> frontend с тёмной темой и роутингом. Теперь — минимальный инструмент
+> ручного тестирования: одна страница, никакой аналитики и графиков.
 
-**Артефакты.** `frontend/` целиком: `package.json`, `vite.config.ts`, `src/services/api.ts`, `src/types/*`.
+**Цель.** Одна страница React + Vite + TypeScript, которая даёт за 10 секунд
+поменять параметры транзакции и увидеть новый ответ системы.
 
-**DoD.** `npm run build` проходит без ошибок TypeScript.
+**Артефакты.**
+- `frontend/` целиком: `package.json`, `vite.config.ts`, `index.html`, `tsconfig.json`;
+- `src/App.tsx` — страница;
+- `src/api.ts` — клиент `POST /predict`;
+- `src/types.ts` — типы, зеркалящие Pydantic-схемы;
+- `src/scenarios.ts` — пресеты кнопок;
+- `src/styles.css` — обычный CSS.
+
+**Ключевые решения.**
+- frontend делает только `Input -> POST /predict -> Display Response`;
+- **запрещено** дублировать Risk Engine, пороги и расчёт признаков на клиенте;
+- никаких mock-данных: только реальные ответы API.
+
+**DoD.**
+1. `npm run build` проходит без ошибок TypeScript.
+2. Форма содержит все 14 полей ТЗ §3.
+3. Результат показывает Risk Score, Decision, Risk Level, причины,
+   feature contributions и сырой JSON.
+4. Шесть кнопок-пресетов заполняют форму, значения остаются редактируемыми.
 
 ---
 
-## Этап 11 — Simulator
+## Этап 11 — Проверка связки вживую
 
-**Цель.** Форма ручного ввода транзакции -> `POST /predict` -> отображение результата.
+**Цель.** Убедиться, что цепочка работает от браузера до модели, а не только
+в тестах.
+
+**Артефакты.** Шестой сценарий `high_frequency` в
+`backend/app/services/scenarios.py` (ТЗ §9, решение D-9).
 
 **DoD.**
-1. Все поля из [ТЗ §8.3](TZ.md#83-transaction-simulator-обязательная-часть) присутствуют.
-2. Есть пресеты пяти сценариев в один клик.
-3. Результат пересчитывается при каждом нажатии (никаких зашитых значений).
+1. Backend и frontend подняты одновременно, CORS не мешает.
+2. Все шесть пресетов отрабатывают через реальный `POST /predict`.
+3. Изменение `amount`, `country`, `device_id`, `transaction_frequency`
+   вручную приводит к **новому** ответу backend.
+4. Ошибки API (422, 503, недоступный backend) показываются человеку,
+   а не молча теряются.
 
 ---
 
-## Этап 12 — Dashboard
+## ~~Этап 12 — Dashboard~~ *(отложен)*
 
-**Цель.** Overview + таблица транзакций с фильтрами.
+Выведен за рамки работы ревизией 2 ТЗ. Требования сохранены в
+[ТЗ §8.5](TZ.md#85-отложено-полноценный-dashboard).
 
-**DoD.**
-1. Метрики Overview берутся из `GET /stats`.
-2. Фильтры по decision / risk score / country / fraud status работают.
+Backend готов: `GET /stats` и `GET /transactions` с фильтрами работают
+и покрыты тестами.
 
 ---
 
-## Этап 13 — Business Cost
+## ~~Этап 13 — Business Cost~~ *(отложен)*
 
-**Цель.** Оценка Fraud Loss, Customer Inconvenience, Total Cost + влияние порогов.
+Выведен за рамки работы ревизией 2 ТЗ. Требования сохранены в
+[ТЗ §10](TZ.md#10-business-cost--отложено).
 
-**Артефакты.** `backend/app/business/cost_model.py`, страница Business Cost во frontend.
-
-**DoD.**
-1. Изменение порогов меняет расчёт стоимости.
-2. На графике видно, где Total Cost минимален.
+Частично уже сделано: параметры стоимости заданы в `.env`, а расчёт
+реализован в `backend/scripts/evaluate_risk_engine.py` — он сравнивает
+чистый ML с ML + политики. Не хватает HTTP-эндпоинта и экрана.
 
 ---
 
