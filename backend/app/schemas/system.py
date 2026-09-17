@@ -1,0 +1,105 @@
+"""Служебные контракты: health, статистика, список транзакций, ошибки."""
+
+from __future__ import annotations
+
+from datetime import datetime
+
+from pydantic import BaseModel, Field
+
+from app.schemas.enums import Decision, RiskLevel
+
+
+class ModelInfo(BaseModel):
+    """Сведения о загруженной модели."""
+
+    loaded: bool
+    algorithm: str | None = None
+    calibration_method: str | None = None
+    feature_count: int | None = None
+    trained_at: str | None = None
+    format_version: str | None = None
+    roc_auc: float | None = None
+    pr_auc: float | None = None
+    precision: float | None = None
+    recall: float | None = None
+    f1: float | None = None
+
+
+class HealthResponse(BaseModel):
+    """Проверка работоспособности API (ТЗ §2.1)."""
+
+    status: str = Field(description="ok — система готова; degraded — модель не загружена")
+    app_name: str
+    version: str
+    environment: str
+    model_loaded: bool
+    explainer_method: str | None = Field(
+        default=None, description="Используемый способ расчёта вкладов"
+    )
+    rules_enabled: bool
+    transactions_processed: int
+    uptime_seconds: float
+
+
+class DecisionBreakdown(BaseModel):
+    approve: int = 0
+    challenge: int = 0
+    block: int = 0
+
+
+class StatsResponse(BaseModel):
+    """Статистика по обработанным транзакциям (ТЗ §2.1, §8.1)."""
+
+    total_transactions: int = Field(description="Всего обработано транзакций")
+    suspicious_transactions: int = Field(description="Отправлено на проверку (CHALLENGE)")
+    blocked_transactions: int = Field(description="Заблокировано (BLOCK)")
+    approved_transactions: int = Field(description="Разрешено (APPROVE)")
+    average_risk_score: float = Field(description="Средний Risk Score")
+    fraud_rate: float = Field(
+        description=(
+            "Доля транзакций, признанных рискованными: решение отличается от APPROVE. "
+            "Это оценка системы, а не проверенная истина — разметки в проде нет."
+        )
+    )
+    decisions: DecisionBreakdown
+    risk_levels: dict[str, int] = Field(default_factory=dict)
+    total_amount: float = Field(description="Сумма всех обработанных транзакций")
+    blocked_amount: float = Field(description="Сумма заблокированных транзакций")
+    top_countries: dict[str, int] = Field(default_factory=dict)
+    triggered_rules: dict[str, int] = Field(
+        default_factory=dict, description="Сколько раз сработала каждая политика"
+    )
+
+
+class TransactionRecordOut(BaseModel):
+    """Строка таблицы транзакций (ТЗ §8.2)."""
+
+    transaction_id: str
+    user_id: str
+    timestamp: datetime
+    amount: float
+    country: str
+    merchant: str
+    device_id: str
+    risk_score: int
+    model_score: int
+    decision: Decision
+    risk_level: RiskLevel
+    triggered_rules: list[str] = Field(default_factory=list)
+    top_reason: str | None = None
+
+
+class TransactionListResponse(BaseModel):
+    """Постраничный список обработанных транзакций."""
+
+    total: int = Field(description="Сколько записей подошло под фильтры")
+    returned: int = Field(description="Сколько записей в этом ответе")
+    items: list[TransactionRecordOut]
+
+
+class ErrorResponse(BaseModel):
+    """Единый формат ошибки."""
+
+    error_code: str
+    message: str
+    details: dict = Field(default_factory=dict)

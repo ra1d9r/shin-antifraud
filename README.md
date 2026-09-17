@@ -328,13 +328,170 @@ docker compose up --build
 
 ## 10. Пример API request
 
-*Будет заполнен на этапе 09 реальным телом запроса.*
+```bash
+curl -X POST http://localhost:8000/predict   -H "Content-Type: application/json"   -d @transaction.json
+```
+
+Обязательны только поля из [ТЗ §3](docs/TZ.md#3-данные-транзакции). Поля
+контекста клиента (`user_avg_amount`, `known_device_ids`, `previous_*`)
+опциональны: если их не передать, система возьмёт данные из профиля клиента,
+накопленного предыдущими запросами. Передать их явно стоит для ручного
+тестирования — тогда ответ не зависит от истории и воспроизводится.
+
+`transaction_id` и `timestamp` можно не указывать: первый генерируется,
+второй берётся как текущее время UTC.
+
+```json
+{
+  "transaction_id": "txn_demo_0001",
+  "user_id": "user_00042",
+  "amount": 2500.0,
+  "timestamp": "2026-09-01T02:14:00",
+  "merchant": "Binance",
+  "country": "NG",
+  "device_id": "dev_unknown_77",
+  "ip_address": "197.210.44.12",
+  "latitude": 6.5244,
+  "longitude": 3.3792,
+  "transaction_frequency": 14,
+  "previous_transaction_amount": 95.0,
+  "previous_transaction_country": "KZ",
+  "account_age_days": 800,
+  "user_avg_amount": 100.0,
+  "user_amount_std": 30.0,
+  "user_home_country": "KZ",
+  "user_typical_frequency": 3.0,
+  "known_device_ids": [
+    "dev_known_1",
+    "dev_known_2"
+  ],
+  "previous_ip_address": "85.132.10.40",
+  "previous_timestamp": "2026-09-01T01:52:00",
+  "previous_latitude": 51.15,
+  "previous_longitude": 71.4,
+  "txn_count_last_hour": 8
+}
+```
 
 ---
 
 ## 11. Пример API response
 
-*Будет заполнен на этапе 09 реальным ответом системы.*
+Настоящий ответ системы на запрос выше. Полный вектор признаков и список
+факторов сокращены для читаемости.
+
+```json
+{
+  "transaction_id": "txn_demo_0001",
+  "user_id": "user_00042",
+  "timestamp": "2026-09-01T02:14:00",
+  "risk_score": 100,
+  "model_score": 100,
+  "probability": 0.9996812002152072,
+  "decision": "BLOCK",
+  "risk_level": "CRITICAL",
+  "raised_by_rules": false,
+  "triggered_rules": [
+    {
+      "key": "impossible_travel",
+      "title": "Impossible travel: location cannot be reached in the elapsed time",
+      "min_score": 75
+    },
+    {
+      "key": "velocity_burst",
+      "title": "Abnormal transaction velocity",
+      "min_score": 60
+    },
+    {
+      "key": "high_risk_country",
+      "title": "Transaction from a high-risk country",
+      "min_score": 55
+    },
+    {
+      "key": "unusual_country",
+      "title": "Transaction from an unusual country on an unfamiliar connection",
+      "min_score": 40
+    },
+    {
+      "key": "new_device",
+      "title": "Unrecognized device on an unrecognized network",
+      "min_score": 35
+    }
+  ],
+  "explanation": {
+    "method": "shap",
+    "units": "logit",
+    "base_value": -8.827910490413865,
+    "summary": "Risk score 100/100 resulted in BLOCK. 5 policy rule(s) applied on top of the model, and 5 model factor(s) contributed to the score.",
+    "reasons": [
+      "Impossible travel: location cannot be reached in the elapsed time",
+      "Abnormal transaction velocity",
+      "Transaction from a high-risk country",
+      "Transaction from an unusual country on an unfamiliar connection",
+      "Unrecognized device on an unrecognized network",
+      "... всего 10"
+    ],
+    "policy_reasons": [
+      "Impossible travel: location cannot be reached in the elapsed time",
+      "Abnormal transaction velocity",
+      "Transaction from a high-risk country",
+      "Transaction from an unusual country on an unfamiliar connection",
+      "Unrecognized device on an unrecognized network"
+    ],
+    "factors": [
+      {
+        "feature": "travel_speed_kmh",
+        "value": 21601.606010876974,
+        "display_value": "21602",
+        "contribution": 4.06129489231958,
+        "direction": "INCREASES_RISK",
+        "reason": "Implied travel speed of 21602 km/h between transactions",
+        "description": "Требуемая скорость перемещения между транзакциями, км/ч"
+      },
+      {
+        "feature": "is_impossible_travel",
+        "value": 1.0,
+        "display_value": "yes",
+        "contribution": 2.9657509074442574,
+        "direction": "INCREASES_RISK",
+        "reason": "Impossible travel: this location cannot be reached in the elapsed time",
+        "description": "Перемещение физически невозможно за прошедшее время"
+      },
+      {
+        "feature": "amount_zscore",
+        "value": 50.0,
+        "display_value": "50.0",
+        "contribution": 2.6947767081768776,
+        "direction": "INCREASES_RISK",
+        "reason": "Amount deviates 50.0 standard deviations from the user's usual spending",
+        "description": "Отклонение суммы от обычной в стандартных отклонениях клиента"
+      }
+    ]
+  },
+  "thresholds": {
+    "approve_max": 30,
+    "challenge_max": 70,
+    "critical_min": 90
+  },
+  "features": {
+    "amount_deviation_ratio": 25.0,
+    "is_new_device": 1.0,
+    "is_unusual_country": 1.0,
+    "is_high_risk_country": 1.0,
+    "is_impossible_travel": 1.0,
+    "travel_speed_kmh": 21601.606011,
+    "txn_count_last_hour": 8.0,
+    "is_night": 1.0,
+    "...": "всего 27 признаков"
+  },
+  "processing_ms": 24.08
+}
+```
+
+Обратите внимание на `model_score` рядом с `risk_score`: здесь они совпали —
+модель сама дала 100, политики ничего не поднимали (`raised_by_rules: false`),
+хотя и сработали все пять. В сценарии «новое устройство» картина обратная:
+`model_score: 1`, `risk_score: 35`.
 
 ---
 
