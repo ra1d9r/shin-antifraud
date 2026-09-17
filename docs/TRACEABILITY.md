@@ -46,7 +46,7 @@
 | §12 | `.env.example` | `.env.example` | DONE |
 | §12 | CORS | `backend/app/main.py` | DONE |
 | §12 | `requirements.txt` | `backend/requirements.txt` | DONE |
-| §13 | Dockerfile backend | `docker/backend.Dockerfile` | TODO |
-| §13 | Dockerfile frontend | `docker/frontend.Dockerfile` | TODO |
-| §13 | docker-compose | `docker-compose.yml` | TODO |
+| §13 | Dockerfile backend | `docker/backend.Dockerfile` | DONE |
+| §13 | Dockerfile frontend | `docker/frontend.Dockerfile`, `docker/nginx.conf` | DONE |
+| §13 | docker-compose | `docker-compose.yml` | WIP — файл написан, запуск не прогонялся (Docker отсутствует, D-6) |
 | §14 | README (15 разделов) | `README.md` | WIP |

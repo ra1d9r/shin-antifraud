@@ -348,9 +348,43 @@ docker compose up --build
 
 | Сервис | URL |
 |---|---|
-| Test Web Interface | http://localhost:3000 |
-| Backend API | http://localhost:8000 |
-| Swagger | http://localhost:8000/docs |
+| Test Web Interface | <http://localhost:3000> |
+| Swagger через тот же адрес | <http://localhost:3000/docs> |
+| Backend API напрямую | <http://localhost:8000> |
+| Swagger напрямую | <http://localhost:8000/docs> |
+
+Первая сборка занимает несколько минут: внутри образа backend генерируется
+датасет на 100 000 транзакций и обучается модель. Артефакты не лежат
+в репозитории, поэтому копировать их неоткуда — а без модели `/predict`
+отвечал бы 503.
+
+### Как устроена сеть
+
+Браузер работает на машине пользователя и внутреннюю сеть Docker не видит:
+адрес вроде `http://backend:8000` оттуда не резолвится. Поэтому интерфейс
+собран с `VITE_API_URL=/api` и шлёт запросы на **тот же origin**, а nginx
+переправляет их в контейнер backend:
+
+```
+браузер ──/api/predict──► nginx (frontend:80) ──/predict──► backend:8000
+```
+
+Завершающий слэш в `proxy_pass http://shin_backend/;` отрезает префикс `/api`.
+Побочная выгода: запросы становятся одноисточниковыми, и CORS в этой схеме
+не участвует вовсе.
+
+### Полезные команды
+
+```bash
+docker compose logs -f backend
+```
+
+```bash
+docker compose down
+```
+
+Пороги решений и политик меняются переменными окружения в `docker-compose.yml`
+без пересборки образа.
 
 ---
 

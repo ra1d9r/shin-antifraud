@@ -33,7 +33,7 @@
 | 11 | Simulator подключён к реальному `/predict` | `DONE` | [stage-10](stages/stage-10-test-web-interface.md) |
 | ~~12~~ | ~~Dashboard (Overview + Transactions)~~ | `ОТЛОЖЕН` | ТЗ §8.5 |
 | ~~13~~ | ~~Business Cost~~ | `ОТЛОЖЕН` | ТЗ §10 |
-| 14 | Docker | `TODO` | — |
+| 14 | Docker | `DONE` | [stage-14](stages/stage-14-docker.md) |
 | 15 | README | `TODO` | — |
 | 16 | Финальная проверка сценариев | `TODO` | — |
 
@@ -296,10 +296,21 @@ Backend готов: `GET /stats` и `GET /transactions` с фильтрами р
 
 **Цель.** `docker compose up --build` поднимает backend + frontend.
 
-**Артефакты.** `docker/backend.Dockerfile`, `docker/frontend.Dockerfile`, `docker/nginx.conf`, `docker-compose.yml`.
+**Артефакты.** `docker/backend.Dockerfile`, `docker/frontend.Dockerfile`,
+`docker/nginx.conf`, `docker-compose.yml`, `.dockerignore`.
+
+**Ключевые решения.**
+- модель обучается на этапе сборки: артефактов нет в репозитории, копировать нечего;
+- `VITE_API_URL=/api` — браузер не видит сеть Docker, запросы идут на тот же
+  origin, nginx проксирует их на backend; CORS в этой схеме не участвует;
+- `libgomp1` обязателен: без него LightGBM не импортируется на slim-образе.
 
 **DoD.** Dockerfile'ы самодостаточны: обучение модели выполняется на этапе сборки образа,
 если артефакт отсутствует.
+
+> Docker на машине разработки отсутствует ([D-6](TZ.md#отклонения-и-решения)),
+> поэтому `docker compose up --build` не прогонялся. Схема сети проверена
+> заглушкой nginx на Python — подробности в отчёте этапа.
 
 ---
 
