@@ -25,7 +25,7 @@ LightGBM предпочтителен по ТЗ, но его бинарные к
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
@@ -42,7 +42,7 @@ from app.features.definitions import FEATURE_NAMES
 
 logger = get_logger("shin.ml.pipeline")
 
-MODEL_FORMAT_VERSION = "1.0"
+MODEL_FORMAT_VERSION = "1.1"
 TARGET_COLUMN = "is_fraud"
 
 Algorithm = Literal["lightgbm", "hist_gradient_boosting", "gradient_boosting"]
@@ -62,6 +62,10 @@ class TrainedModel:
     calibrated: bool
     calibration_method: str
     training_rows: int
+    # Медианы признаков по ЛЕГАЛЬНЫМ транзакциям обучающей выборки.
+    # Это эталон «типичной безопасной операции»: XAI-модуль сравнивает
+    # с ним текущую транзакцию, когда SHAP недоступен.
+    feature_baseline: dict[str, float] = field(default_factory=dict)
 
     def predict_proba(self, features: dict[str, float] | pd.DataFrame) -> np.ndarray:
         """Вероятность фрода.
@@ -285,6 +289,9 @@ def train_model(
     estimator = build_estimator(chosen, scale_pos_weight, random_state=random_state)
     estimator = _fit_estimator(estimator, chosen, x_train, y_train, scale_pos_weight)
 
+    # Эталон безопасной транзакции: медианы признаков по легальным строкам.
+    baseline = x_train[y_train == 0].median().to_dict()
+
     final_estimator = estimator
     if calibration != "none":
         logger.info("Калибровка вероятностей (%s) на отложенной выборке...", calibration)
@@ -300,6 +307,7 @@ def train_model(
         calibrated=calibration != "none",
         calibration_method=calibration,
         training_rows=int(len(x_train)),
+        feature_baseline={name: float(value) for name, value in baseline.items()},
     )
     return model, splits
 

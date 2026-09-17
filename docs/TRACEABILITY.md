@@ -33,8 +33,8 @@
 | §6 | Risk Score 0–100 | `backend/app/risk_engine/engine.py` | DONE |
 | §6 | Конфигурируемые пороги | `backend/app/config/settings.py`, `risk_engine/engine.py` | DONE |
 | §6 | Бизнес-правила поверх ML | `backend/app/risk_engine/rules.py` | DONE |
-| §7 | XAI-модуль | `backend/app/xai/explainer.py` | TODO |
-| §7 | 3–5 факторов риска | `backend/app/xai/narrator.py` | TODO |
+| §7 | XAI-модуль | `backend/app/xai/explainer.py`, `xai/contributions.py` | DONE |
+| §7 | 3–5 факторов риска | `backend/app/xai/narrator.py` | DONE |
 | §8.1 | Overview | `frontend/src/pages/OverviewPage.tsx` | TODO |
 | §8.2 | Таблица транзакций + фильтры | `frontend/src/pages/TransactionsPage.tsx` | TODO |
 | §8.3 | Transaction Simulator | `frontend/src/pages/SimulatorPage.tsx` | TODO |

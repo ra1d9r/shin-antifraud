@@ -26,7 +26,7 @@
 | 04 | Обучение и сохранение модели | `DONE` | [stage-03-04](stages/stage-03-04-ml-pipeline.md) |
 | 05 | Feature Engineering | `DONE` | [stage-05](stages/stage-05-feature-engineering.md) |
 | 06 | Risk Engine | `DONE` | [stage-06](stages/stage-06-risk-engine.md) |
-| 07 | XAI | `TODO` | — |
+| 07 | XAI | `DONE` | [stage-07](stages/stage-07-xai.md) |
 | 08 | FastAPI | `TODO` | — |
 | 09 | Проверка API через Swagger | `TODO` | — |
 | 10 | Frontend (React + Vite) | `TODO` | — |
@@ -180,7 +180,8 @@
 **Цель.** Объяснение каждого решения: 3–5 факторов риска и вклад каждого.
 
 **Артефакты.**
-- `backend/app/xai/explainer.py` — вклады признаков (SHAP, если доступен);
+- `backend/app/xai/contributions.py` — три движка вкладов (SHAP, встроенный LightGBM, ablation);
+- `backend/app/xai/explainer.py` — отбор топ-факторов и сборка объяснения;
 - `backend/app/xai/narrator.py` — перевод признака в человеческую формулировку.
 
 **DoD.**
