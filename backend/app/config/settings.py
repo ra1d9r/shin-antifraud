@@ -1,0 +1,150 @@
+"""Единый источник конфигурации Shin.
+
+Все настраиваемые величины системы (пороги Risk Score, пути к артефактам,
+параметры датасета, стоимости бизнес-ошибок) живут здесь и читаются из `.env`.
+
+Правило проекта: никакой модуль не хардкодит бизнес-константу у себя внутри —
+он берёт её из `get_settings()`.
+"""
+
+from __future__ import annotations
+
+from functools import lru_cache
+from pathlib import Path
+
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# backend/app/config/settings.py -> backend/app/config -> backend/app -> backend -> <root>
+PROJECT_ROOT: Path = Path(__file__).resolve().parents[3]
+
+
+class Settings(BaseSettings):
+    """Типизированная конфигурация приложения."""
+
+    model_config = SettingsConfigDict(
+        env_file=(PROJECT_ROOT / ".env"),
+        env_file_encoding="utf-8",
+        extra="ignore",
+        case_sensitive=False,
+        # `model_` — защищённый префикс в pydantic v2; в проекте есть MODEL_PATH.
+        protected_namespaces=(),
+    )
+
+    # ------------------------------------------------------------------ app
+    app_name: str = "Shin Anti-Fraud System"
+    app_version: str = "1.0.0"
+    environment: str = "development"
+    debug: bool = True
+    log_level: str = "INFO"
+
+    # ------------------------------------------------------------------ api
+    api_host: str = "0.0.0.0"
+    api_port: int = 8000
+    api_prefix: str = ""
+    cors_origins: str = "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173"
+
+    # ---------------------------------------------------------- risk engine
+    risk_approve_max: int = Field(default=30, ge=0, le=100)
+    risk_challenge_max: int = Field(default=70, ge=0, le=100)
+    risk_critical_min: int = Field(default=90, ge=0, le=100)
+
+    # --- жёсткие политики поверх ML.
+    # Каждое правило задаёт МИНИМАЛЬНЫЙ Risk Score при срабатывании: правила
+    # только поднимают оценку модели, но никогда её не снижают.
+    rules_enabled: bool = True
+    rule_impossible_travel_min_score: int = Field(default=75, ge=0, le=100)
+    rule_high_risk_country_min_score: int = Field(default=55, ge=0, le=100)
+    rule_unusual_country_min_score: int = Field(default=40, ge=0, le=100)
+    rule_new_device_min_score: int = Field(default=35, ge=0, le=100)
+    rule_velocity_min_score: int = Field(default=60, ge=0, le=100)
+    rule_new_account_amount_min_score: int = Field(default=60, ge=0, le=100)
+
+    # Пороги срабатывания правил
+    rule_velocity_txn_per_hour: int = Field(default=6, ge=1)
+    rule_new_account_amount_ratio: float = Field(default=4.0, gt=0.0)
+
+    # ------------------------------------------------------------------- ml
+    model_path: str = "backend/models/fraud_model.joblib"
+    metrics_path: str = "backend/models/model_metrics.json"
+    dataset_path: str = "backend/data/raw/transactions.csv"
+
+    dataset_rows: int = Field(default=100_000, gt=0)
+    dataset_users: int = Field(default=3_000, gt=0)
+    dataset_fraud_rate: float = Field(default=0.02, gt=0.0, lt=0.5)
+    random_seed: int = 42
+    test_size: float = Field(default=0.2, gt=0.0, lt=1.0)
+
+    # ------------------------------------------------------------------ xai
+    xai_top_factors: int = Field(default=5, ge=3, le=10)
+    xai_use_shap: bool = True
+
+    # -------------------------------------------------------- business cost
+    cost_fraud_loss_ratio: float = Field(default=1.0, ge=0.0)
+    cost_fraud_fixed: float = Field(default=25.0, ge=0.0)
+    cost_false_block: float = Field(default=120.0, ge=0.0)
+    cost_false_challenge: float = Field(default=12.0, ge=0.0)
+
+    # -------------------------------------------------------------- storage
+    max_stored_transactions: int = Field(default=5_000, gt=0)
+
+    # ---------------------------------------------------------- validators
+    @field_validator("risk_challenge_max")
+    @classmethod
+    def _challenge_above_approve(cls, value: int, info) -> int:
+        approve_max = info.data.get("risk_approve_max")
+        if approve_max is not None and value <= approve_max:
+            raise ValueError(
+                f"RISK_CHALLENGE_MAX ({value}) должен быть больше "
+                f"RISK_APPROVE_MAX ({approve_max})"
+            )
+        return value
+
+    @field_validator("risk_critical_min")
+    @classmethod
+    def _critical_above_challenge(cls, value: int, info) -> int:
+        challenge_max = info.data.get("risk_challenge_max")
+        if challenge_max is not None and value <= challenge_max:
+            raise ValueError(
+                f"RISK_CRITICAL_MIN ({value}) должен быть больше "
+                f"RISK_CHALLENGE_MAX ({challenge_max})"
+            )
+        return value
+
+    # --------------------------------------------------------- derived data
+    @property
+    def cors_origins_list(self) -> list[str]:
+        """CORS_ORIGINS приходит строкой через запятую — превращаем в список."""
+        raw = self.cors_origins.strip()
+        if raw == "*":
+            return ["*"]
+        return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
+    def resolve(self, relative_path: str) -> Path:
+        """Путь из конфигурации -> абсолютный путь относительно корня проекта."""
+        path = Path(relative_path)
+        return path if path.is_absolute() else (PROJECT_ROOT / path).resolve()
+
+    @property
+    def model_file(self) -> Path:
+        return self.resolve(self.model_path)
+
+    @property
+    def metrics_file(self) -> Path:
+        return self.resolve(self.metrics_path)
+
+    @property
+    def dataset_file(self) -> Path:
+        return self.resolve(self.dataset_path)
+
+
+@lru_cache(maxsize=1)
+def get_settings() -> Settings:
+    """Кэшированный синглтон настроек (используется как FastAPI-зависимость)."""
+    return Settings()
+
+
+def reload_settings() -> Settings:
+    """Сбросить кэш и перечитать `.env` — нужно в тестах."""
+    get_settings.cache_clear()
+    return get_settings()

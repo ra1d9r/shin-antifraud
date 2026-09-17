@@ -1,0 +1,19 @@
+# ---- Shin Anti-Fraud System :: backend requirements ----
+# Python >= 3.11 (tested on 3.14)
+
+# --- Web / API ---
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+pydantic>=2.8.0
+pydantic-settings>=2.4.0
+python-dotenv>=1.0.0
+
+# --- Data / ML ---
+numpy>=1.26.0
+pandas>=2.2.0
+scikit-learn>=1.5.0
+joblib>=1.4.0
+
+# --- Testing ---
+pytest>=8.0.0
+httpx>=0.27.0

@@ -1,0 +1,6 @@
+# Optional accelerators / explainers.
+# The system works fully WITHOUT them (graceful fallbacks are built in):
+#   * no lightgbm -> sklearn HistGradientBoosting / GradientBoosting is used
+#   * no shap     -> built-in TreeContributionExplainer is used
+lightgbm>=4.3.0
+shap>=0.45.0
