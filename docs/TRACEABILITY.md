@@ -37,10 +37,10 @@
 | §7 | 3–5 факторов риска | `backend/app/xai/narrator.py` | DONE |
 | ~~§8.1~~ | ~~Overview~~ | отложено ревизией 2 (ТЗ §8.5); backend `GET /stats` готов | ОТЛОЖЕН |
 | ~~§8.2~~ | ~~Таблица транзакций + фильтры~~ | отложено ревизией 2 (ТЗ §8.5); backend `GET /transactions` готов | ОТЛОЖЕН |
-| §8.2 | Transaction Simulator (форма 14 полей) | `frontend/src/App.tsx` | TODO |
-| §8.3 | Result: score, decision, reasons, XAI, сырой JSON | `frontend/src/App.tsx` | TODO |
-| §8.4 | Шесть кнопок-пресетов | `frontend/src/scenarios.ts` | TODO |
-| §9 | Сценарий `high_frequency` (шестой, решение D-9) | `backend/app/services/scenarios.py` | TODO |
+| §8.2 | Transaction Simulator (форма 14 полей) | `frontend/src/App.tsx` | DONE |
+| §8.3 | Result: score, decision, reasons, XAI, сырой JSON | `frontend/src/App.tsx` | DONE |
+| §8.4 | Шесть кнопок-пресетов | `frontend/src/App.tsx` + `GET /scenarios` | DONE |
+| §9 | Сценарий `high_frequency` (шестой, решение D-9) | `backend/app/services/scenarios.py` | DONE |
 | §9 | Сценарии hand-testing | `backend/app/services/scenarios.py`, `api/routes/scenarios.py`, `docs/HAND_TESTING.md` | DONE |
 | ~~§10~~ | ~~Business Cost~~ | отложено ревизией 2; расчёт есть в `scripts/evaluate_risk_engine.py` | ОТЛОЖЕН |
 | §12 | `.env.example` | `.env.example` | DONE |

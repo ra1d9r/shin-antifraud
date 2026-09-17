@@ -29,8 +29,8 @@
 | 07 | XAI | `DONE` | [stage-07](stages/stage-07-xai.md) |
 | 08 | FastAPI | `DONE` | [stage-08](stages/stage-08-fastapi.md) |
 | 09 | Проверка API через Swagger | `DONE` | [stage-09](stages/stage-09-swagger-hand-testing.md) |
-| 10 | Test Web Interface (React + Vite + TS) | `TODO` | — |
-| 11 | Simulator подключён к реальному `/predict` | `TODO` | — |
+| 10 | Test Web Interface (React + Vite + TS) | `DONE` | [stage-10](stages/stage-10-test-web-interface.md) |
+| 11 | Simulator подключён к реальному `/predict` | `DONE` | [stage-10](stages/stage-10-test-web-interface.md) |
 | ~~12~~ | ~~Dashboard (Overview + Transactions)~~ | `ОТЛОЖЕН` | ТЗ §8.5 |
 | ~~13~~ | ~~Business Cost~~ | `ОТЛОЖЕН` | ТЗ §10 |
 | 14 | Docker | `TODO` | — |
@@ -233,8 +233,11 @@
 - `src/App.tsx` — страница;
 - `src/api.ts` — клиент `POST /predict`;
 - `src/types.ts` — типы, зеркалящие Pydantic-схемы;
-- `src/scenarios.ts` — пресеты кнопок;
 - `src/styles.css` — обычный CSS.
+
+Файла `scenarios.ts` нет: пресеты берутся с `GET /scenarios`, чтобы
+не заводить четвёртую копию сценариев рядом с backend, автотестами
+и `docs/HAND_TESTING.md`.
 
 **Ключевые решения.**
 - frontend делает только `Input -> POST /predict -> Display Response`;
