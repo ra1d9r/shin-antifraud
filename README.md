@@ -191,11 +191,11 @@ Shin/
 │   └── requirements.txt
 ├── frontend/                       # минимальный Test Web Interface
 │   └── src/
+│       ├── main.tsx                # точка входа
 │       ├── App.tsx                 # одна страница целиком
-│       ├── api.ts                  # клиент POST /predict
+│       ├── api.ts                  # клиент POST /predict, GET /scenarios
 │       ├── types.ts                # типы, зеркалящие Pydantic-схемы
-│       ├── scenarios.ts            # пресеты кнопок
-│       └── styles.css
+│       └── styles.css              # обычный CSS
 ├── docs/
 │   ├── TZ.md                       # ТЗ — source of truth
 │   ├── STAGES.md                   # план и статус этапов
@@ -318,7 +318,25 @@ uvicorn app.main:app --reload --port 8000 --app-dir backend
 cd frontend && npm run dev
 ```
 
-Test Web Interface: http://localhost:5173
+Интерфейс: **<http://localhost:5173>**
+
+> Vite слушает только IPv6 (`::1`), поэтому по адресу `http://127.0.0.1:5173`
+> интерфейс не откроется — используйте имя `localhost`.
+
+Если backend поднят на другом адресе, скопируйте `frontend/.env.example`
+в `frontend/.env` и укажите `VITE_API_URL`.
+
+### Что можно проверить за 10 секунд
+
+1. открыть <http://localhost:5173>;
+2. нажать кнопку сценария — форма заполнится;
+3. поменять `amount`, `country`, `device_id`, `transaction_frequency`;
+4. нажать **Analyze Transaction**;
+5. увидеть новый Risk Score, Decision и объяснение.
+
+Кнопки-пресетов шесть, и они берутся с `GET /scenarios` — тот же источник,
+что у автотестов и [docs/HAND_TESTING.md](docs/HAND_TESTING.md), поэтому
+разойтись с ними не могут.
 
 ---
 

@@ -1,0 +1,366 @@
+/* Минимальный стиль тестового интерфейса.
+   Без UI-фреймворков и анимаций — задача в читаемости, а не в красоте. */
+
+:root {
+  --bg: #0f1115;
+  --panel: #171a21;
+  --border: #272c36;
+  --text: #e6e8ec;
+  --muted: #8b93a3;
+  --accent: #4c8dff;
+  --approve: #2ea86a;
+  --challenge: #d69e2e;
+  --block: #e04b4b;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.5 -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+code,
+pre {
+  font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+  font-size: 12px;
+}
+
+.page {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+h1 {
+  font-size: 20px;
+  margin: 0;
+}
+
+h2 {
+  font-size: 15px;
+  margin: 0 0 12px;
+}
+
+h2.inline {
+  display: inline;
+  font-size: 15px;
+}
+
+h3 {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 16px 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.status {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+.status.ok {
+  color: var(--approve);
+  border-color: var(--approve);
+}
+
+.status.bad {
+  color: var(--block);
+  border-color: var(--block);
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 8px 0;
+}
+
+/* --- сценарии --- */
+
+.scenario-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  background: #1e2330;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 12px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.chip:hover {
+  border-color: var(--accent);
+}
+
+.chip.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* --- форма --- */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 10px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.field span {
+  color: var(--muted);
+  font-size: 12px;
+  font-family: "Cascadia Mono", Consolas, monospace;
+}
+
+.field input {
+  background: #0e1117;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 7px 9px;
+  font-size: 13px;
+}
+
+.field input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.context {
+  margin-top: 16px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.context summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.primary {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+/* --- результат --- */
+
+.verdict {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  border-left: 4px solid var(--border);
+}
+
+.verdict.approve {
+  border-left-color: var(--approve);
+}
+
+.verdict.challenge {
+  border-left-color: var(--challenge);
+}
+
+.verdict.block {
+  border-left-color: var(--block);
+}
+
+.score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 110px;
+}
+
+.score-value {
+  font-size: 46px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.score-caption {
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 4px;
+}
+
+.decision {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.verdict.approve .decision {
+  color: var(--approve);
+}
+
+.verdict.challenge .decision {
+  color: var(--challenge);
+}
+
+.verdict.block .decision {
+  color: var(--block);
+}
+
+.level {
+  margin: 2px 0 6px;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* --- вклады признаков --- */
+
+.contributions {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.contributions th {
+  text-align: left;
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--border);
+  padding: 6px 8px;
+}
+
+.contributions td {
+  padding: 7px 8px;
+  border-bottom: 1px solid #1f232c;
+  vertical-align: middle;
+}
+
+.bar-cell {
+  position: relative;
+  min-width: 170px;
+}
+
+.bar {
+  display: inline-block;
+  height: 10px;
+  border-radius: 2px;
+  vertical-align: middle;
+}
+
+.bar.up {
+  background: var(--block);
+}
+
+.bar.down {
+  background: var(--approve);
+}
+
+.bar-label {
+  margin-left: 8px;
+  font-family: "Cascadia Mono", Consolas, monospace;
+  font-size: 12px;
+}
+
+.up-text {
+  color: var(--block);
+}
+
+.down-text {
+  color: var(--approve);
+}
+
+/* --- ошибки и JSON --- */
+
+.alert {
+  border-color: var(--block);
+}
+
+.alert strong {
+  color: var(--block);
+}
+
+.json {
+  background: #0e1117;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+  max-height: 460px;
+  overflow: auto;
+  white-space: pre;
+}
+
+pre {
+  overflow-x: auto;
+}
+
+ul {
+  margin: 6px 0;
+  padding-left: 20px;
+}
+
+li {
+  margin: 3px 0;
+}
+
+summary {
+  cursor: pointer;
+}
