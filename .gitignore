@@ -1,0 +1,36 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Environment ---
+.env
+.env.local
+
+# --- ML artifacts (перегенерируются скриптами) ---
+backend/data/raw/*.csv
+backend/data/processed/*.csv
+backend/data/processed/*.parquet
+backend/models/*.joblib
+backend/models/*.pkl
+# model_metrics.json намеренно НЕ игнорируется: метрики — часть документации
+
+# --- Node / frontend ---
+node_modules/
+frontend/dist/
+frontend/.vite/
+npm-debug.log*
+yarn-error.log*
+
+# --- IDE / OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
