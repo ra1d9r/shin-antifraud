@@ -105,7 +105,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "name": settings.app_name,
             "version": settings.app_version,
             "docs": "/docs",
-            "health": f"{prefix}/health" or "/health",
+            "health": f"{prefix}/health",
         }
 
     return app

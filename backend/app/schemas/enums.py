@@ -41,3 +41,4 @@ class ScenarioKey(str, Enum):
     UNUSUAL_COUNTRY = "unusual_country"
     LARGE_AMOUNT = "large_amount"
     MULTIPLE_ANOMALIES = "multiple_anomalies"
+    HIGH_FREQUENCY = "high_frequency"

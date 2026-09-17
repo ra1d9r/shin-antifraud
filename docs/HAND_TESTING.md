@@ -54,6 +54,7 @@ pytest backend/tests/test_scenarios.py -v
 | 3 | Unusual country | повышенный риск | **55** | `CHALLENGE` | `MEDIUM` |
 | 4 | Large amount | повышенный риск | **73** | `BLOCK` | `HIGH` |
 | 5 | Multiple anomalies | высокий Risk Score, решение BLOCK | **100** | `BLOCK` | `CRITICAL` |
+| 6 | High frequency | повышенный риск | **60** | `CHALLENGE` | `MEDIUM` |
 
 **Проверки:**
 
@@ -61,6 +62,12 @@ pytest backend/tests/test_scenarios.py -v
 - сценарий 1 разрешён (`APPROVE`): **да**
 - сценарии 2–4 выше базового: **да**
 - сценарий 5 заблокирован (`BLOCK`): **да**
+- сценарий 6 выше базового: **да**
+
+Монотонность проверяется на сценариях 1–5: они образуют шкалу нарастания
+риска от безобидной покупки к явной атаке. Сценарий 6 в эту шкалу не входит —
+он изолирует один признак, а не усиливает предыдущий, и по величине встаёт
+в середину.
 
 В разборе каждого сценария ниже строка «Оценка модели без правил» показывает,
 что дала **только модель**, до применения политик Risk Engine. Разница между
@@ -228,7 +235,7 @@ pytest backend/tests/test_scenarios.py -v
 
 **Ожидание по ТЗ:** высокий Risk Score, решение BLOCK
 
-**Отличия от обычной транзакции:** `amount`, `device_id`, `ip_address`, `country`, `latitude`, `longitude`, `transaction_frequency`, `txn_count_last_hour`, `merchant`, `timestamp`
+**Отличия от обычной транзакции:** `amount`, `device_id`, `ip_address`, `country`, `latitude`, `longitude`, `transaction_frequency`, `txn_count_last_hour`, `merchant`, `merchant_category`, `timestamp`, `previous_timestamp`
 
 | Показатель | Значение |
 |---|---|
@@ -268,6 +275,46 @@ pytest backend/tests/test_scenarios.py -v
 
 ---
 
+## 6. High frequency — `high_frequency`
+
+Всплеск числа операций при прочих привычных параметрах: та же сумма, своё устройство, домашняя страна, своя сеть. Изолирует признак частоты — так выглядит начало автоматизированного перебора, когда сумма ещё не выросла.
+
+**Ожидание по ТЗ:** повышенный риск
+
+**Отличия от обычной транзакции:** `transaction_frequency`, `txn_count_last_hour`, `previous_timestamp`
+
+| Показатель | Значение |
+|---|---|
+| Risk Score | **60** |
+| Оценка модели без правил | 5 |
+| Вероятность фрода | 0.0503 |
+| Decision | **`CHALLENGE`** |
+| Risk Level | `MEDIUM` |
+| Поднято политиками | да |
+
+**Сработавшие политики:**
+
+- `velocity_burst` (минимум 60) — Abnormal transaction velocity
+
+**Причины:**
+
+- Abnormal transaction velocity
+- 9 transactions in the last hour
+- Transaction frequency is 7.3x the user's normal rate
+- Only 0.10 hours since the previous transaction
+
+**Вклады признаков** (`shap`, единицы: `logit`):
+
+| Признак | Значение | Вклад | Направление |
+|---|---|---|---|
+| `txn_count_last_hour` | 9 | +4.4220 | повышает |
+| `frequency_ratio` | 7.3 | +2.5207 | повышает |
+| `transaction_frequency` | 22 | -1.0394 | понижает |
+| `hours_since_previous` | 0.10 | +0.5978 | повышает |
+| `amount_zscore` | 0.0 | -0.5290 | понижает |
+
+---
+
 ## Как менялся Risk Score
 
 ```
@@ -276,6 +323,7 @@ pytest backend/tests/test_scenarios.py -v
 3. Unusual country         55  ##################
 4. Large amount            73  ########################
 5. Multiple anomalies     100  #################################
+6. High frequency          60  ####################
 ```
 
 Пороги: APPROVE <= 30 < CHALLENGE <= 70 < BLOCK

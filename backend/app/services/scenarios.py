@@ -1,13 +1,13 @@
 """Готовые сценарии ручного тестирования (ТЗ §9).
 
-Пять сценариев из ТЗ описаны здесь данными, а не разбросаны по документации
+Шесть сценариев из ТЗ описаны здесь данными, а не разбросаны по документации
 и тестам. Один источник правды даёт три вещи сразу: их можно прогнать через
-Swagger одним запросом, подставить кнопкой в симуляторе (этап 11) и проверить
-автотестом.
+Swagger одним запросом, подставить кнопкой в тестовом интерфейсе (ТЗ §8.4)
+и проверить автотестом.
 
 ## Два принципа, без которых сценарии бесполезны
 
-**Общий профиль клиента.** Все пять описывают одного и того же человека:
+**Общий профиль клиента.** Все шесть описывают одного и того же человека:
 обычная сумма 100, дом — Казахстан, два известных устройства, три операции
 в сутки, счёту 800 дней. Меняется ровно то, что заявлено в названии
 сценария. Иначе сравнивать Risk Score между ними бессмысленно.
@@ -155,7 +155,8 @@ SCENARIOS: tuple[Scenario, ...] = (
         expectation="высокий Risk Score, решение BLOCK",
         changed_from_normal=(
             "amount", "device_id", "ip_address", "country", "latitude", "longitude",
-            "transaction_frequency", "txn_count_last_hour", "merchant", "timestamp",
+            "transaction_frequency", "txn_count_last_hour", "merchant",
+            "merchant_category", "timestamp", "previous_timestamp",
         ),
         request=_base(
             timestamp=DEMO_NIGHT,
@@ -172,6 +173,23 @@ SCENARIOS: tuple[Scenario, ...] = (
             previous_timestamp=(DEMO_NIGHT - timedelta(minutes=22)).isoformat(),
         ),
     ),
+    Scenario(
+        key=ScenarioKey.HIGH_FREQUENCY,
+        title="High frequency",
+        description=(
+            "Всплеск числа операций при прочих привычных параметрах: та же "
+            "сумма, своё устройство, домашняя страна, своя сеть. Изолирует "
+            "признак частоты — так выглядит начало автоматизированного "
+            "перебора, когда сумма ещё не выросла."
+        ),
+        expectation="повышенный риск",
+        changed_from_normal=("transaction_frequency", "txn_count_last_hour", "previous_timestamp"),
+        request=_base(
+            transaction_frequency=22,
+            txn_count_last_hour=9,
+            previous_timestamp=(DEMO_TIME - timedelta(minutes=6)).isoformat(),
+        ),
+    ),
 )
 
 _BY_KEY: dict[ScenarioKey, Scenario] = {scenario.key: scenario for scenario in SCENARIOS}
@@ -186,5 +204,22 @@ def get_scenario(key: ScenarioKey) -> Scenario:
 
 
 def scenario_order() -> tuple[ScenarioKey, ...]:
-    """Порядок сценариев в ТЗ §9 — от безобидного к явной атаке."""
+    """Все сценарии в порядке ТЗ §9."""
     return tuple(scenario.key for scenario in SCENARIOS)
+
+
+# Пять сценариев прежней редакции ТЗ образуют шкалу нарастания риска:
+# от безобидной покупки к явной атаке. Именно на них проверяется
+# монотонный рост Risk Score.
+#
+# `high_frequency` добавлен ревизией 2 и в эту шкалу не входит: он
+# изолирует один признак, а не усиливает предыдущий сценарий. Включать
+# его в проверку монотонности было бы неверно — он встал бы в середину
+# и сломал бы осмысленное свойство ради формального порядка.
+ESCALATION_ORDER: tuple[ScenarioKey, ...] = (
+    ScenarioKey.NORMAL,
+    ScenarioKey.NEW_DEVICE,
+    ScenarioKey.UNUSUAL_COUNTRY,
+    ScenarioKey.LARGE_AMOUNT,
+    ScenarioKey.MULTIPLE_ANOMALIES,
+)

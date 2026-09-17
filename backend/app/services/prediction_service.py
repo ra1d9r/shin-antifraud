@@ -221,9 +221,14 @@ class PredictionService:
             previous_longitude=pick(
                 request.previous_longitude, profile.previous_longitude if profile else None
             ),
+            # +1 включает саму текущую операцию. В обучающих данных счётчик
+            # считался ПОСЛЕ добавления транзакции в ленту, поэтому его
+            # минимум там равен единице и нулей нет вовсе. Профиль же
+            # обновляется после принятия решения, и без +1 модель получала
+            # бы на входе ноль — значение, которого не видела при обучении.
             txn_count_last_hour=pick(
                 request.txn_count_last_hour,
-                profile.count_recent(timestamp, hours=1) if profile else None,
+                profile.count_recent(timestamp, hours=1) + 1 if profile else None,
             ),
             merchant_category=request.merchant_category,
         )

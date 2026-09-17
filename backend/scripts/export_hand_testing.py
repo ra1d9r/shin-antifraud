@@ -26,7 +26,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from app.config.settings import get_settings  # noqa: E402
 from app.core.console import enable_utf8_output  # noqa: E402
 from app.main import create_app  # noqa: E402
-from app.services.scenarios import SCENARIOS  # noqa: E402
+from app.services.scenarios import ESCALATION_ORDER, SCENARIOS  # noqa: E402
 
 enable_utf8_output()
 
@@ -89,6 +89,12 @@ pytest backend/tests/test_scenarios.py -v
 - сценарий 1 разрешён (`APPROVE`): **{first_approved}**
 - сценарии 2–4 выше базового: **{middle_above}**
 - сценарий 5 заблокирован (`BLOCK`): **{last_blocked}**
+- сценарий 6 выше базового: **{high_freq_above}**
+
+Монотонность проверяется на сценариях 1–5: они образуют шкалу нарастания
+риска от безобидной покупки к явной атаке. Сценарий 6 в эту шкалу не входит —
+он изолирует один признак, а не усиливает предыдущий, и по величине встаёт
+в середину.
 
 В разборе каждого сценария ниже строка «Оценка модели без правил» показывает,
 что дала **только модель**, до применения политик Risk Engine. Разница между
@@ -177,7 +183,9 @@ def main() -> int:
                 return 1
             results[scenario.key.value] = response.json()
 
-    scores = [results[scenario.key.value]["risk_score"] for scenario in SCENARIOS]
+    # Монотонность — только по шкале нарастания (сценарии 1-5 прежней редакции).
+    scores = [results[key.value]["risk_score"] for key in ESCALATION_ORDER]
+    all_scores = [results[scenario.key.value]["risk_score"] for scenario in SCENARIOS]
     thresholds = results[SCENARIOS[0].key.value]["thresholds"]
 
     summary_rows = []
@@ -198,6 +206,9 @@ def main() -> int:
         first_approved=yes_no(scores[0] <= thresholds["approve_max"]),
         middle_above=yes_no(all(score > scores[0] for score in scores[1:4])),
         last_blocked=yes_no(scores[-1] > thresholds["challenge_max"]),
+        high_freq_above=yes_no(
+            results["high_frequency"]["risk_score"] > results["normal"]["risk_score"]
+        ),
     )
 
     for index, scenario in enumerate(SCENARIOS, start=1):
@@ -219,8 +230,8 @@ def main() -> int:
     output.write_text(document, encoding="utf-8")
 
     print(f"Документ записан: {output}")
-    print(f"Risk Score по сценариям: {scores}")
-    print(f"Монотонный рост: {'да' if scores == sorted(scores) else 'НЕТ'}")
+    print(f"Risk Score по сценариям: {all_scores}")
+    print(f"Монотонный рост на шкале 1-5: {'да' if scores == sorted(scores) else 'НЕТ'}")
     return 0
 
 

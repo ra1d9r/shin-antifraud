@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 
 from app.main import create_app
 from app.schemas.enums import Decision, ScenarioKey
-from app.services.scenarios import SCENARIOS, get_scenario, scenario_order
+from app.services.scenarios import ESCALATION_ORDER, SCENARIOS, get_scenario, scenario_order
 
 
 @pytest.fixture(scope="module")
@@ -40,9 +40,9 @@ def run_all(client) -> dict[str, dict]:
 # ------------------------------------------------------ состав сценариев
 
 
-def test_all_five_scenarios_are_defined() -> None:
-    """ТЗ §9 перечисляет ровно пять сценариев."""
-    assert len(SCENARIOS) == 5
+def test_all_scenarios_are_defined() -> None:
+    """ТЗ §9 (ревизия 2) перечисляет шесть сценариев."""
+    assert len(SCENARIOS) == 6
     assert {scenario.key for scenario in SCENARIOS} == set(ScenarioKey)
 
 
@@ -62,17 +62,31 @@ def test_scenarios_share_one_customer_profile() -> None:
 
 
 def test_scenarios_declare_what_they_change() -> None:
+    """Объявленный список изменений обязан совпадать с фактическим.
+
+    Проверяется в обе стороны: заявленное поле действительно отличается,
+    и наоборот — ни одно отличие не осталось незаявленным. Односторонняя
+    проверка пропустила бы забытое поле, и описание сценария тихо
+    разошлось бы с его данными.
+    """
     normal = get_scenario(ScenarioKey.NORMAL)
     assert normal.changed_from_normal == ()
 
     for scenario in SCENARIOS:
         if scenario.key is ScenarioKey.NORMAL:
             continue
-        assert scenario.changed_from_normal, f"{scenario.key}: не указано, что изменено"
-        for field in scenario.changed_from_normal:
-            assert scenario.request[field] != normal.request[field], (
-                f"{scenario.key}: поле {field} заявлено как изменённое, но совпадает с обычным"
-            )
+
+        declared = set(scenario.changed_from_normal)
+        actual = {
+            field
+            for field in normal.request
+            if scenario.request.get(field) != normal.request.get(field)
+        }
+
+        assert declared, f"{scenario.key}: не указано, что изменено"
+        assert declared == actual, (
+            f"{scenario.key}: заявлено {sorted(declared)}, фактически отличается {sorted(actual)}"
+        )
 
 
 def test_scenario_requests_are_valid_transactions() -> None:
@@ -95,7 +109,7 @@ def test_scenarios_pin_their_timestamps() -> None:
 
 def test_list_scenarios_returns_all(client) -> None:
     items = client.get("/scenarios").json()["items"]
-    assert len(items) == 5
+    assert len(items) == len(SCENARIOS)
     for item in items:
         assert item["title"] and item["description"] and item["expectation"]
         assert item["transaction"]["user_id"]
@@ -115,12 +129,27 @@ def test_unknown_scenario_is_rejected(client) -> None:
 
 
 def test_risk_grows_from_normal_to_attack(client) -> None:
-    """Ключевое требование ТЗ §9: риск растёт от сценария 1 к сценарию 5."""
+    """Ключевое требование ТЗ §9: риск растёт от сценария 1 к сценарию 5.
+
+    Проверяется на шкале нарастания (`ESCALATION_ORDER`), а не на всех
+    сценариях: `high_frequency` изолирует один признак и в эту шкалу
+    не входит.
+    """
     results = run_all(client)
-    scores = [results[key.value]["risk_score"] for key in scenario_order()]
+    scores = [results[key.value]["risk_score"] for key in ESCALATION_ORDER]
 
     assert scores == sorted(scores), f"риск не растёт монотонно: {scores}"
     assert scores[0] < scores[-1]
+
+
+def test_high_frequency_raises_score_above_normal(client) -> None:
+    """ТЗ §9.6: всплеск частоты при прочих привычных параметрах."""
+    normal = client.post("/scenarios/normal/run").json()
+    burst = client.post("/scenarios/high_frequency/run").json()
+
+    assert burst["risk_score"] > normal["risk_score"]
+    assert burst["decision"] != Decision.APPROVE.value
+    assert any(rule["key"] == "velocity_burst" for rule in burst["triggered_rules"])
 
 
 def test_scenario_1_is_approved(client) -> None:
@@ -216,7 +245,7 @@ def test_running_scenarios_fills_dashboard_statistics(client) -> None:
     run_all(client)
     stats = client.get("/stats").json()
 
-    assert stats["total_transactions"] == 5
+    assert stats["total_transactions"] == len(SCENARIOS)
     assert stats["blocked_transactions"] >= 1
     assert stats["suspicious_transactions"] >= 1
     assert stats["average_risk_score"] > 0
