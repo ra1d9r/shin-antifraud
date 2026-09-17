@@ -49,4 +49,4 @@
 | §13 | Dockerfile backend | `docker/backend.Dockerfile` | DONE |
 | §13 | Dockerfile frontend | `docker/frontend.Dockerfile`, `docker/nginx.conf` | DONE |
 | §13 | docker-compose | `docker-compose.yml` | WIP — файл написан, запуск не прогонялся (Docker отсутствует, D-6) |
-| §14 | README (15 разделов) | `README.md` | WIP |
+| §14 | README (15 разделов) | `README.md`, сверка `backend/scripts/check_docs.py` | DONE |
