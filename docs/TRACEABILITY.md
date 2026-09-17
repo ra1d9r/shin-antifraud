@@ -38,7 +38,7 @@
 | §8.1 | Overview | `frontend/src/pages/OverviewPage.tsx` | TODO |
 | §8.2 | Таблица транзакций + фильтры | `frontend/src/pages/TransactionsPage.tsx` | TODO |
 | §8.3 | Transaction Simulator | `frontend/src/pages/SimulatorPage.tsx` | TODO |
-| §9 | Сценарии hand-testing | `backend/app/services/scenarios.py`, `docs/HAND_TESTING.md` | TODO |
+| §9 | Сценарии hand-testing | `backend/app/services/scenarios.py`, `api/routes/scenarios.py`, `docs/HAND_TESTING.md` | DONE |
 | §10 | Business Cost | `backend/app/business/cost_model.py`, `frontend/src/pages/BusinessCostPage.tsx` | TODO |
 | §12 | `.env.example` | `.env.example` | DONE |
 | §12 | CORS | `backend/app/main.py` | DONE |

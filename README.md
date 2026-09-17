@@ -507,8 +507,46 @@ curl -X POST http://localhost:8000/predict   -H "Content-Type: application/json"
 | 4 | Large amount | повышенный риск |
 | 5 | Multiple anomalies | высокий Risk Score / `BLOCK` |
 
-Каждый сценарий доступен: кнопкой-пресетом в Simulator, эндпоинтом `GET /scenarios`
-и автотестом в `backend/tests/`. Фактические значения — в [docs/HAND_TESTING.md](docs/HAND_TESTING.md).
+### Фактические результаты
+
+| # | Сценарий | Risk Score | Решение | Что подняло риск |
+|---|---|---|---|---|
+| 1 | Normal transaction | **0** | `APPROVE` | — |
+| 2 | New device | **35** | `CHALLENGE` | политика `new_device` (модель дала 1) |
+| 3 | Unusual country | **55** | `CHALLENGE` | политики `high_risk_country`, `unusual_country` (модель дала 6) |
+| 4 | Large amount | **73** | `BLOCK` | **только модель**, политики не срабатывали |
+| 5 | Multiple anomalies | **100** | `BLOCK` | модель 100 + пять политик |
+
+Рост монотонный. Сценарий 4 показателен отдельно: крупную сумму распознаёт
+сама модель, без помощи правил.
+
+### Три способа прогнать
+
+**Swagger.** Откройте <http://localhost:8000/docs>, разверните
+`POST /scenarios/{key}/run`, нажмите *Try it out*, выберите сценарий, *Execute*.
+
+**curl:**
+
+```bash
+curl -X POST "http://localhost:8000/scenarios/multiple_anomalies/run"
+```
+
+**Автотесты:**
+
+```bash
+pytest backend/tests/test_scenarios.py -v
+```
+
+Все пять сценариев описывают **одного клиента**: меняется ровно то, что заявлено
+в названии, поэтому Risk Score между ними сравним. Профиль и время переданы явно,
+поэтому повторный прогон даёт тот же ответ.
+
+Полный разбор с вкладами признаков — в [docs/HAND_TESTING.md](docs/HAND_TESTING.md).
+Файл **генерируется** из фактических ответов системы:
+
+```bash
+python backend/scripts/export_hand_testing.py
+```
 
 ---
 

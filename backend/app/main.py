@@ -21,7 +21,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.deps import build_state
-from app.api.routes import health, predict, stats, transactions
+from app.api.routes import health, predict, scenarios, stats, transactions
 from app.config.settings import Settings, get_settings
 from app.core.exceptions import ShinError
 from app.core.logging import configure_logging, get_logger
@@ -94,7 +94,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     prefix = settings.api_prefix.rstrip("/")
-    for module in (health, predict, stats, transactions):
+    for module in (health, predict, scenarios, stats, transactions):
         app.include_router(module.router, prefix=prefix)
 
     _register_error_handlers(app)
