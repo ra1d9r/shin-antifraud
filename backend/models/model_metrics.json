@@ -2,7 +2,7 @@
   "algorithm": "lightgbm",
   "calibrated": true,
   "calibration_method": "sigmoid",
-  "trained_at": "2026-09-17T12:52:15",
+  "trained_at": "2026-09-17T14:03:39",
   "training_rows": 59616,
   "test_rows": 19872,
   "feature_count": 27,
@@ -35,7 +35,7 @@
     "is_new_account",
     "is_high_risk_merchant"
   ],
-  "training_seconds": 14.0,
+  "training_seconds": 6.7,
   "metrics": {
     "roc_auc": 0.991,
     "pr_auc": 0.9148,

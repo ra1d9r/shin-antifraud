@@ -118,8 +118,9 @@ LightGBM  ->  (если недоступен)  sklearn HistGradientBoostingClass
 
 | Технология | Роль |
 |---|---|
-| **SHAP** | точные Shapley-вклады признаков через `TreeExplainer` (установлен: 0.52.0) |
-| **Встроенный explainer** | fallback, если SHAP недоступен: вклады на основе структуры деревьев |
+| **SHAP** | точные значения Шепли через `TreeExplainer` (установлен: 0.52.0) |
+| **LightGBM `pred_contrib`** | те же значения Шепли без внешнего пакета — объяснения остаются точными в минимальной установке |
+| **Ablation** | замена признака на эталон из данных; работает с любой моделью и объясняет итоговую вероятность |
 | **Narrator** | перевод технического признака в формулировку для человека |
 
 ### 3.4 Frontend
@@ -457,23 +458,47 @@ python backend/scripts/evaluate_risk_engine.py
 
 ## 15. Описание XAI
 
-Для каждой транзакции считаются вклады признаков в итоговую вероятность.
-Если установлен SHAP — используются Shapley-значения (`TreeExplainer`); если нет —
-встроенный explainer на основе структуры деревьев. Результат один и тот же по смыслу:
-знак вклада показывает направление (повышает/понижает риск), модуль — силу.
+Объяснение собирает **два независимых источника**: вклады признаков модели
+и сработавшие политики Risk Engine. Показывать только первое было бы неполно:
+в сценарии «новое устройство» модель даёт 1 балл, а итоговые 35 — целиком
+заслуга правила.
 
-Топ-5 признаков по модулю вклада переводятся модулем `narrator` в человеческие
-формулировки, например:
+### Движки вкладов
+
+| Движок | Что считает | Когда используется |
+|---|---|---|
+| `shap` | точные значения Шепли (`shap.TreeExplainer`) | установлен пакет `shap` |
+| `lightgbm_native` | те же значения Шепли, встроенные в LightGBM | `shap` не установлен |
+| `ablation` | изменение вероятности при замене признака на эталон | любая модель |
+
+Средний вариант важен: LightGBM считает TreeSHAP сам, поэтому объяснения
+остаются **точными** даже без пакета `shap`, а не деградируют до приближения.
+Числа обоих движков совпадают до `1e-6` — это проверяется тестом.
+
+SHAP и встроенный расчёт объясняют логит базовой модели до калибровки;
+калибровка монотонна, поэтому порядок и знак вкладов сохраняются. Единицы
+измерения возвращаются в поле `units`, чтобы это не приходилось угадывать.
+
+### Пример вывода
 
 ```
-Risk Score: 87
-Decision: BLOCK
-Reasons:
-  - Transaction amount is 12.4x higher than user's normal amount   (+0.31)
-  - New device detected                                            (+0.18)
-  - Unusual country: transaction from KZ, user usually pays from DE (+0.14)
-  - High transaction frequency: 14 transactions in last hour        (+0.09)
+3 Unusual country   Risk Score: 55   Decision: CHALLENGE   (MEDIUM)
+  Reasons:
+    - Transaction from a high-risk country
+    - Transaction from an unusual country on an unfamiliar connection
+    - Implied travel speed of 396 km/h between transactions
+    - Unusual country: transaction outside the user's home country
+    - Transaction 7922 km away from the previous one
+  Feature contributions (logit):
+    travel_speed_kmh      = 396   +2.6998  INCREASES_RISK
+    is_unusual_country    = yes   +1.0957  INCREASES_RISK
+    is_high_risk_country  = yes   +0.8406  INCREASES_RISK
+    geo_distance_km       = 7922  +0.7645  INCREASES_RISK
+    hours_since_previous  = 20.00 -0.7203  DECREASES_RISK
 ```
+
+Последняя строка показательна: «прошло 20 часов» **понижает** риск — за такое
+время долететь можно. Объяснение показывает не только обвинение, но и оправдание.
 
 ---
 
