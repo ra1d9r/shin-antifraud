@@ -24,6 +24,8 @@
 
 from __future__ import annotations
 
+import threading
+import warnings
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -93,6 +95,39 @@ def _as_row(features: dict[str, float]) -> list[float]:
 
 # ------------------------------------------------------------------ SHAP
 
+# SHAP предупреждает о смене формата вывода для бинарного LightGBM. Оба
+# формата обрабатываются в `_select_positive_class`, поэтому предупреждение —
+# чистый шум, повторяющийся в каждом запросе.
+_SHAP_OUTPUT_WARNING = ".*output has changed.*"
+
+_WARNING_FILTER_LOCK = threading.Lock()
+
+
+def _silence_shap_output_warning() -> None:
+    """Погасить известное предупреждение SHAP — один раз на процесс.
+
+    Раньше это делалось прямо в обработчике запроса через
+    `warnings.catch_warnings()`. Менеджер снимает копию глобального списка
+    фильтров на входе и восстанавливает её на выходе, а список — общий
+    на весь процесс. При параллельных запросах выход одного потока
+    откатывал состояние к моменту ДО входа другого: предупреждение
+    прорывалось наружу, а чужие фильтры молча исчезали.
+
+    Фильтр ставится один раз при создании движка — это происходит на старте
+    приложения, в один поток. Путь запроса глобального состояния больше
+    не трогает вовсе.
+
+    Повторная установка не нужна и вредна (список фильтров рос бы), поэтому
+    сверяемся с самим списком, а не с флагом: так функция остаётся верной
+    и если фильтр кто-то снял — например, pytest, оборачивающий каждый тест
+    в собственный `catch_warnings`.
+    """
+    with _WARNING_FILTER_LOCK:
+        for _action, message, *_rest in warnings.filters:
+            if message is not None and message.pattern == _SHAP_OUTPUT_WARNING:
+                return
+        warnings.filterwarnings("ignore", message=_SHAP_OUTPUT_WARNING)
+
 
 class ShapTreeContributions:
     """Точные значения Шепли через `shap.TreeExplainer`."""
@@ -103,20 +138,14 @@ class ShapTreeContributions:
     def __init__(self, tree_model: Any) -> None:
         import shap
 
+        _silence_shap_output_warning()
         self._explainer = shap.TreeExplainer(tree_model)
 
     def contributions(self, features: dict[str, float]) -> ContributionResult:
-        import warnings
-
         import numpy as np
 
         row = np.asarray([_as_row(features)], dtype=float)
-        with warnings.catch_warnings():
-            # SHAP предупреждает о смене формата вывода для бинарного
-            # LightGBM. Оба формата обрабатываются в `_select_positive_class`,
-            # поэтому предупреждение — чистый шум в каждом запросе.
-            warnings.filterwarnings("ignore", message=".*output has changed.*")
-            raw = self._explainer.shap_values(row)
+        raw = self._explainer.shap_values(row)
         values = self._select_positive_class(raw)
 
         expected = self._explainer.expected_value

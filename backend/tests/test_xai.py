@@ -11,6 +11,8 @@
 
 from __future__ import annotations
 
+import warnings
+
 import pytest
 
 from app.config.settings import Settings
@@ -25,6 +27,7 @@ from app.xai.contributions import (
     AblationContributions,
     LightGbmNativeContributions,
     ShapTreeContributions,
+    _SHAP_OUTPUT_WARNING,
     build_contribution_engine,
     unwrap_tree_model,
 )
@@ -237,6 +240,68 @@ def test_contributions_cover_every_feature(explainer: Explainer, model) -> None:
     engine = build_contribution_engine(model)
     values = engine.contributions(risky_features()).values
     assert set(values) == set(FEATURE_NAMES)
+
+
+# ------------------------------------------- потокобезопасность объяснений
+
+
+def _shap_filter_installed() -> bool:
+    """Стоит ли в процессе фильтр, гасящий предупреждение SHAP."""
+    return any(
+        message is not None and message.pattern == _SHAP_OUTPUT_WARNING
+        for _action, message, *_rest in warnings.filters
+    )
+
+
+def test_request_path_does_not_touch_global_warnings(model, monkeypatch) -> None:
+    """Путь запроса не имеет права трогать глобальное состояние warnings.
+
+    `warnings.catch_warnings()` снимает копию общего для процесса списка
+    фильтров и восстанавливает её на выходе. Пока это делалось в каждом
+    вызове, выход одного потока откатывал состояние к моменту ДО входа
+    другого: предупреждение прорывалось наружу, а чужие фильтры молча
+    исчезали. Замер показывал утечку на 320 вызовах в 8 потоков.
+
+    Проверяем причину, а не симптом: симптом воспроизводится только при
+    неудачном чередовании потоков, а отсутствие менеджера в пути запроса —
+    свойство детерминированное.
+    """
+    engine = ShapTreeContributions(unwrap_tree_model(model.estimator))
+    entered: list[str] = []
+
+    class Tracking(warnings.catch_warnings):
+        def __enter__(self):
+            entered.append("catch_warnings")
+            return super().__enter__()
+
+    monkeypatch.setattr(warnings, "catch_warnings", Tracking)
+    engine.contributions(risky_features())
+
+    assert entered == [], (
+        "путь запроса вошёл в catch_warnings: список фильтров общий на процесс, "
+        "и выход одного потока откатит фильтры, поставленные другим"
+    )
+
+
+def test_shap_warning_is_silenced_when_engine_is_built(model) -> None:
+    """Фильтр ставится при создании движка — один раз, на старте приложения."""
+    warnings.resetwarnings()
+    assert not _shap_filter_installed()
+
+    ShapTreeContributions(unwrap_tree_model(model.estimator))
+    assert _shap_filter_installed()
+
+
+def test_warning_filter_is_installed_once(model) -> None:
+    """Повторные создания движка не должны наращивать список фильтров."""
+    tree = unwrap_tree_model(model.estimator)
+    ShapTreeContributions(tree)
+    before = len(warnings.filters)
+
+    ShapTreeContributions(tree)
+    ShapTreeContributions(tree)
+
+    assert len(warnings.filters) == before
 
 
 # -------------------------------------------------------- устойчивость

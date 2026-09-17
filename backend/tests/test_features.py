@@ -324,6 +324,47 @@ def test_features_are_always_finite() -> None:
         assert abs(value) != float("inf"), f"{name} = inf"
 
 
+# ------------------------------------------------- счётчики операций
+
+
+def test_zero_counters_are_raised_to_one() -> None:
+    """Ноль в счётчиках приводится к единице.
+
+    Оцениваемая транзакция входит в собственный счётчик, поэтому нуля там
+    быть не может. Клиент, прочитавший «число операций за сутки» как «до
+    текущей», пришлёт 0 для первой в жизни операции — и модель получила бы
+    значение, которого не видела при обучении ни разу.
+    """
+    features = build_features(make_transaction(transaction_frequency=0, txn_count_last_hour=0))
+
+    assert features["transaction_frequency"] == 1.0
+    assert features["txn_count_last_hour"] == 1.0
+
+
+def test_counters_above_minimum_pass_through() -> None:
+    """Приведение не должно трогать нормальные значения."""
+    features = build_features(make_transaction(transaction_frequency=7, txn_count_last_hour=4))
+
+    assert features["transaction_frequency"] == 7.0
+    assert features["txn_count_last_hour"] == 4.0
+
+
+def test_training_data_never_contains_zero_counters() -> None:
+    """Инвариант, ради которого приведение вообще существует.
+
+    Если генератор датасета когда-нибудь начнёт выдавать нули, приведение
+    на инференсе превратится из защиты в искажение — и этот тест упадёт
+    раньше, чем расхождение уедет в модель.
+    """
+    frame = generate_dataset(rows=4_000, users=200, fraud_rate=0.02, seed=7)
+
+    assert frame["transaction_frequency"].min() >= 1
+    assert frame["txn_count_last_hour"].min() >= 1
+
+
+# ------------------------------------------------------------ прочее
+
+
 def test_round_amount_detection_is_float_safe() -> None:
     assert build_features(make_transaction(amount=150.0))["is_round_amount"] == 1.0
     assert build_features(make_transaction(amount=149.99))["is_round_amount"] == 0.0

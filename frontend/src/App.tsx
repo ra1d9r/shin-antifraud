@@ -21,8 +21,22 @@ import type {
   TransactionRequest,
 } from './types'
 
-/** Поля формы из ТЗ §3. `kind` задаёт тип поля ввода. */
-const FORM_FIELDS: { name: keyof TransactionFields; label: string; kind: 'text' | 'number' | 'datetime' }[] = [
+/**
+ * Как строка из поля превращается в значение запроса.
+ *
+ * `kind` нужен не для удобства ввода, а для разбора: без него числовые поля
+ * разбирались вслепую, и `Number('abc')` уезжал в запрос как `null`.
+ */
+type FieldKind = 'text' | 'number' | 'datetime' | 'list'
+
+interface FieldSpec {
+  name: string
+  label: string
+  kind: FieldKind
+}
+
+/** Поля формы из ТЗ §3. */
+const FORM_FIELDS: (FieldSpec & { name: keyof TransactionFields })[] = [
   { name: 'transaction_id', label: 'transaction_id', kind: 'text' },
   { name: 'user_id', label: 'user_id', kind: 'text' },
   { name: 'amount', label: 'amount', kind: 'number' },
@@ -39,19 +53,25 @@ const FORM_FIELDS: { name: keyof TransactionFields; label: string; kind: 'text' 
   { name: 'account_age_days', label: 'account_age_days', kind: 'number' },
 ]
 
-const CONTEXT_FIELDS: { name: keyof ClientContext; label: string }[] = [
-  { name: 'user_avg_amount', label: 'user_avg_amount' },
-  { name: 'user_amount_std', label: 'user_amount_std' },
-  { name: 'user_home_country', label: 'user_home_country' },
-  { name: 'user_typical_frequency', label: 'user_typical_frequency' },
-  { name: 'known_device_ids', label: 'known_device_ids (через запятую)' },
-  { name: 'previous_ip_address', label: 'previous_ip_address' },
-  { name: 'previous_timestamp', label: 'previous_timestamp' },
-  { name: 'previous_latitude', label: 'previous_latitude' },
-  { name: 'previous_longitude', label: 'previous_longitude' },
-  { name: 'txn_count_last_hour', label: 'txn_count_last_hour' },
-  { name: 'merchant_category', label: 'merchant_category' },
+const CONTEXT_FIELDS: (FieldSpec & { name: keyof ClientContext })[] = [
+  { name: 'user_avg_amount', label: 'user_avg_amount', kind: 'number' },
+  { name: 'user_amount_std', label: 'user_amount_std', kind: 'number' },
+  { name: 'user_home_country', label: 'user_home_country', kind: 'text' },
+  { name: 'user_typical_frequency', label: 'user_typical_frequency', kind: 'number' },
+  { name: 'known_device_ids', label: 'known_device_ids (через запятую)', kind: 'list' },
+  { name: 'previous_ip_address', label: 'previous_ip_address', kind: 'text' },
+  { name: 'previous_timestamp', label: 'previous_timestamp', kind: 'datetime' },
+  { name: 'previous_latitude', label: 'previous_latitude', kind: 'number' },
+  { name: 'previous_longitude', label: 'previous_longitude', kind: 'number' },
+  { name: 'txn_count_last_hour', label: 'txn_count_last_hour', kind: 'number' },
+  { name: 'merchant_category', label: 'merchant_category', kind: 'text' },
 ]
+
+/** Что показать в блоке ошибки: заголовок и разбор по полям. */
+interface DisplayError {
+  title: string
+  details: string[]
+}
 
 /** Форма держит всё строками: пользователь должен иметь право ввести что угодно. */
 type FormState = Record<string, string>
@@ -86,7 +106,7 @@ function scenarioToForm(scenario: Scenario): FormState {
       state[field.name] = ''
     } else if (Array.isArray(value)) {
       state[field.name] = value.join(', ')
-    } else if (field.name === 'previous_timestamp') {
+    } else if (field.kind === 'datetime') {
       state[field.name] = toInputDateTime(value)
     } else {
       state[field.name] = String(value)
@@ -99,38 +119,49 @@ function scenarioToForm(scenario: Scenario): FormState {
 /**
  * Форма -> тело запроса. Пустые поля не отправляются вовсе.
  *
- * Значения собираются из строк, поэтому результат приводится к типу запроса
- * без проверки: валидация — забота backend. Так и задумано, иначе на клиенте
- * появилась бы вторая копия правил, которая разойдётся с серверной.
+ * Правил оценки риска здесь нет и быть не может (ТЗ §11): вторая копия
+ * разошлась бы с backend. Единственная проверка на клиенте — что в числовом
+ * поле действительно число, и это не бизнес-правило, а разбор ввода.
+ *
+ * Без неё `Number('abc')` давал `NaN`, `JSON.stringify` превращал его
+ * в `null`, backend читал это как «поле не передано» и отвечал HTTP 200
+ * по данным, которых пользователь не вводил. Молча — что хуже отказа.
  */
-function formToRequest(form: FormState): TransactionRequest {
+interface ParsedForm {
+  body: TransactionRequest
+  invalid: string[]
+}
+
+function formToRequest(form: FormState): ParsedForm {
   const body: Record<string, unknown> = {}
+  const invalid: string[] = []
 
-  for (const field of FORM_FIELDS) {
+  const collect = (field: FieldSpec) => {
     const raw = form[field.name]?.trim() ?? ''
-    if (raw === '') continue
-    body[field.name] = field.kind === 'number' ? Number(raw) : raw
-  }
+    if (raw === '') return
 
-  for (const field of CONTEXT_FIELDS) {
-    const raw = form[field.name]?.trim() ?? ''
-    if (raw === '') continue
-
-    if (field.name === 'known_device_ids') {
+    if (field.kind === 'list') {
       body[field.name] = raw.split(',').map((item) => item.trim()).filter(Boolean)
-    } else if (
-      field.name === 'user_home_country' ||
-      field.name === 'previous_ip_address' ||
-      field.name === 'previous_timestamp' ||
-      field.name === 'merchant_category'
-    ) {
+      return
+    }
+
+    if (field.kind !== 'number') {
       body[field.name] = raw
+      return
+    }
+
+    const parsed = Number(raw)
+    if (Number.isFinite(parsed)) {
+      body[field.name] = parsed
     } else {
-      body[field.name] = Number(raw)
+      invalid.push(`${field.name}: ожидалось число, введено «${raw}»`)
     }
   }
 
-  return body as unknown as TransactionRequest
+  for (const field of FORM_FIELDS) collect(field)
+  for (const field of CONTEXT_FIELDS) collect(field)
+
+  return { body: body as unknown as TransactionRequest, invalid }
 }
 
 export default function App() {
@@ -138,7 +169,7 @@ export default function App() {
   const [activeScenario, setActiveScenario] = useState<string>('')
   const [form, setForm] = useState<FormState>({})
   const [result, setResult] = useState<PredictionResponse | null>(null)
-  const [error, setError] = useState<ApiError | null>(null)
+  const [error, setError] = useState<DisplayError | null>(null)
   const [loading, setLoading] = useState(false)
   const [health, setHealth] = useState<HealthResponse | null>(null)
   const [startupError, setStartupError] = useState<string>('')
@@ -185,13 +216,25 @@ export default function App() {
   }, [])
 
   const analyze = useCallback(async () => {
+    const { body, invalid } = formToRequest(form)
+    if (invalid.length > 0) {
+      // Заведомо испорченный запрос не отправляем: иначе backend ответит 200
+      // по другим данным, и пользователь не узнает, что его ввод потерян.
+      setError({ title: 'Форма заполнена неверно — запрос не отправлен', details: invalid })
+      setResult(null)
+      return
+    }
+
     setLoading(true)
     setError(null)
     try {
-      const response = await predict({ ...formToRequest(form), persist })
-      setResult(response)
+      setResult(await predict({ ...body, persist }))
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause : new ApiError(String(cause), 0, null))
+      const failure = cause instanceof ApiError ? cause : new ApiError(String(cause), 0, null)
+      setError({
+        title: `${failure.status > 0 ? `HTTP ${failure.status}` : 'Сеть'} — ${failure.message}`,
+        details: failure.fieldErrors,
+      })
       setResult(null)
     } finally {
       setLoading(false)
@@ -257,15 +300,12 @@ export default function App() {
         <h2>Transaction</h2>
         <div className="grid">
           {FORM_FIELDS.map((field) => (
-            <label key={field.name} className="field">
-              <span>{field.label}</span>
-              <input
-                type={field.kind === 'datetime' ? 'datetime-local' : field.kind === 'number' ? 'number' : 'text'}
-                step={field.kind === 'number' ? 'any' : undefined}
-                value={form[field.name] ?? ''}
-                onChange={(event) => updateField(field.name, event.target.value)}
-              />
-            </label>
+            <Field
+              key={field.name}
+              spec={field}
+              value={form[field.name] ?? ''}
+              onChange={updateField}
+            />
           ))}
         </div>
 
@@ -279,14 +319,12 @@ export default function App() {
           </p>
           <div className="grid">
             {CONTEXT_FIELDS.map((field) => (
-              <label key={field.name} className="field">
-                <span>{field.label}</span>
-                <input
-                  type={field.name === 'previous_timestamp' ? 'datetime-local' : 'text'}
-                  value={form[field.name] ?? ''}
-                  onChange={(event) => updateField(field.name, event.target.value)}
-                />
-              </label>
+              <Field
+                key={field.name}
+                spec={field}
+                value={form[field.name] ?? ''}
+                onChange={updateField}
+              />
             ))}
           </div>
         </details>
@@ -310,13 +348,11 @@ export default function App() {
         <section className="panel alert">
           <h2>Ошибка</h2>
           <p>
-            <strong>
-              {error.status > 0 ? `HTTP ${error.status}` : 'Сеть'} — {error.message}
-            </strong>
+            <strong>{error.title}</strong>
           </p>
-          {error.fieldErrors.length > 0 && (
+          {error.details.length > 0 && (
             <ul>
-              {error.fieldErrors.map((item) => (
+              {error.details.map((item) => (
                 <li key={item}>{item}</li>
               ))}
             </ul>
@@ -326,6 +362,36 @@ export default function App() {
 
       {result && <Result result={result} />}
     </main>
+  )
+}
+
+/**
+ * Одно поле формы.
+ *
+ * Числа вводятся в текстовое поле намеренно. `type="number"` отдаёт пустую
+ * строку, когда содержимое ему не нравится, — введённое значение исчезает
+ * из состояния, и пользователь этого не видит. Здесь в состоянии остаётся
+ * ровно то, что набрано, а разбор с явной ошибкой делает `formToRequest`.
+ */
+function Field({
+  spec,
+  value,
+  onChange,
+}: {
+  spec: FieldSpec
+  value: string
+  onChange: (name: string, value: string) => void
+}) {
+  return (
+    <label className="field">
+      <span>{spec.label}</span>
+      <input
+        type={spec.kind === 'datetime' ? 'datetime-local' : 'text'}
+        inputMode={spec.kind === 'number' ? 'decimal' : undefined}
+        value={value}
+        onChange={(event) => onChange(spec.name, event.target.value)}
+      />
+    </label>
   )
 }
 
