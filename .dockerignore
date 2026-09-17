@@ -1,0 +1,39 @@
+# Всё, что не должно попадать в контекст сборки.
+# Контекст передаётся демону целиком, поэтому лишние 25 МБ датасета
+# и сотни мегабайт node_modules замедляют каждую сборку.
+
+.git
+.gitignore
+.gitattributes
+
+# Окружения
+.venv
+venv
+env
+**/__pycache__
+**/*.py[cod]
+.pytest_cache
+.mypy_cache
+.ruff_cache
+
+# Секреты: в образ попадает только .env.example
+.env
+.env.local
+frontend/.env
+frontend/.env.local
+
+# Артефакты — пересоздаются внутри образа при сборке
+backend/data/raw/*.csv
+backend/models/*.joblib
+
+# Frontend
+frontend/node_modules
+frontend/dist
+frontend/.vite
+
+# Прочее
+docs
+*.md
+!README.md
+.vscode
+.idea
