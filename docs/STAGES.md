@@ -28,7 +28,7 @@
 | 06 | Risk Engine | `DONE` | [stage-06](stages/stage-06-risk-engine.md) |
 | 07 | XAI | `DONE` | [stage-07](stages/stage-07-xai.md) |
 | 08 | FastAPI | `DONE` | [stage-08](stages/stage-08-fastapi.md) |
-| 09 | Проверка API через Swagger | `TODO` | — |
+| 09 | Проверка API через Swagger | `DONE` | [stage-09](stages/stage-09-swagger-hand-testing.md) |
 | 10 | Frontend (React + Vite) | `TODO` | — |
 | 11 | Simulator подключён к API | `TODO` | — |
 | 12 | Dashboard (Overview + Transactions) | `TODO` | — |

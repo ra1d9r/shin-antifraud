@@ -6,7 +6,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from app.schemas.enums import Decision, RiskLevel
+from app.schemas.enums import Decision, RiskLevel, ScenarioKey
+from app.schemas.transaction import TransactionRequest
 
 
 class ModelInfo(BaseModel):
@@ -95,6 +96,23 @@ class TransactionListResponse(BaseModel):
     total: int = Field(description="Сколько записей подошло под фильтры")
     returned: int = Field(description="Сколько записей в этом ответе")
     items: list[TransactionRecordOut]
+
+
+class ScenarioOut(BaseModel):
+    """Готовый сценарий ручного тестирования (ТЗ §9)."""
+
+    key: ScenarioKey
+    title: str
+    description: str
+    expectation: str = Field(description="Какого результата ждём по ТЗ")
+    changed_from_normal: list[str] = Field(
+        description="Чем сценарий отличается от обычной транзакции"
+    )
+    transaction: TransactionRequest = Field(description="Готовое тело запроса")
+
+
+class ScenarioListResponse(BaseModel):
+    items: list[ScenarioOut]
 
 
 class ErrorResponse(BaseModel):
