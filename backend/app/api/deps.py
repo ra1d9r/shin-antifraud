@@ -16,8 +16,9 @@ from typing import Annotated
 
 from fastapi import Depends, Request
 
+from app.analytics.report import load_report
 from app.config.settings import Settings, get_settings
-from app.core.exceptions import ModelNotLoadedError
+from app.core.exceptions import ModelNotLoadedError, ShinError
 from app.core.logging import get_logger
 from app.ml.pipeline import TrainedModel, load_model
 from app.risk_engine.engine import RiskEngine
@@ -40,6 +41,10 @@ class AppState:
     risk_engine: RiskEngine | None = None
     explainer: Explainer | None = None
     service: PredictionService | None = None
+    # Аналитика по датасету — готовый артефакт, а не расчёт на лету.
+    # Её отсутствие приложению не мешает: дашборд получит 503 с командой.
+    evaluation: dict | None = None
+    evaluation_error: str | None = None
     model_error: str | None = None
     started_at: float = field(default_factory=time.monotonic)
 
@@ -68,6 +73,13 @@ def build_state(settings: Settings | None = None) -> AppState:
     )
 
     state.risk_engine = RiskEngine.from_settings(settings)
+
+    try:
+        state.evaluation = load_report(settings.evaluation_file)
+        logger.info("Аналитика загружена: %s транзакций", state.evaluation.get("rows"))
+    except ShinError as exc:
+        state.evaluation_error = exc.message
+        logger.warning("%s", exc.message)
 
     try:
         state.model = load_model(settings.model_file)

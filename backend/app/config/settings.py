@@ -67,6 +67,9 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------- ml
     model_path: str = "backend/models/fraud_model.joblib"
     metrics_path: str = "backend/models/model_metrics.json"
+    # Аналитика по всему датасету: считается скриптом, приложением только читается.
+    # Полный проход занимает около двадцати секунд — на старте столько ждать нельзя.
+    evaluation_path: str = "backend/models/evaluation.json"
     dataset_path: str = "backend/data/raw/transactions.csv"
 
     dataset_rows: int = Field(default=100_000, gt=0)
@@ -132,6 +135,10 @@ class Settings(BaseSettings):
     @property
     def metrics_file(self) -> Path:
         return self.resolve(self.metrics_path)
+
+    @property
+    def evaluation_file(self) -> Path:
+        return self.resolve(self.evaluation_path)
 
     @property
     def dataset_file(self) -> Path:
