@@ -104,11 +104,6 @@ jobs:
       - name: Frontend — сборка бандла и образа
         run: docker build -f docker/frontend.Dockerfile -t shin-frontend:latest .
 
-      - name: Frontend — конфиг nginx проходит проверку
-        # nginx с негодным конфигом не стартует, а просто завершается. Без
-        # этого шага такая поломка выглядела бы как «стек не поднялся».
-        run: docker run --rm shin-frontend:latest nginx -t
-
       - name: Поднять стек
         # Образы уже собраны выше и названы так же, как в docker-compose.yml,
         # поэтому здесь ничего не пересобирается. --wait держит шаг, пока
@@ -120,8 +115,25 @@ jobs:
       # Логи GitHub Actions отдаёт только администратору репозитория, а имена
       # шагов и их статусы видны всем. Поэтому каждая проверка вынесена
       # в отдельный шаг с говорящим именем: по тому, какой из них покраснел,
-      # причина ясна и без доступа к логам. Шаги выполняются всегда — они
-      # нужны именно тогда, когда подъём уже провалился.
+      # причина ясна и без доступа к логам.
+      #
+      # Все шаги идут ПОСЛЕ подъёма и выполняются всегда: проверка, поставленная
+      # перед `up`, при падении просто отменяет его, и вместо полной картины
+      # остаётся один факт.
+
+      - name: Диагностика — синтаксис конфига nginx
+        if: always()
+        # --add-host подменяет имя upstream. Без него nginx не находит хост
+        # `backend` (сети compose тут нет) и падает ещё до разбора синтаксиса,
+        # из-за чего исправный конфиг выглядел бы сломанным.
+        run: docker run --rm --add-host backend:127.0.0.1 shin-frontend:latest nginx -t
+
+      - name: Диагностика — конфиг nginx без подмены DNS
+        if: always()
+        # Тот же тест, но без --add-host. Если этот шаг красный, а предыдущий
+        # зелёный, значит синтаксис в порядке, а nginx требует, чтобы имя
+        # `backend` резолвилось уже в момент старта.
+        run: docker run --rm shin-frontend:latest nginx -t
 
       - name: Диагностика — контейнер backend работает
         if: always()
@@ -131,13 +143,21 @@ jobs:
         if: always()
         run: test "$(docker inspect -f '{{.State.Status}}' shin-frontend)" = running
 
+      - name: Диагностика — backend здоров
+        if: always()
+        run: test "$(docker inspect -f '{{.State.Health.Status}}' shin-backend)" = healthy
+
+      - name: Диагностика — frontend здоров
+        if: always()
+        run: test "$(docker inspect -f '{{.State.Health.Status}}' shin-frontend)" = healthy
+
       - name: Диагностика — backend отвечает на /health
         if: always()
         run: curl -fsS --max-time 10 http://localhost:8000/health
 
-      - name: Диагностика — модель загружена
+      - name: Диагностика — страница отдаётся с порта 3000
         if: always()
-        run: curl -fsS --max-time 10 http://localhost:8000/health | grep -q '"model_loaded":true'
+        run: curl -fsS --max-time 10 -o /dev/null http://localhost:3000/
 
       - name: Backend жив и модель загружена
         run: curl -fsS http://localhost:8000/health | grep -q '"model_loaded":true'
