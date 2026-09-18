@@ -104,11 +104,40 @@ jobs:
       - name: Frontend — сборка бандла и образа
         run: docker build -f docker/frontend.Dockerfile -t shin-frontend:latest .
 
+      - name: Frontend — конфиг nginx проходит проверку
+        # nginx с негодным конфигом не стартует, а просто завершается. Без
+        # этого шага такая поломка выглядела бы как «стек не поднялся».
+        run: docker run --rm shin-frontend:latest nginx -t
+
       - name: Поднять стек
         # Образы уже собраны выше и названы так же, как в docker-compose.yml,
         # поэтому здесь ничего не пересобирается. --wait держит шаг, пока
         # healthcheck не подтвердит, что модель загружена.
         run: docker compose up --detach --wait --wait-timeout 300
+
+      # --- диагностика ---
+      #
+      # Логи GitHub Actions отдаёт только администратору репозитория, а имена
+      # шагов и их статусы видны всем. Поэтому каждая проверка вынесена
+      # в отдельный шаг с говорящим именем: по тому, какой из них покраснел,
+      # причина ясна и без доступа к логам. Шаги выполняются всегда — они
+      # нужны именно тогда, когда подъём уже провалился.
+
+      - name: Диагностика — контейнер backend работает
+        if: always()
+        run: test "$(docker inspect -f '{{.State.Status}}' shin-backend)" = running
+
+      - name: Диагностика — контейнер frontend работает
+        if: always()
+        run: test "$(docker inspect -f '{{.State.Status}}' shin-frontend)" = running
+
+      - name: Диагностика — backend отвечает на /health
+        if: always()
+        run: curl -fsS --max-time 10 http://localhost:8000/health
+
+      - name: Диагностика — модель загружена
+        if: always()
+        run: curl -fsS --max-time 10 http://localhost:8000/health | grep -q '"model_loaded":true'
 
       - name: Backend жив и модель загружена
         run: curl -fsS http://localhost:8000/health | grep -q '"model_loaded":true'
