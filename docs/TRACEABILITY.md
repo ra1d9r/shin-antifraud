@@ -49,4 +49,4 @@
 | §13 | Dockerfile backend | `docker/backend.Dockerfile` | DONE |
 | §13 | Dockerfile frontend | `docker/frontend.Dockerfile`, `docker/nginx.conf` | DONE |
 | §13 | docker-compose | `docker-compose.yml`, проверка `.github/workflows/ci.yml` | DONE — сборка и живой стек прогоняются в CI (D-6) |
-| §14 | README (15 разделов) | `README.md` | WIP |
+| §14 | README (15 разделов) | `README.md`, сверка `backend/scripts/check_docs.py` | DONE |

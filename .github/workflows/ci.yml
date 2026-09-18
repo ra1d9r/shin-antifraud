@@ -84,11 +84,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Собрать и поднять
-        # Сборка небыстрая: внутри образа backend генерируется датасет
-        # на 100 000 транзакций и обучается модель. --wait держит шаг
-        # до тех пор, пока healthcheck не подтвердит, что модель загружена.
-        run: docker compose up --build --detach --wait --wait-timeout 900
+      # Сборка разбита на шаги по стадиям Dockerfile намеренно. Одна команда
+      # `docker compose up --build` на падении сообщает только «exit code 1»,
+      # и понять, что именно сломалось — установка зависимостей, обучение
+      # модели или сборка фронтенда, — можно лишь по логам. Имя упавшего шага
+      # видно сразу, в том числе снаружи.
+
+      - name: Backend — системные пакеты и зависимости
+        run: docker build --target base -f docker/backend.Dockerfile -t shin-base:ci .
+
+      - name: Backend — датасет и обучение модели
+        # Самый долгий шаг: внутри образа генерируется 100 000 транзакций
+        # и обучается модель.
+        run: docker build --target build -f docker/backend.Dockerfile -t shin-build:ci .
+
+      - name: Backend — итоговый образ
+        run: docker build -f docker/backend.Dockerfile -t shin-backend:latest .
+
+      - name: Frontend — сборка бандла и образа
+        run: docker build -f docker/frontend.Dockerfile -t shin-frontend:latest .
+
+      - name: Поднять стек
+        # Образы уже собраны выше и названы так же, как в docker-compose.yml,
+        # поэтому здесь ничего не пересобирается. --wait держит шаг, пока
+        # healthcheck не подтвердит, что модель загружена.
+        run: docker compose up --detach --wait --wait-timeout 300
 
       - name: Backend жив и модель загружена
         run: curl -fsS http://localhost:8000/health | grep -q '"model_loaded":true'
