@@ -159,6 +159,17 @@ jobs:
         if: always()
         run: curl -fsS --max-time 10 -o /dev/null http://localhost:3000/
 
+      # Две пробы ниже разделяют причины, по которым падал healthcheck
+      # фронтенда. Если IPv4-проба зелёная, а localhost-проба красная, дело
+      # в резолве имени, а не в самом wget.
+      - name: Диагностика — wget внутри контейнера по IPv4
+        if: always()
+        run: docker exec shin-frontend wget -q --spider http://127.0.0.1/
+
+      - name: Диагностика — wget внутри контейнера по localhost
+        if: always()
+        run: docker exec shin-frontend wget -q --spider http://localhost/
+
       - name: Backend жив и модель загружена
         run: curl -fsS http://localhost:8000/health | grep -q '"model_loaded":true'
 
