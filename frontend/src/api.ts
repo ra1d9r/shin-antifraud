@@ -45,8 +45,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       headers: { 'Content-Type': 'application/json' },
       ...init,
     })
-  } catch (cause) {
+  } catch {
     // Сеть не ответила вовсе: backend не поднят или заблокирован CORS.
+    // Исходная ошибка не сохраняется намеренно: TypeError: Failed to fetch
+    // ничего не говорит человеку, который открыл тестовый интерфейс,
+    // а вот адрес backend и вопрос «поднят ли он» говорят.
     throw new ApiError(
       `Backend недоступен по адресу ${BASE_URL}. Поднят ли он?`,
       0,
@@ -59,7 +62,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     try {
       body = (await response.json()) as ApiErrorBody
     } catch {
-      body = null
+      // Тело не JSON — body остаётся null, заданным выше.
     }
     throw new ApiError(
       body?.message ?? `HTTP ${response.status}`,

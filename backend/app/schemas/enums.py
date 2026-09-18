@@ -6,10 +6,10 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 
-class Decision(str, Enum):
+class Decision(StrEnum):
     """Решение системы по транзакции (ТЗ §1)."""
 
     APPROVE = "APPROVE"
@@ -17,7 +17,7 @@ class Decision(str, Enum):
     BLOCK = "BLOCK"
 
 
-class RiskLevel(str, Enum):
+class RiskLevel(StrEnum):
     """Уровень риска — человекочитаемая обёртка над Risk Score."""
 
     LOW = "LOW"
@@ -26,14 +26,14 @@ class RiskLevel(str, Enum):
     CRITICAL = "CRITICAL"
 
 
-class ImpactDirection(str, Enum):
+class ImpactDirection(StrEnum):
     """Направление вклада признака в итоговый риск (XAI)."""
 
     INCREASES_RISK = "INCREASES_RISK"
     DECREASES_RISK = "DECREASES_RISK"
 
 
-class ScenarioKey(str, Enum):
+class ScenarioKey(StrEnum):
     """Готовые сценарии hand-testing (ТЗ §9)."""
 
     NORMAL = "normal"

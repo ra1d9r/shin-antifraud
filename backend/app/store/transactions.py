@@ -110,7 +110,10 @@ class TransactionStore:
                 return False
             if min_risk_score is not None and record.risk_score < min_risk_score:
                 return False
-            if max_risk_score is not None and record.risk_score > max_risk_score:
+
+            # в `return not (...)`. Тогда один фильтр из пяти выглядел бы иначе,
+            # чем остальные, и цепочку стало бы труднее читать и дополнять.
+            if max_risk_score is not None and record.risk_score > max_risk_score:  # noqa: SIM103
                 return False
             return True
 

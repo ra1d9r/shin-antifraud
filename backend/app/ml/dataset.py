@@ -22,10 +22,11 @@ from __future__ import annotations
 import random
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from enum import Enum
+from enum import StrEnum
 
 import pandas as pd
 
+from app.features.builder import NEW_ACCOUNT_THRESHOLD_DAYS
 from app.features.geo import (
     COMMON_TRAVEL_COUNTRIES,
     COUNTRY_COORDINATES,
@@ -33,7 +34,6 @@ from app.features.geo import (
     country_coordinates,
     haversine_km,
 )
-from app.features.builder import NEW_ACCOUNT_THRESHOLD_DAYS
 from app.features.merchants import (
     ALL_MERCHANTS,
     BIG_TICKET_MERCHANTS,
@@ -62,7 +62,7 @@ HOME_COUNTRY_WEIGHTS: dict[str, float] = {
 }
 
 
-class FraudScenario(str, Enum):
+class FraudScenario(StrEnum):
     """Сценарии атак, которыми порождается фрод."""
 
     NONE = "none"
@@ -214,10 +214,7 @@ def generate_user_profiles(
         avg_amount = min(max(avg_amount, 8.0), 900.0)
 
         # 12 % клиентов открыли счёт недавно — нужны для сценария new_account_abuse.
-        if rng.random() < 0.12:
-            age_days = rng.randint(3, 60)
-        else:
-            age_days = rng.randint(90, 3000)
+        age_days = rng.randint(3, 60) if rng.random() < 0.12 else rng.randint(90, 3000)
 
         device_count = rng.choices([1, 2, 3], weights=[0.45, 0.40, 0.15], k=1)[0]
         devices = [f"dev_{index:05d}_{d}" for d in range(device_count)]
@@ -646,9 +643,8 @@ def _pick_scenario(profile: UserProfile, rng: random.Random, end_date: datetime)
     сценарий привязан к возрасту счёта напрямую, а не отбрасывается постфактум:
     иначе он выпадал бы настолько редко, что модель не смогла бы его выучить.
     """
-    if profile.account_age_days(end_date) <= NEW_ACCOUNT_THRESHOLD_DAYS:
-        if rng.random() < 0.45:
-            return FraudScenario.NEW_ACCOUNT_ABUSE
+    if profile.account_age_days(end_date) <= NEW_ACCOUNT_THRESHOLD_DAYS and rng.random() < 0.45:
+        return FraudScenario.NEW_ACCOUNT_ABUSE
 
     weights = {
         scenario: weight
@@ -744,9 +740,12 @@ def _generate_user_timeline(
         if index == fraud_start_index:
             episode_start = timestamps[index]
             # Автоматизированные атаки чаще идут ночью.
-            if scenario in (FraudScenario.ACCOUNT_TAKEOVER, FraudScenario.CARD_TESTING):
-                if rng.random() < 0.65:
-                    episode_start = episode_start.replace(hour=_night_hour(rng))
+            takeover_or_testing = scenario in (
+                FraudScenario.ACCOUNT_TAKEOVER,
+                FraudScenario.CARD_TESTING,
+            )
+            if takeover_or_testing and rng.random() < 0.65:
+                episode_start = episode_start.replace(hour=_night_hour(rng))
             # Страховка монотонности после сдвига часа.
             if episode_start <= last_timestamp:
                 episode_start = last_timestamp + timedelta(minutes=rng.randint(20, 180))
@@ -940,9 +939,9 @@ def dataset_summary(frame: pd.DataFrame) -> dict:
     )
 
     return {
-        "rows": int(len(frame)),
+        "rows": len(frame),
         "users": int(frame["user_id"].nunique()),
-        "fraud_rows": int(len(fraud)),
+        "fraud_rows": len(fraud),
         "fraud_rate": round(float(len(fraud) / len(frame)), 5) if len(frame) else 0.0,
         "date_from": str(frame["timestamp"].min()),
         "date_to": str(frame["timestamp"].max()),

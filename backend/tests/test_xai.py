@@ -24,10 +24,10 @@ from app.risk_engine import RiskEngine, RiskThresholds
 from app.schemas.enums import ImpactDirection
 from app.xai import Explainer
 from app.xai.contributions import (
+    _SHAP_OUTPUT_WARNING,
     AblationContributions,
     LightGbmNativeContributions,
     ShapTreeContributions,
-    _SHAP_OUTPUT_WARNING,
     build_contribution_engine,
     unwrap_tree_model,
 )

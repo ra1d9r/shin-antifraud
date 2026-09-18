@@ -131,7 +131,7 @@ def evaluate(
         pr_auc=float(average_precision_score(y_true, probabilities)),
         brier_score=float(brier_score_loss(y_true, probabilities)),
         positive_rate=float(y_true.mean()),
-        samples=int(len(y_true)),
+        samples=len(y_true),
         default=metrics_at_threshold(y_true, probabilities, 0.5),
         best_f1=best,
         by_threshold=by_threshold,
@@ -176,7 +176,8 @@ def calibration_table(
 def format_metrics_report(metrics: ModelMetrics) -> str:
     """Человекочитаемый отчёт для консоли."""
     lines = [
-        f"  выборка           : {metrics.samples:,} строк, фрода {metrics.positive_rate:.2%}".replace(",", " "),
+        f"  выборка           : {metrics.samples:,} строк".replace(",", " ")
+        + f", фрода {metrics.positive_rate:.2%}",
         f"  ROC-AUC           : {metrics.roc_auc:.4f}",
         f"  PR-AUC            : {metrics.pr_auc:.4f}   (честнее при дисбалансе)",
         f"  Brier score       : {metrics.brier_score:.5f}   (качество калибровки, меньше — лучше)",

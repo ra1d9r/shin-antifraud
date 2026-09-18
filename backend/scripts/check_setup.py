@@ -27,7 +27,10 @@ OK = "[ OK ]"
 FAIL = "[FAIL]"
 WARN = "[WARN]"
 
-REQUIRED_PACKAGES = ["fastapi", "uvicorn", "pydantic", "pydantic_settings", "numpy", "pandas", "sklearn", "joblib"]
+REQUIRED_PACKAGES = [
+    "fastapi", "uvicorn", "pydantic", "pydantic_settings",
+    "numpy", "pandas", "sklearn", "joblib",
+]
 OPTIONAL_PACKAGES = ["lightgbm", "shap"]
 APP_PACKAGES = [
     "app.config.settings",

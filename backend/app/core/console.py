@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import sys
 
 
@@ -18,8 +19,6 @@ def enable_utf8_output() -> None:
             continue
         reconfigure = getattr(stream, "reconfigure", None)
         if reconfigure is not None:
-            try:
+            # Поток может не поддерживать смену кодировки — не повод падать.
+            with contextlib.suppress(ValueError, OSError):
                 reconfigure(encoding="utf-8", errors="replace")
-            except (ValueError, OSError):
-                # Поток не поддерживает смену кодировки — не повод падать.
-                pass

@@ -112,14 +112,6 @@ class UserProfileStore:
             profile = self._profiles.get(user_id)
             return profile
 
-    def get_or_create(self, user_id: str) -> UserProfile:
-        with self._lock:
-            profile = self._profiles.get(user_id)
-            if profile is None:
-                profile = UserProfile(user_id=user_id)
-                self._profiles[user_id] = profile
-            return profile
-
     def record(
         self,
         user_id: str,

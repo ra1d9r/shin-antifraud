@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import ipaddress
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
@@ -185,7 +185,7 @@ class TransactionRequest(BaseModel):
         current = (
             normalize_timestamp(declared)
             if declared is not None
-            else datetime.now(timezone.utc).replace(tzinfo=None)
+            else datetime.now(UTC).replace(tzinfo=None)
         )
         previous = normalize_timestamp(value)
 

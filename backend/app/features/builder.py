@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 
 from app.core.exceptions import FeatureBuildError
 from app.features.definitions import FEATURE_NAMES
@@ -76,7 +76,7 @@ def normalize_timestamp(value: datetime) -> datetime:
             "При чтении CSV используйте parse_dates=['timestamp', 'previous_timestamp']."
         )
     if value.tzinfo is not None:
-        return value.astimezone(timezone.utc).replace(tzinfo=None)
+        return value.astimezone(UTC).replace(tzinfo=None)
     return value
 
 

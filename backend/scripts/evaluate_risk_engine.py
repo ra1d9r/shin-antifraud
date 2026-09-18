@@ -29,6 +29,7 @@ from app.config.settings import get_settings  # noqa: E402
 from app.core.console import enable_utf8_output  # noqa: E402
 from app.core.exceptions import DatasetNotFoundError, ModelNotLoadedError  # noqa: E402
 from app.core.logging import configure_logging, get_logger  # noqa: E402
+from app.ml.dataset import generate_dataset  # noqa: E402
 from app.ml.pipeline import load_model, prepare_training_data  # noqa: E402
 from app.risk_engine import RiskEngine, RiskThresholds  # noqa: E402
 from app.risk_engine.rules import build_rules, evaluate_rules  # noqa: E402
@@ -86,8 +87,33 @@ def main() -> int:
     model_path = Path(args.model).resolve() if args.model else settings.model_file
 
     if not dataset_path.exists():
-        logger.error("%s", DatasetNotFoundError(f"Датасет не найден: {dataset_path}").message)
-        return 1
+        if args.dataset:
+            # Путь назвали явно — значит, ждали именно его. Молча создать
+            # вместо него другой файл было бы хуже, чем отказать.
+            logger.error("%s", DatasetNotFoundError(f"Датасет не найден: {dataset_path}").message)
+            return 1
+
+        # Путь по умолчанию. Внутри Docker-образа CSV удаляется сразу после
+        # обучения — он весит 25 МБ и иначе навсегда остался бы в истории
+        # слоёв. Поэтому там этот скрипт просто не запускался.
+        #
+        # Восстанавливаем датасет тем же генератором и тем же зерном.
+        # Данные получаются ровно те, на которых обучалась модель:
+        # генерация детерминирована, и это закреплено тестом
+        # test_dataset.py::test_generation_is_deterministic_across_processes.
+        logger.info(
+            "Датасет не найден (%s) — генерирую заново с зерном %s",
+            dataset_path,
+            settings.random_seed,
+        )
+        restored = generate_dataset(
+            rows=settings.dataset_rows,
+            users=settings.dataset_users,
+            fraud_rate=settings.dataset_fraud_rate,
+            seed=settings.random_seed,
+        )
+        dataset_path.parent.mkdir(parents=True, exist_ok=True)
+        restored.to_csv(dataset_path, index=False)
     if not model_path.exists():
         logger.error(
             "%s",
@@ -157,9 +183,18 @@ def main() -> int:
     )
 
     print("\n  Итог:")
-    print(f"    фрод заблокирован        : {blocked_fraud}/{fraud_total} ({blocked_fraud / max(1, fraud_total):.1%})")
-    print(f"    фрод остановлен вообще   : {caught_fraud}/{fraud_total} ({caught_fraud / max(1, fraud_total):.1%})")
-    print(f"    фрод пропущен            : {missed_fraud}/{fraud_total} ({missed_fraud / max(1, fraud_total):.1%})")
+    print(
+        f"    фрод заблокирован        : {blocked_fraud}/{fraud_total} "
+        f"({blocked_fraud / max(1, fraud_total):.1%})"
+    )
+    print(
+        f"    фрод остановлен вообще   : {caught_fraud}/{fraud_total} "
+        f"({caught_fraud / max(1, fraud_total):.1%})"
+    )
+    print(
+        f"    фрод пропущен            : {missed_fraud}/{fraud_total} "
+        f"({missed_fraud / max(1, fraud_total):.1%})"
+    )
     print(f"    трение у добросовестных  : {friction}/{legit_total} ({friction / max(1, legit_total):.1%})")
 
     # --- вклад каждой политики

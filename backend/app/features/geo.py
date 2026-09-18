@@ -78,8 +78,6 @@ COMMON_TRAVEL_COUNTRIES: tuple[str, ...] = (
     "RU", "TR", "AE", "UZ", "KG", "GE", "DE", "PL", "TH", "CN",
 )
 
-ALL_COUNTRIES: tuple[str, ...] = tuple(COUNTRY_COORDINATES.keys())
-
 
 def country_coordinates(country: str) -> tuple[float, float]:
     """Координаты страны. Для неизвестного кода — (0, 0), чтобы не падать."""

@@ -11,61 +11,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { ApiError, apiBaseUrl, fetchHealth, fetchScenarios, predict } from './api'
-import type {
-  ClientContext,
-  Decision,
-  HealthResponse,
-  PredictionResponse,
-  Scenario,
-  TransactionFields,
-  TransactionRequest,
-} from './types'
-
-/**
- * Как строка из поля превращается в значение запроса.
- *
- * `kind` нужен не для удобства ввода, а для разбора: без него числовые поля
- * разбирались вслепую, и `Number('abc')` уезжал в запрос как `null`.
- */
-type FieldKind = 'text' | 'number' | 'datetime' | 'list'
-
-interface FieldSpec {
-  name: string
-  label: string
-  kind: FieldKind
-}
-
-/** Поля формы из ТЗ §3. */
-const FORM_FIELDS: (FieldSpec & { name: keyof TransactionFields })[] = [
-  { name: 'transaction_id', label: 'transaction_id', kind: 'text' },
-  { name: 'user_id', label: 'user_id', kind: 'text' },
-  { name: 'amount', label: 'amount', kind: 'number' },
-  { name: 'timestamp', label: 'timestamp', kind: 'datetime' },
-  { name: 'merchant', label: 'merchant', kind: 'text' },
-  { name: 'country', label: 'country', kind: 'text' },
-  { name: 'device_id', label: 'device_id', kind: 'text' },
-  { name: 'ip_address', label: 'ip_address', kind: 'text' },
-  { name: 'latitude', label: 'latitude', kind: 'number' },
-  { name: 'longitude', label: 'longitude', kind: 'number' },
-  { name: 'transaction_frequency', label: 'transaction_frequency', kind: 'number' },
-  { name: 'previous_transaction_amount', label: 'previous_transaction_amount', kind: 'number' },
-  { name: 'previous_transaction_country', label: 'previous_transaction_country', kind: 'text' },
-  { name: 'account_age_days', label: 'account_age_days', kind: 'number' },
-]
-
-const CONTEXT_FIELDS: (FieldSpec & { name: keyof ClientContext })[] = [
-  { name: 'user_avg_amount', label: 'user_avg_amount', kind: 'number' },
-  { name: 'user_amount_std', label: 'user_amount_std', kind: 'number' },
-  { name: 'user_home_country', label: 'user_home_country', kind: 'text' },
-  { name: 'user_typical_frequency', label: 'user_typical_frequency', kind: 'number' },
-  { name: 'known_device_ids', label: 'known_device_ids (через запятую)', kind: 'list' },
-  { name: 'previous_ip_address', label: 'previous_ip_address', kind: 'text' },
-  { name: 'previous_timestamp', label: 'previous_timestamp', kind: 'datetime' },
-  { name: 'previous_latitude', label: 'previous_latitude', kind: 'number' },
-  { name: 'previous_longitude', label: 'previous_longitude', kind: 'number' },
-  { name: 'txn_count_last_hour', label: 'txn_count_last_hour', kind: 'number' },
-  { name: 'merchant_category', label: 'merchant_category', kind: 'text' },
-]
+import { CONTEXT_FIELDS, FORM_FIELDS, formToRequest, scenarioToForm } from './form'
+import type { FieldSpec, FormState } from './form'
+import type { Decision, HealthResponse, PredictionResponse, Scenario } from './types'
 
 /** Что показать в блоке ошибки: заголовок и разбор по полям. */
 interface DisplayError {
@@ -73,95 +21,10 @@ interface DisplayError {
   details: string[]
 }
 
-/** Форма держит всё строками: пользователь должен иметь право ввести что угодно. */
-type FormState = Record<string, string>
-
 const DECISION_CLASS: Record<Decision, string> = {
   APPROVE: 'approve',
   CHALLENGE: 'challenge',
   BLOCK: 'block',
-}
-
-/** Backend отдаёт время в ISO; `datetime-local` понимает минуты без зоны. */
-function toInputDateTime(value: unknown): string {
-  if (typeof value !== 'string' || value === '') return ''
-  return value.slice(0, 16)
-}
-
-function scenarioToForm(scenario: Scenario): FormState {
-  // Читаем тело сценария как словарь: имена полей формы совпадают с именами
-  // полей запроса, и перебирать их по списку проще, чем по одному.
-  const source = scenario.transaction as unknown as Record<string, unknown>
-  const state: FormState = {}
-
-  for (const field of FORM_FIELDS) {
-    const value = source[field.name]
-    state[field.name] =
-      field.kind === 'datetime' ? toInputDateTime(value) : value == null ? '' : String(value)
-  }
-
-  for (const field of CONTEXT_FIELDS) {
-    const value = source[field.name]
-    if (value == null) {
-      state[field.name] = ''
-    } else if (Array.isArray(value)) {
-      state[field.name] = value.join(', ')
-    } else if (field.kind === 'datetime') {
-      state[field.name] = toInputDateTime(value)
-    } else {
-      state[field.name] = String(value)
-    }
-  }
-
-  return state
-}
-
-/**
- * Форма -> тело запроса. Пустые поля не отправляются вовсе.
- *
- * Правил оценки риска здесь нет и быть не может (ТЗ §11): вторая копия
- * разошлась бы с backend. Единственная проверка на клиенте — что в числовом
- * поле действительно число, и это не бизнес-правило, а разбор ввода.
- *
- * Без неё `Number('abc')` давал `NaN`, `JSON.stringify` превращал его
- * в `null`, backend читал это как «поле не передано» и отвечал HTTP 200
- * по данным, которых пользователь не вводил. Молча — что хуже отказа.
- */
-interface ParsedForm {
-  body: TransactionRequest
-  invalid: string[]
-}
-
-function formToRequest(form: FormState): ParsedForm {
-  const body: Record<string, unknown> = {}
-  const invalid: string[] = []
-
-  const collect = (field: FieldSpec) => {
-    const raw = form[field.name]?.trim() ?? ''
-    if (raw === '') return
-
-    if (field.kind === 'list') {
-      body[field.name] = raw.split(',').map((item) => item.trim()).filter(Boolean)
-      return
-    }
-
-    if (field.kind !== 'number') {
-      body[field.name] = raw
-      return
-    }
-
-    const parsed = Number(raw)
-    if (Number.isFinite(parsed)) {
-      body[field.name] = parsed
-    } else {
-      invalid.push(`${field.name}: ожидалось число, введено «${raw}»`)
-    }
-  }
-
-  for (const field of FORM_FIELDS) collect(field)
-  for (const field of CONTEXT_FIELDS) collect(field)
-
-  return { body: body as unknown as TransactionRequest, invalid }
 }
 
 export default function App() {
