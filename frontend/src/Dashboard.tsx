@@ -40,9 +40,11 @@ function formatShare(value: number): string {
 export default function Dashboard({
   data,
   model,
+  modelError,
 }: {
   data: AnalyticsOverview
   model: ModelInfo | null
+  modelError?: string
 }) {
   // Ползунок стартует с текущего порога системы: сравнивать удобнее,
   // когда точка отсчёта — то, что работает прямо сейчас.
@@ -251,6 +253,19 @@ export default function Dashboard({
               note={`оценка поднята политиками у ${formatNumber(data.raised_by_rules)} операций`}
             />
           </div>
+        </section>
+      )}
+
+      {!model?.loaded && modelError && (
+        <section className="panel alert">
+          <h2>Сведения о модели не получены</h2>
+          <p>
+            <strong>{modelError}</strong>
+          </p>
+          <p className="hint">
+            Метрики качества показать не удалось. Остальные числа на этой странице
+            взяты из выгруженного отчёта и от этого запроса не зависят.
+          </p>
         </section>
       )}
 

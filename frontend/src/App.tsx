@@ -20,28 +20,51 @@ import type { AnalyticsOverview, HealthResponse, ModelInfo } from './types'
 
 type View = 'dashboard' | 'simulator'
 
+/**
+ * Почему аналитика не пришла.
+ *
+ * Различать причины приходится потому, что совет у них разный: артефакт
+ * выгружают скриптом, а выключенный backend — поднимают. Раньше экран
+ * показывал команду выгрузки в обоих случаях и лечил не ту болезнь.
+ */
+interface AnalyticsFailure {
+  message: string
+  /** Backend ответил, но сказал, что отчёта нет. */
+  artifactMissing: boolean
+}
+
 export default function App() {
   const [view, setView] = useState<View>('dashboard')
   const [health, setHealth] = useState<HealthResponse | null>(null)
   const [analytics, setAnalytics] = useState<AnalyticsOverview | null>(null)
   const [model, setModel] = useState<ModelInfo | null>(null)
-  const [analyticsError, setAnalyticsError] = useState<string>('')
+  const [modelError, setModelError] = useState<string>('')
+  const [analyticsError, setAnalyticsError] = useState<AnalyticsFailure | null>(null)
 
   useEffect(() => {
     let cancelled = false
 
     async function load() {
-      // Здоровье и модель нужны обоим экранам, аналитика — только дашборду.
-      // Её отсутствие не должно ломать симулятор, поэтому ошибка ловится
-      // отдельно, а не роняет всю загрузку.
+      // Три запроса ловятся порознь, а не одним Promise.all. Пока они были
+      // вместе, падение любого гасило остальные: значок статуса и панель
+      // модели просто исчезали, и человек не узнавал, что именно сломалось.
       try {
-        const [healthPayload, modelPayload] = await Promise.all([fetchHealth(), fetchModel()])
-        if (!cancelled) {
-          setHealth(healthPayload)
-          setModel(modelPayload)
-        }
+        const healthPayload = await fetchHealth()
+        if (!cancelled) setHealth(healthPayload)
       } catch {
-        // Молчим: симулятор сам покажет, что backend недоступен.
+        // Отдельного сообщения не нужно: недоступный backend виден сразу
+        // на обоих экранах, а здесь он только не покажет значок.
+      }
+
+      try {
+        const modelPayload = await fetchModel()
+        if (!cancelled) setModel(modelPayload)
+      } catch (cause) {
+        if (!cancelled) {
+          setModelError(
+            cause instanceof ApiError ? cause.message : 'Сведения о модели недоступны',
+          )
+        }
       }
 
       try {
@@ -49,9 +72,12 @@ export default function App() {
         if (!cancelled) setAnalytics(payload)
       } catch (cause) {
         if (!cancelled) {
-          setAnalyticsError(
-            cause instanceof ApiError ? cause.message : 'Аналитика недоступна',
-          )
+          setAnalyticsError({
+            message: cause instanceof ApiError ? cause.message : 'Аналитика недоступна',
+            // 503 отдаёт сам backend, когда артефакта нет. Всё остальное —
+            // сеть, прокси или внутренняя ошибка, и выгрузка их не вылечит.
+            artifactMissing: cause instanceof ApiError && cause.status === 503,
+          })
         }
       }
     }
@@ -96,22 +122,36 @@ export default function App() {
 
       {view === 'dashboard' &&
         (analytics ? (
-          <Dashboard data={analytics} model={model} />
+          <Dashboard data={analytics} model={model} modelError={modelError} />
         ) : (
           <section className="panel alert">
             <h2>Аналитика недоступна</h2>
-            <p>{analyticsError || 'Загружаю…'}</p>
-            {analyticsError && (
+            <p>{analyticsError?.message ?? 'Загружаю…'}</p>
+
+            {analyticsError?.artifactMissing && (
               <>
                 <p className="hint">
                   Отчёт по датасету выгружается заранее — расчёт занимает около двадцати
                   секунд, столько ждать в запросе нельзя. Выполните:
                 </p>
                 <pre>python backend/scripts/export_evaluation.py</pre>
-                <p className="hint">
-                  Адрес backend: <code>{apiBaseUrl}</code>
-                </p>
               </>
+            )}
+
+            {analyticsError && !analyticsError.artifactMissing && (
+              <p className="hint">
+                Backend не ответил — выгружать отчёт бесполезно, пока он не поднят.
+                Проверьте, что он запущен:
+              </p>
+            )}
+            {analyticsError && !analyticsError.artifactMissing && (
+              <pre>uvicorn app.main:app --reload --port 8000 --app-dir backend</pre>
+            )}
+
+            {analyticsError && (
+              <p className="hint">
+                Адрес backend: <code>{apiBaseUrl}</code>
+              </p>
             )}
           </section>
         ))}
