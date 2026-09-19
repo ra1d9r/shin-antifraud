@@ -61,11 +61,23 @@ COPY --from=build --chown=shin:shin /app/.env /app/.env
 
 USER shin
 
+# Порт берётся из окружения. Локально и в docker-compose это 8000, а хостинги
+# (Render, Railway, Cloud Run) назначают свой и передают его в PORT. Без этого
+# образ требовал переопределять команду запуска в настройках платформы —
+# лишний повод ошибиться там, где ошибку видно только по логам контейнера.
+ENV PORT=8000
+
 EXPOSE 8000
 
 # Проверяем не факт живости процесса, а готовность системы: `/health`
 # вернёт degraded, если модель почему-то не загрузилась.
+#
+# Адрес 127.0.0.1, а не localhost: uvicorn поднимается на IPv4, а localhost
+# внутри контейнера резолвится ещё и в ::1 — та же ловушка, что была
+# у healthcheck фронтенда.
 HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 \
-    CMD curl -fsS http://localhost:8000/health | grep -q '"model_loaded":true' || exit 1
+    CMD curl -fsS "http://127.0.0.1:${PORT}/health" | grep -q '"model_loaded":true' || exit 1
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--app-dir", "backend"]
+# Форма с `sh -c` нужна ради подстановки ${PORT}: в exec-форме переменные
+# окружения не разворачиваются.
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT} --app-dir backend"]
