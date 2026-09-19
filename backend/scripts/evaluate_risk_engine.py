@@ -136,6 +136,7 @@ def main() -> int:
         inputs.probabilities,
         settings=settings,
         thresholds=thresholds,
+        model=inputs.model,
         rules_enabled=not args.no_rules,
     )
 

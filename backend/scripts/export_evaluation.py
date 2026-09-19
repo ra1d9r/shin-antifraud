@@ -86,6 +86,10 @@ def main() -> int:
             challenge_max=args.challenge_max,
             critical_min=settings.risk_critical_min,
         ),
+        model=inputs.model,
+        # Дефект 3: раньше здесь всегда стояло True, и при RULES_ENABLED=false
+        # дашборд показывал статистику политик, которые не работают.
+        rules_enabled=settings.rules_enabled,
     )
 
     output = Path(args.output).resolve() if args.output else settings.evaluation_file

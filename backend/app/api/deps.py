@@ -45,6 +45,10 @@ class AppState:
     # Её отсутствие приложению не мешает: дашборд получит 503 с командой.
     evaluation: dict | None = None
     evaluation_error: str | None = None
+    # Артефакт посчитан на другой модели, чем загружена сейчас. Отчёт при
+    # этом отдаётся — но с пометкой, иначе дашборд врал бы молча.
+    evaluation_stale: bool = False
+    evaluation_stale_reason: str | None = None
     model_error: str | None = None
     started_at: float = field(default_factory=time.monotonic)
 
@@ -75,13 +79,6 @@ def build_state(settings: Settings | None = None) -> AppState:
     state.risk_engine = RiskEngine.from_settings(settings)
 
     try:
-        state.evaluation = load_report(settings.evaluation_file)
-        logger.info("Аналитика загружена: %s транзакций", state.evaluation.get("rows"))
-    except ShinError as exc:
-        state.evaluation_error = exc.message
-        logger.warning("%s", exc.message)
-
-    try:
         state.model = load_model(settings.model_file)
     except FileNotFoundError:
         state.model_error = (
@@ -102,6 +99,8 @@ def build_state(settings: Settings | None = None) -> AppState:
         state.model.calibration_method,
     )
 
+    _load_evaluation(state)
+
     state.explainer = Explainer.from_model(
         state.model,
         prefer_shap=settings.xai_use_shap,
@@ -115,6 +114,48 @@ def build_state(settings: Settings | None = None) -> AppState:
         transactions=state.transactions,
     )
     return state
+
+
+def _load_evaluation(state: AppState) -> None:
+    """Прочитать артефакт аналитики и сверить его с загруженной моделью.
+
+    Загружается после модели намеренно: сверять метку не с чем, пока модель
+    не прочитана.
+
+    Любая ошибка чтения гасится так же, как ошибка загрузки модели.
+    Битый или недописанный JSON — не повод не поднять приложение: тогда
+    нельзя было бы даже спросить у `/health`, что именно сломалось.
+    """
+    try:
+        state.evaluation = load_report(state.settings.evaluation_file)
+    except ShinError as exc:
+        state.evaluation_error = exc.message
+        logger.warning("%s", exc.message)
+        return
+    except Exception as exc:  # noqa: BLE001 — причина уходит в ответ как есть
+        state.evaluation_error = (
+            f"Аналитика не прочиталась ({exc}). "
+            "Выгрузите заново: python backend/scripts/export_evaluation.py"
+        )
+        logger.error("%s", state.evaluation_error)
+        return
+
+    logger.info("Аналитика загружена: %s транзакций", state.evaluation.get("rows"))
+
+    if state.model is None:
+        return
+
+    stamp = state.evaluation.get("model_trained_at")
+    if stamp == state.model.trained_at:
+        return
+
+    state.evaluation_stale = True
+    state.evaluation_stale_reason = (
+        f"Аналитика посчитана на модели от {stamp or 'неизвестно когда'}, "
+        f"а загружена модель от {state.model.trained_at}. "
+        "Выгрузите заново: python backend/scripts/export_evaluation.py"
+    )
+    logger.warning("%s", state.evaluation_stale_reason)
 
 
 # ------------------------------------------------------------ зависимости

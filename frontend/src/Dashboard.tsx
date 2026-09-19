@@ -30,6 +30,10 @@ function formatMoney(value: number): string {
 }
 
 function formatShare(value: number): string {
+  // Доля от нулевого знаменателя — не ошибка данных, а вырожденный датасет:
+  // например, выборка без единого фрода. Backend такие места закрывает
+  // `max(1, ...)`, здесь показываем прочерк вместо «NaN %».
+  if (!Number.isFinite(value)) return '—'
   return `${(value * 100).toFixed(1)} %`
 }
 
@@ -57,6 +61,20 @@ export default function Dashboard({
 
   return (
     <>
+      {data.stale && (
+        <section className="panel alert">
+          <h2>Аналитика устарела</h2>
+          <p>
+            <strong>{data.stale_reason}</strong>
+          </p>
+          <p className="hint">
+            Числа ниже посчитаны на другой модели и описывают прошлое состояние
+            системы. Симулятор при этом работает на актуальной модели — значения
+            на двух вкладках могут не сойтись.
+          </p>
+        </section>
+      )}
+
       <section className="panel">
         <h2>Поток транзакций</h2>
         <div className="tiles">
@@ -150,6 +168,7 @@ export default function Dashboard({
 
       <section className="panel">
         <h2>Решения системы</h2>
+        <div className="table-scroll">
         <table className="table">
           <thead>
             <tr>
@@ -178,6 +197,7 @@ export default function Dashboard({
             ))}
           </tbody>
         </table>
+        </div>
       </section>
 
       {data.rules.length > 0 && (
@@ -188,6 +208,7 @@ export default function Dashboard({
             Срабатывание на транзакции, которую модель и так остановила, пользы не приносит,
             а трение у честного клиента добавляет всегда.
           </p>
+          <div className="table-scroll">
           <table className="table">
             <thead>
               <tr>
@@ -218,6 +239,7 @@ export default function Dashboard({
               ))}
             </tbody>
           </table>
+          </div>
 
           <div className="tiles">
             <Tile label="Стоимость: чистая модель" value={formatMoney(data.cost_without_rules)} />

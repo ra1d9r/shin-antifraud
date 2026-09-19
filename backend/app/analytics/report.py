@@ -142,6 +142,12 @@ class DatasetReport:
     """Полная картина работы системы на датасете."""
 
     generated_at: str
+    # Метка модели, на которой посчитан отчёт. Без неё артефакт молча
+    # устаревает при переобучении: числа на дашборде остаются от прежней
+    # модели, и заметить это можно только случайно. Ровно так однажды
+    # устарели метрики в README.
+    model_trained_at: str | None
+    model_algorithm: str | None
     rows: int
     fraud_rows: int
     legit_rows: int
@@ -188,6 +194,8 @@ class DatasetReport:
     def to_dict(self) -> dict[str, Any]:
         return {
             "generated_at": self.generated_at,
+            "model_trained_at": self.model_trained_at,
+            "model_algorithm": self.model_algorithm,
             "rows": self.rows,
             "fraud_rows": self.fraud_rows,
             "legit_rows": self.legit_rows,
@@ -350,6 +358,7 @@ def build_report(
     *,
     settings: Settings,
     thresholds: RiskThresholds,
+    model=None,
     rules_enabled: bool = True,
 ) -> DatasetReport:
     """Посчитать полный отчёт по датасету.
@@ -361,6 +370,8 @@ def build_report(
         probabilities: вероятности фрода от модели.
         settings: конфигурация, включая параметры стоимости.
         thresholds: пороги решений.
+        model: обученная модель — нужна только ради метки в отчёте, чтобы
+            было видно, к какой модели относятся числа.
         rules_enabled: считать ли с политиками поверх модели.
     """
     records = features.to_dict(orient="records")
@@ -404,6 +415,8 @@ def build_report(
 
     return DatasetReport(
         generated_at=datetime.now(UTC).replace(microsecond=0).isoformat(),
+        model_trained_at=getattr(model, "trained_at", None),
+        model_algorithm=getattr(model, "algorithm", None),
         rows=len(records),
         fraud_rows=fraud_rows,
         legit_rows=len(records) - fraud_rows,

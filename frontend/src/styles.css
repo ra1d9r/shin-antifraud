@@ -441,7 +441,16 @@ summary {
 
 /* --- таблицы дашборда --- */
 
+/* Таблица политик шире телефона. Без обёртки она распирала панель
+   и тянула горизонтальный скролл всей страницы — прокручиваться должна
+   таблица, а не документ. */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .table {
+  min-width: 480px;
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;

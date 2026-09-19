@@ -185,3 +185,88 @@ def test_missing_artifact_reports_the_command(tmp_path) -> None:
 
     assert response.status_code == 503
     assert "export_evaluation" in response.json()["message"]
+
+
+def test_broken_artifact_does_not_stop_the_application(tmp_path) -> None:
+    """Битый JSON не должен мешать приложению подняться.
+
+    Раньше `json.loads` бросал `JSONDecodeError`, а сборка состояния ловила
+    только `ShinError` — приложение не стартовало вовсе, и спросить у него,
+    что сломалось, было нельзя.
+    """
+    broken = tmp_path / "broken.json"
+    broken.write_text("{это не json", encoding="utf-8")
+
+    with TestClient(create_app(Settings(evaluation_path=str(broken)))) as test_client:
+        assert test_client.get("/health").status_code == 200
+
+        response = test_client.get("/analytics/overview")
+        assert response.status_code == 503
+        assert "export_evaluation" in response.json()["message"]
+
+
+def test_artifact_from_another_model_is_marked_stale(tmp_path) -> None:
+    """Отчёт от чужой модели отдаётся, но с пометкой.
+
+    Молчаливое устаревание — самый дорогой класс ошибок в этом проекте:
+    именно так метрики в README разошлись с моделью на три переобучения.
+    Здесь дашборд обязан сказать об этом сам.
+    """
+    settings = Settings()
+    payload = load_report(settings.evaluation_file)
+    payload["model_trained_at"] = "1999-01-01T00:00:00"
+
+    forged = tmp_path / "stale.json"
+    forged.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    with TestClient(create_app(Settings(evaluation_path=str(forged)))) as test_client:
+        body = test_client.get("/analytics/overview").json()
+
+    assert body["stale"] is True
+    assert "1999-01-01" in body["stale_reason"]
+    assert "export_evaluation" in body["stale_reason"]
+
+
+def test_committed_artifact_matches_the_committed_model(client) -> None:
+    """Выгруженный отчёт обязан относиться к той модели, что лежит рядом."""
+    state = client.app.state.shin
+    if state.model is None:
+        pytest.skip("модель не загружена")
+
+    assert state.evaluation["model_trained_at"] == state.model.trained_at, (
+        "evaluation.json посчитан на другой модели. "
+        "Выполните: python backend/scripts/export_evaluation.py"
+    )
+    assert state.evaluation_stale is False
+
+
+def test_report_without_rules_has_no_rule_statistics() -> None:
+    """При выключенных политиках отчёт не должен показывать их статистику.
+
+    Раньше скрипт выгрузки всегда считал с политиками, и при
+    `RULES_ENABLED=false` дашборд показывал бы работу правил, которых нет.
+    """
+    settings = Settings()
+    frame = generate_dataset(rows=3_000, users=150, fraud_rate=0.02, seed=SEED)
+    features, labels = prepare_training_data(frame)
+    model, _ = train_model(features, labels, random_state=SEED)
+
+    report = build_report(
+        frame,
+        features,
+        labels,
+        model.predict_proba(features),
+        settings=settings,
+        thresholds=RiskThresholds(
+            approve_max=settings.risk_approve_max,
+            challenge_max=settings.risk_challenge_max,
+            critical_min=settings.risk_critical_min,
+        ),
+        model=model,
+        rules_enabled=False,
+    )
+
+    assert report.rules == ()
+    assert report.rules_enabled is False
+    assert report.raised_by_rules == 0
+    assert report.model_trained_at == model.trained_at
