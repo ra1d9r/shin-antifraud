@@ -1,0 +1,187 @@
+"""Тесты аналитики по датасету (брифинг §5.A, §11).
+
+Проверяются инварианты, а не конкретные числа: числа меняются вместе
+с моделью, а «остановленный плюс пропущенный фрод равен всему фроду»
+верно всегда. Тест на конкретные значения пришлось бы править после
+каждого переобучения, и его перестали бы читать.
+"""
+
+from __future__ import annotations
+
+import json
+
+import pytest
+from fastapi.testclient import TestClient
+
+from app.analytics.report import build_report, load_report
+from app.config.settings import Settings
+from app.main import create_app
+from app.ml.dataset import generate_dataset
+from app.ml.pipeline import prepare_training_data, train_model
+from app.risk_engine.engine import RiskThresholds
+from app.schemas.analytics import AnalyticsOverview
+
+SEED = 314
+
+
+@pytest.fixture(scope="module")
+def report():
+    """Отчёт на маленьком датасете: инварианты от размера не зависят."""
+    settings = Settings()
+    frame = generate_dataset(rows=6_000, users=250, fraud_rate=0.02, seed=SEED)
+    features, labels = prepare_training_data(frame)
+    model, _ = train_model(features, labels, random_state=SEED)
+
+    return build_report(
+        frame,
+        features,
+        labels,
+        model.predict_proba(features),
+        settings=settings,
+        thresholds=RiskThresholds(
+            approve_max=settings.risk_approve_max,
+            challenge_max=settings.risk_challenge_max,
+            critical_min=settings.risk_critical_min,
+        ),
+    )
+
+
+# ------------------------------------------------------------- инварианты
+
+
+def test_rows_add_up(report) -> None:
+    """Каждая транзакция попала ровно в одну клетку разбивки."""
+    assert report.fraud_rows + report.legit_rows == report.rows
+    assert sum(row.legit + row.fraud for row in report.decisions) == report.rows
+
+
+def test_fraud_is_either_stopped_or_missed(report) -> None:
+    assert report.fraud_stopped + report.fraud_missed == report.fraud_rows
+    assert report.fraud_blocked <= report.fraud_stopped
+
+
+def test_friction_counts_only_legit(report) -> None:
+    """Трение — это задетые добросовестные, а не все неодобренные."""
+    not_approved_legit = sum(
+        row.legit for row in report.decisions if row.decision != "APPROVE"
+    )
+    assert report.friction == not_approved_legit
+    assert report.friction <= report.legit_rows
+
+
+def test_shares_are_fractions(report) -> None:
+    for share in (report.fraud_rate, report.fraud_stopped_share, report.friction_share):
+        assert 0.0 <= share <= 1.0
+
+
+# ------------------------------------------------------------ кривая
+
+
+def test_curve_covers_every_threshold(report) -> None:
+    assert [point.threshold for point in report.curve] == list(range(101))
+
+
+def test_curve_is_monotonic(report) -> None:
+    """Поднимая порог, мы пропускаем больше фрода и трогаем меньше клиентов.
+
+    Это свойство самой конструкции, а не данных: порог только переносит
+    транзакции из одной группы в другую, и всегда в одну сторону.
+    """
+    missed = [point.fraud_missed for point in report.curve]
+    friction = [point.friction for point in report.curve]
+
+    assert missed == sorted(missed), "пропущенный фрод обязан расти с порогом"
+    assert friction == sorted(friction, reverse=True), "трение обязано падать с порогом"
+
+
+def test_curve_endpoints_are_degenerate(report) -> None:
+    """На краях система вырождается: трогает почти всех или никого.
+
+    При нулевом пороге пропущенный фрод не обязан быть нулевым: правило
+    системы — `risk_score <= порог` одобряется, поэтому операция со счётом
+    ровно 0 проходит и здесь. Важно, что это минимум по всей кривой.
+    """
+    strictest, loosest = report.curve[0], report.curve[100]
+
+    assert strictest.fraud_missed == min(point.fraud_missed for point in report.curve)
+    assert strictest.friction == max(point.friction for point in report.curve)
+    assert loosest.friction == 0, "при пороге 100 не беспокоят никого"
+    assert loosest.fraud_missed == report.fraud_rows
+
+
+def test_optimal_threshold_is_the_cheapest(report) -> None:
+    best = min(report.curve, key=lambda point: point.total_cost)
+    assert report.optimal_threshold == best.threshold
+
+
+def test_total_cost_is_the_sum_of_parts(report) -> None:
+    for point in report.curve:
+        assert point.total_cost == pytest.approx(point.fraud_loss + point.friction_cost)
+
+
+# ------------------------------------------------------------- политики
+
+
+def test_rule_marginal_contribution_is_consistent(report) -> None:
+    """«Ноль пользы» и «цена за фрод» — одно и то же утверждение."""
+    assert report.rules, "политики включены, статистика обязана быть"
+    for rule in report.rules:
+        assert 0.0 <= rule.precision <= 1.0
+        if rule.gained_fraud == 0:
+            assert rule.checks_per_fraud is None
+        else:
+            assert rule.checks_per_fraud == pytest.approx(
+                rule.added_friction / rule.gained_fraud
+            )
+
+
+def test_report_serialises_completely(report) -> None:
+    """Отчёт должен пережить запись в JSON и чтение обратно."""
+    payload = json.loads(json.dumps(report.to_dict(), ensure_ascii=False))
+
+    assert payload["rows"] == report.rows
+    assert len(payload["curve"]) == 101
+    # Схема ответа API собирается из того же словаря — если она разойдётся
+    # с отчётом, тест упадёт здесь, а не у жюри в браузере.
+    AnalyticsOverview(**payload)
+
+
+# ---------------------------------------------------------------- HTTP
+
+
+@pytest.fixture(scope="module")
+def client():
+    with TestClient(create_app()) as test_client:
+        yield test_client
+
+
+def test_overview_endpoint_returns_report(client) -> None:
+    response = client.get("/analytics/overview")
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["rows"] > 0
+    assert len(payload["curve"]) == 101
+
+
+def test_committed_artifact_matches_configuration(client) -> None:
+    """Выгруженный артефакт должен отвечать текущим настройкам.
+
+    Ловит забытую перевыгрузку: пороги поменяли в `.env`, а `evaluation.json`
+    остался от прежних. Дашборд показывал бы чужие числа.
+    """
+    settings = client.app.state.shin.settings
+    payload = load_report(settings.evaluation_file)
+
+    assert payload["thresholds"]["approve_max"] == settings.risk_approve_max
+    assert payload["thresholds"]["challenge_max"] == settings.risk_challenge_max
+
+
+def test_missing_artifact_reports_the_command(tmp_path) -> None:
+    """Без артефакта приложение обязано подняться и назвать команду."""
+    settings = Settings(evaluation_path=str(tmp_path / "нет.json"))
+    with TestClient(create_app(settings)) as test_client:
+        response = test_client.get("/analytics/overview")
+
+    assert response.status_code == 503
+    assert "export_evaluation" in response.json()["message"]

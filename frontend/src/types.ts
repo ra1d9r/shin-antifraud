@@ -137,3 +137,76 @@ export interface ApiErrorBody {
   message: string
   details?: { errors?: { field: string; message: string }[] }
 }
+
+/* ------------------------------------------------- аналитика по датасету */
+
+/** Разбивка решений: сколько легальных и мошеннических получили каждое. */
+export interface DecisionRow {
+  decision: Decision
+  legit: number
+  fraud: number
+}
+
+/** Политика и её предельный вклад сверх решения модели. */
+export interface RuleStat {
+  key: string
+  title: string
+  min_score: number
+  legit_hits: number
+  fraud_hits: number
+  precision: number
+  gained_fraud: number
+  added_friction: number
+  /** null — политика не поймала ничего сверх модели, то есть даёт только трение. */
+  checks_per_fraud: number | null
+}
+
+/** Точка кривой компромисса при одном пороге чувствительности. */
+export interface CurvePoint {
+  threshold: number
+  fraud_missed: number
+  fraud_stopped: number
+  friction: number
+  fraud_loss: number
+  friction_cost: number
+  total_cost: number
+}
+
+export interface AnalyticsOverview {
+  generated_at: string
+  rows: number
+  fraud_rows: number
+  legit_rows: number
+  fraud_rate: number
+  total_amount: number
+  thresholds: { approve_max: number; challenge_max: number; critical_min: number }
+  rules_enabled: boolean
+  decisions: DecisionRow[]
+  fraud_blocked: number
+  fraud_stopped: number
+  fraud_missed: number
+  fraud_stopped_share: number
+  friction: number
+  friction_share: number
+  raised_by_rules: number
+  rules: RuleStat[]
+  cost_with_rules: number
+  cost_without_rules: number
+  rules_cost_delta: number
+  curve: CurvePoint[]
+  optimal_threshold: number
+}
+
+/** Сведения о модели из GET /model. */
+export interface ModelInfo {
+  loaded: boolean
+  algorithm?: string | null
+  calibration_method?: string | null
+  feature_count?: number | null
+  trained_at?: string | null
+  roc_auc?: number | null
+  pr_auc?: number | null
+  precision?: number | null
+  recall?: number | null
+  f1?: number | null
+}

@@ -8,9 +8,11 @@
  */
 
 import type {
+  AnalyticsOverview,
   ApiErrorBody,
   HealthResponse,
   PredictionResponse,
+  ModelInfo,
   Scenario,
   ScenarioList,
   TransactionRequest,
@@ -96,6 +98,21 @@ export async function fetchScenarios(): Promise<Scenario[]> {
 
 export function fetchHealth(): Promise<HealthResponse> {
   return request<HealthResponse>('/health')
+}
+
+/**
+ * Сводная аналитика по всему датасету — источник данных для дашборда.
+ *
+ * Отличается от /stats: тот считает по операциям, прошедшим через систему
+ * за время работы, а здесь — весь датасет, где известна разметка. Поэтому
+ * только тут есть пропущенный фрод и ложные срабатывания.
+ */
+export function fetchAnalytics(): Promise<AnalyticsOverview> {
+  return request<AnalyticsOverview>('/analytics/overview')
+}
+
+export function fetchModel(): Promise<ModelInfo> {
+  return request<ModelInfo>('/model')
 }
 
 export const apiBaseUrl = BASE_URL

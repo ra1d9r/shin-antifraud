@@ -40,9 +40,14 @@ pre {
 .header {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
+  justify-content: space-between;
   gap: 12px;
   margin-bottom: 16px;
+}
+
+.header h1 {
+  margin-bottom: 4px;
 }
 
 h1 {
@@ -363,4 +368,159 @@ li {
 
 summary {
   cursor: pointer;
+}
+
+/* --- навигация между дашбордом и симулятором --- */
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.tab {
+  background: transparent;
+  color: var(--muted);
+  border: 0;
+  border-radius: 6px;
+  padding: 7px 16px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tab.active {
+  background: #1e2330;
+  color: var(--accent);
+}
+
+/* --- плитки со сводными числами --- */
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: #1a1e27;
+  border: 1px solid var(--border);
+  border-left-width: 3px;
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.tile.good { border-left-color: var(--approve); }
+.tile.warn { border-left-color: var(--challenge); }
+.tile.bad  { border-left-color: var(--block); }
+
+.tile-label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.tile-value {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.tile-note {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* --- таблицы дашборда --- */
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.table th {
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+/* --- график компромисса --- */
+
+.chart {
+  width: 100%;
+  height: auto;
+  display: block;
+  margin: 8px 0;
+}
+
+.chart-grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.chart-tick {
+  fill: var(--muted);
+  font-size: 10px;
+}
+
+.chart-line {
+  fill: none;
+  stroke-width: 2;
+}
+
+.chart-line.fraud { stroke: var(--block); }
+.chart-line.friction { stroke: var(--challenge); }
+.chart-line.total { stroke: var(--accent); }
+
+.legend { font-size: 11px; }
+.legend.fraud { fill: var(--block); }
+.legend.friction { fill: var(--challenge); }
+.legend.total { fill: var(--accent); }
+
+/* --- ползунок порога --- */
+
+.slider {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin: 8px 0 4px;
+}
+
+.slider label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 320px;
+  font-size: 13px;
+}
+
+.slider input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.slider-marks {
+  display: flex;
+  gap: 8px;
 }
