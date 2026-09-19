@@ -306,7 +306,7 @@ def train_model(
         metrics={},
         calibrated=calibration != "none",
         calibration_method=calibration,
-        training_rows=int(len(x_train)),
+        training_rows=len(x_train),
         feature_baseline={name: float(value) for name, value in baseline.items()},
     )
     return model, splits

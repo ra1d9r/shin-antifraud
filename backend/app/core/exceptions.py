@@ -33,13 +33,6 @@ class ModelNotLoadedError(ShinError):
     error_code = "model_not_loaded"
 
 
-class ModelLoadError(ShinError):
-    """Артефакт модели есть, но не читается (битый файл, несовместимая версия)."""
-
-    status_code = 503
-    error_code = "model_load_failed"
-
-
 class FeatureBuildError(ShinError):
     """Не удалось построить признаки для транзакции."""
 

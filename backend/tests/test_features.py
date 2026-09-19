@@ -7,13 +7,14 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import replace
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pandas as pd
 import pytest
 
-from app.features.builder import TransactionInput, build_features, build_feature_frame, build_feature_vector
+from app.features.builder import TransactionInput, build_feature_frame, build_feature_vector, build_features
 from app.features.definitions import FEATURE_NAMES, FEATURE_SPECS, get_spec
 from app.ml.dataset import generate_dataset
 
@@ -22,7 +23,7 @@ BASE_TIME = datetime(2026, 9, 1, 14, 30, 0)
 
 def make_transaction(**overrides) -> TransactionInput:
     """Обычная транзакция знакомого клиента — точка отсчёта для всех тестов."""
-    defaults = dict(
+    defaults = dict(  # noqa: C408
         transaction_id="txn_test_0001",
         user_id="user_test",
         amount=100.0,
@@ -207,7 +208,7 @@ def test_zero_previous_amount_does_not_divide_by_zero() -> None:
 
 
 def test_timezone_aware_timestamp_is_normalized() -> None:
-    aware = make_transaction(timestamp=BASE_TIME.replace(tzinfo=timezone.utc))
+    aware = make_transaction(timestamp=BASE_TIME.replace(tzinfo=UTC))
     naive = make_transaction()
     assert build_features(aware)["hour_of_day"] == build_features(naive)["hour_of_day"]
 
@@ -292,7 +293,7 @@ def test_nat_previous_timestamp_does_not_produce_nan() -> None:
     assert transaction.user_avg_amount is None
 
     features = build_features(transaction)
-    assert all(value == value for value in features.values()), "в признаках появился NaN"
+    assert not any(math.isnan(value) for value in features.values()), "в признаках появился NaN"
 
 
 def test_non_datetime_timestamp_raises_clear_error() -> None:
@@ -320,8 +321,48 @@ def test_features_are_always_finite() -> None:
     )
     features = build_features(extreme)
     for name, value in features.items():
-        assert value == value, f"{name} = NaN"
-        assert abs(value) != float("inf"), f"{name} = inf"
+        assert math.isfinite(value), f"{name} = {value}"
+
+
+# ------------------------------------------------- счётчики операций
+
+
+def test_zero_counters_are_raised_to_one() -> None:
+    """Ноль в счётчиках приводится к единице.
+
+    Оцениваемая транзакция входит в собственный счётчик, поэтому нуля там
+    быть не может. Клиент, прочитавший «число операций за сутки» как «до
+    текущей», пришлёт 0 для первой в жизни операции — и модель получила бы
+    значение, которого не видела при обучении ни разу.
+    """
+    features = build_features(make_transaction(transaction_frequency=0, txn_count_last_hour=0))
+
+    assert features["transaction_frequency"] == 1.0
+    assert features["txn_count_last_hour"] == 1.0
+
+
+def test_counters_above_minimum_pass_through() -> None:
+    """Приведение не должно трогать нормальные значения."""
+    features = build_features(make_transaction(transaction_frequency=7, txn_count_last_hour=4))
+
+    assert features["transaction_frequency"] == 7.0
+    assert features["txn_count_last_hour"] == 4.0
+
+
+def test_training_data_never_contains_zero_counters() -> None:
+    """Инвариант, ради которого приведение вообще существует.
+
+    Если генератор датасета когда-нибудь начнёт выдавать нули, приведение
+    на инференсе превратится из защиты в искажение — и этот тест упадёт
+    раньше, чем расхождение уедет в модель.
+    """
+    frame = generate_dataset(rows=4_000, users=200, fraud_rate=0.02, seed=7)
+
+    assert frame["transaction_frequency"].min() >= 1
+    assert frame["txn_count_last_hour"].min() >= 1
+
+
+# ------------------------------------------------------------ прочее
 
 
 def test_round_amount_detection_is_float_safe() -> None:

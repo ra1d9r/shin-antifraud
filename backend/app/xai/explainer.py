@@ -140,7 +140,7 @@ class Explainer:
 
         try:
             result = self._engine.contributions(features)
-        except Exception as exc:  # noqa: BLE001 — объяснение не должно ронять предсказание
+        except Exception as exc:
             raise ExplanationError(f"Не удалось посчитать вклады признаков: {exc}") from exc
 
         factors = self._build_factors(result.values, features)

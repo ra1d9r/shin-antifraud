@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 
 from app.core.exceptions import FeatureBuildError
 from app.features.definitions import FEATURE_NAMES
@@ -39,6 +39,14 @@ MAX_SPEED_KMH = 100_000.0
 
 # Нейтральные значения, когда контекста нет (первая транзакция клиента).
 DEFAULT_HOURS_SINCE_PREVIOUS = 24.0
+
+# Минимум для счётчиков операций. В обучающих данных счётчик считался ПОСЛЕ
+# добавления транзакции в ленту, поэтому оцениваемая операция всегда входит
+# в собственный счётчик и нулей там нет вовсе (0 % строк). Ноль на входе —
+# значение, которого модель не видела ни разу, поэтому приводим его
+# к единице здесь, в общем для обучения и инференса коде: только так
+# договорённость не может разойтись между двумя путями.
+MIN_TRANSACTION_COUNT = 1
 
 
 def _is_missing(value: object) -> bool:
@@ -68,7 +76,7 @@ def normalize_timestamp(value: datetime) -> datetime:
             "При чтении CSV используйте parse_dates=['timestamp', 'previous_timestamp']."
         )
     if value.tzinfo is not None:
-        return value.astimezone(timezone.utc).replace(tzinfo=None)
+        return value.astimezone(UTC).replace(tzinfo=None)
     return value
 
 
@@ -182,11 +190,13 @@ def build_features(transaction: TransactionInput) -> dict[str, float]:
     ip_subnet_changed = bool(previous_ip) and _ip_subnet(transaction.ip_address) != _ip_subnet(previous_ip)
 
     # ---------------------------------------------------- частота (ТЗ §4.5, §4.8)
-    frequency = float(max(transaction.transaction_frequency, 0))
+    frequency = float(max(transaction.transaction_frequency, MIN_TRANSACTION_COUNT))
     frequency_ratio = _clip(frequency / max(typical_frequency, 0.1), 0.0, 100.0)
     count_last_hour = transaction.txn_count_last_hour
     if count_last_hour is None:
-        count_last_hour = 1
+        count_last_hour = MIN_TRANSACTION_COUNT
+    else:
+        count_last_hour = max(count_last_hour, MIN_TRANSACTION_COUNT)
 
     # ---------------------------------------------------- геолокация (ТЗ §4.6)
     previous_timestamp = (
@@ -236,7 +246,7 @@ def build_features(transaction: TransactionInput) -> dict[str, float]:
 
         "transaction_frequency": frequency,
         "frequency_ratio": frequency_ratio,
-        "txn_count_last_hour": float(max(count_last_hour, 0)),
+        "txn_count_last_hour": float(count_last_hour),
         "is_high_frequency": float(frequency_ratio >= HIGH_FREQUENCY_RATIO),
 
         "geo_distance_km": geo_distance,

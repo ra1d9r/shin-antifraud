@@ -109,7 +109,7 @@ def probability_to_score(probability: float) -> int:
         raise InvalidConfigurationError("Вероятность не может быть NaN")
 
     clamped = min(max(probability, 0.0), 1.0)
-    return int(math.floor(clamped * 100 + 0.5))
+    return math.floor(clamped * 100 + 0.5)
 
 
 class RiskEngine:

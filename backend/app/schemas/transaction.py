@@ -19,9 +19,11 @@ from __future__ import annotations
 
 import ipaddress
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
+
+from app.features.builder import normalize_timestamp
 
 
 class TransactionRequest(BaseModel):
@@ -67,7 +69,13 @@ class TransactionRequest(BaseModel):
     latitude: float = Field(ge=-90.0, le=90.0, description="Широта")
     longitude: float = Field(ge=-180.0, le=180.0, description="Долгота")
     transaction_frequency: int = Field(
-        ge=0, le=100_000, description="Число операций клиента за последние 24 часа"
+        ge=0,
+        le=100_000,
+        description=(
+            "Число операций клиента за последние 24 часа, включая текущую. "
+            "Ноль приводится к единице: оцениваемая транзакция входит "
+            "в собственный счётчик, и нулей в обучающих данных нет."
+        ),
     )
     previous_transaction_amount: float = Field(
         ge=0, le=1e9, description="Сумма предыдущей транзакции"
@@ -98,7 +106,13 @@ class TransactionRequest(BaseModel):
     previous_latitude: float | None = Field(default=None, ge=-90.0, le=90.0)
     previous_longitude: float | None = Field(default=None, ge=-180.0, le=180.0)
     txn_count_last_hour: int | None = Field(
-        default=None, ge=0, le=100_000, description="Число операций за последний час"
+        default=None,
+        ge=0,
+        le=100_000,
+        description=(
+            "Число операций за последний час, включая текущую. Как и transaction_frequency, "
+            "ноль приводится к единице."
+        ),
     )
     merchant_category: str | None = Field(
         default=None, max_length=64, description="Категория мерчанта; иначе берётся из справочника"
@@ -135,6 +149,52 @@ class TransactionRequest(BaseModel):
         except ValueError as exc:
             raise ValueError(f"Некорректный IP-адрес: {value!r}") from exc
         return value.strip()
+
+    @field_validator("previous_timestamp")
+    @classmethod
+    def _check_chronology(
+        cls, value: datetime | None, info: ValidationInfo
+    ) -> datetime | None:
+        """Предыдущая операция не может быть позже текущей.
+
+        Без этой проверки противоречивый ввод принимался молча: feature
+        engineering зажимает отрицательный интервал в ноль, и система
+        отвечала HTTP 200, показывая скорость перемещения, взявшуюся
+        из ниоткуда.
+
+        Проверка стоит здесь, а не в feature engineering, намеренно. Отсюда
+        видно ровно то, что утверждает клиент, — и это противоречие внутри
+        его собственных данных. В builder же `previous_timestamp` может
+        прийти из накопленного профиля, где «предыдущая позже текущей»
+        означает всего лишь запоздавшую транзакцию: законный случай, который
+        обязан обрабатываться, а не отвергаться.
+
+        Время приводится к UTC той же функцией, что и в feature engineering.
+        Вторая копия нормализации разошлась бы на смещении таймзоны, и
+        проверка начала бы пропускать ровно то, ради чего написана.
+        """
+        if value is None or "timestamp" not in info.data:
+            # Ключа нет, когда само поле `timestamp` не прошло валидацию.
+            # Вторая жалоба на ту же причину только запутает.
+            return value
+
+        declared = info.data["timestamp"]
+        # Пустой `timestamp` означает «сейчас». Момент обработки запроса
+        # заведомо позже этой точки, поэтому «предыдущая» операция в будущем
+        # противоречива и в этом случае.
+        current = (
+            normalize_timestamp(declared)
+            if declared is not None
+            else datetime.now(UTC).replace(tzinfo=None)
+        )
+        previous = normalize_timestamp(value)
+
+        if previous > current:
+            raise ValueError(
+                f"предыдущая операция ({previous.isoformat()}) позже текущей "
+                f"({current.isoformat()}): такого порядка событий не бывает"
+            )
+        return value
 
     @field_validator("known_device_ids")
     @classmethod

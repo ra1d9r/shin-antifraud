@@ -157,7 +157,7 @@ def main() -> int:
         "calibration_method": model.calibration_method,
         "trained_at": model.trained_at,
         "training_rows": model.training_rows,
-        "test_rows": int(len(y_test)),
+        "test_rows": len(y_test),
         "feature_count": len(FEATURE_NAMES),
         "features": list(FEATURE_NAMES),
         "training_seconds": round(elapsed, 1),

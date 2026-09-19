@@ -267,6 +267,60 @@ def test_missing_required_field_is_rejected(client) -> None:
     assert client.post("/predict", json=body).status_code == 422
 
 
+def test_previous_timestamp_after_timestamp_is_rejected(client) -> None:
+    """Противоречивая хронология не должна приниматься молча.
+
+    Раньше такой запрос давал HTTP 200: отрицательный интервал зажимался
+    в ноль, и ответ показывал скорость перемещения, взявшуюся из ниоткуда.
+    """
+    body = transaction_body(previous_timestamp=(BASE_TIME + timedelta(hours=3)).isoformat())
+    response = client.post("/predict", json=body)
+
+    assert response.status_code == 422
+    fields = [error["field"] for error in response.json()["details"]["errors"]]
+    assert "previous_timestamp" in fields
+
+
+def test_future_previous_timestamp_is_rejected_without_explicit_timestamp(client) -> None:
+    """Пустой `timestamp` означает «сейчас» — «предыдущая» в будущем невозможна."""
+    body = transaction_body(previous_timestamp=datetime(2099, 1, 1).isoformat())
+    del body["timestamp"]
+
+    assert client.post("/predict", json=body).status_code == 422
+
+
+def test_simultaneous_transactions_are_allowed(client) -> None:
+    """Нулевой интервал — законный случай, отвергать его нельзя."""
+    body = transaction_body(previous_timestamp=BASE_TIME.isoformat())
+
+    assert client.post("/predict", json=body).status_code == 200
+
+
+def test_chronology_is_compared_in_utc(client) -> None:
+    """Сравнение идёт после приведения к UTC, а не по номиналу.
+
+    15:00+06:00 — это 09:00 UTC, то есть раньше наивных 14:30. Проверка,
+    сравнивающая исходные значения, отвергла бы законный запрос.
+    """
+    body = transaction_body(previous_timestamp="2026-09-01T15:00:00+06:00")
+
+    assert client.post("/predict", json=body).status_code == 200
+
+
+def test_zero_counters_are_normalised_not_rejected(client) -> None:
+    """Ноль в счётчиках — не ошибка ввода, а другое прочтение поля.
+
+    Отвергать такой запрос было бы грубо: клиент вправе считать операции
+    до текущей. Поэтому значение приводится к единице, а не к 422.
+    """
+    payload = client.post(
+        "/predict", json=transaction_body(transaction_frequency=0, txn_count_last_hour=0)
+    ).json()
+
+    assert payload["features"]["transaction_frequency"] == 1.0
+    assert payload["features"]["txn_count_last_hour"] == 1.0
+
+
 # --------------------------------------------------------------- /stats
 
 

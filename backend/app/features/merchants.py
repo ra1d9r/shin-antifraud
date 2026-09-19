@@ -39,7 +39,7 @@ MERCHANTS: tuple[tuple[str, str], ...] = (
     ("Swift Transfer", "money_transfer"),
 )
 
-MERCHANT_CATEGORY: dict[str, str] = {name: category for name, category in MERCHANTS}
+MERCHANT_CATEGORY: dict[str, str] = dict(MERCHANTS)
 
 UNKNOWN_CATEGORY = "unknown"
 

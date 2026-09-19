@@ -22,7 +22,7 @@ TransactionInput ──► build_features ──► model.predict ──► Risk
 from __future__ import annotations
 
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.core.exceptions import ModelNotLoadedError
 from app.core.logging import get_logger
@@ -45,7 +45,7 @@ logger = get_logger("shin.services.prediction")
 
 def _utc_now() -> datetime:
     """Текущее время как наивный UTC — в этом виде живут все метки системы."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class PredictionService:

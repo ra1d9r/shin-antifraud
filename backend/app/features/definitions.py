@@ -216,7 +216,6 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
 )
 
 FEATURE_NAMES: tuple[str, ...] = tuple(spec.name for spec in FEATURE_SPECS)
-FEATURE_COUNT: int = len(FEATURE_SPECS)
 
 _SPEC_BY_NAME: dict[str, FeatureSpec] = {spec.name: spec for spec in FEATURE_SPECS}
 
