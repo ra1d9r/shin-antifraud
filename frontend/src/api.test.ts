@@ -42,10 +42,12 @@ describe('ошибки транспорта', () => {
     const pending = fetchHealth()
     const assertion = expect(pending).rejects.toMatchObject({
       status: 0,
-      message: expect.stringContaining('не ответил за'),
+      message: expect.stringContaining('не ответил за 60 секунд'),
     })
 
-    await vi.advanceTimersByTimeAsync(15_000)
+    // Минута, а не пятнадцать секунд: на бесплатном хостинге первый запрос
+    // сначала будит уснувший контейнер.
+    await vi.advanceTimersByTimeAsync(60_000)
     await assertion
   })
 })

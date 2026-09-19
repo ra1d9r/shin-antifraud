@@ -15,6 +15,7 @@ import { useEffect, useState } from 'react'
 
 import Dashboard from './Dashboard'
 import Simulator from './Simulator'
+import { WAKE_UP_HINT, useSlowHint } from './useSlowHint'
 import { ApiError, apiBaseUrl, fetchAnalytics, fetchHealth, fetchModel } from './api'
 import type { AnalyticsOverview, HealthResponse, ModelInfo } from './types'
 
@@ -40,6 +41,9 @@ export default function App() {
   const [model, setModel] = useState<ModelInfo | null>(null)
   const [modelError, setModelError] = useState<string>('')
   const [analyticsError, setAnalyticsError] = useState<AnalyticsFailure | null>(null)
+  // Пока аналитика не пришла и не упала — мы ждём. Затянувшееся ожидание
+  // объясняем сами, иначе оно неотличимо от зависшего интерфейса.
+  const waking = useSlowHint(analytics === null && analyticsError === null)
 
   useEffect(() => {
     let cancelled = false
@@ -125,8 +129,10 @@ export default function App() {
           <Dashboard data={analytics} model={model} modelError={modelError} />
         ) : (
           <section className="panel alert">
-            <h2>Аналитика недоступна</h2>
+            <h2>{analyticsError ? 'Аналитика недоступна' : 'Загружаю аналитику'}</h2>
             <p>{analyticsError?.message ?? 'Загружаю…'}</p>
+
+            {!analyticsError && waking && <p className="hint">{WAKE_UP_HINT}</p>}
 
             {analyticsError?.artifactMissing && (
               <>

@@ -31,8 +31,8 @@
 | 09 | Проверка API через Swagger | `DONE` | [stage-09](stages/stage-09-swagger-hand-testing.md) |
 | 10 | Test Web Interface (React + Vite + TS) | `DONE` | [stage-10](stages/stage-10-test-web-interface.md) |
 | 11 | Simulator подключён к реальному `/predict` | `DONE` | [stage-10](stages/stage-10-test-web-interface.md) |
-| ~~12~~ | ~~Dashboard (Overview + Transactions)~~ | `ОТЛОЖЕН` | ТЗ §8.5 |
-| ~~13~~ | ~~Business Cost~~ | `ОТЛОЖЕН` | ТЗ §10 |
+| 12 | Дашборд аналитика (Overview) | `DONE` | [stage-12](stages/stage-12-dashboard.md) |
+| 13 | Business Cost: кривая Fraud Loss против Customer Inconvenience | `DONE` | [stage-12](stages/stage-12-dashboard.md) |
 | 14 | Docker | `DONE` | [stage-14](stages/stage-14-docker.md) |
 | 15 | README | `DONE` | [stage-15](stages/stage-15-readme.md) |
 | 16 | Финальная проверка сценариев | `TODO` | — |
