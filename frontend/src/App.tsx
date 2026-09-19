@@ -49,40 +49,46 @@ export default function App() {
     let cancelled = false
 
     async function load() {
-      // Три запроса ловятся порознь, а не одним Promise.all. Пока они были
-      // вместе, падение любого гасило остальные: значок статуса и панель
-      // модели просто исчезали, и человек не узнавал, что именно сломалось.
-      try {
-        const healthPayload = await fetchHealth()
-        if (!cancelled) setHealth(healthPayload)
-      } catch {
-        // Отдельного сообщения не нужно: недоступный backend виден сразу
-        // на обоих экранах, а здесь он только не покажет значок.
+      // Параллельно и с независимым разбором каждого исхода.
+      //
+      // Через `Promise.all` было нельзя: падение любого запроса гасило
+      // остальные, и значок статуса вместе с панелью модели исчезали молча.
+      // Но и цепочка `await` подряд оказалась плохой — на бесплатном хостинге
+      // первое обращение будит контейнер, и в худшем случае ожидание
+      // утраивалось. `allSettled` даёт и то, и другое: один общий прогрев
+      // и отдельная реакция на каждую неудачу.
+      const [healthResult, modelResult, analyticsResult] = await Promise.allSettled([
+        fetchHealth(),
+        fetchModel(),
+        fetchAnalytics(),
+      ])
+      if (cancelled) return
+
+      if (healthResult.status === 'fulfilled') {
+        setHealth(healthResult.value)
+      }
+      // Отдельного сообщения про health не нужно: недоступный backend виден
+      // сразу на обоих экранах, а здесь он только не покажет значок.
+
+      if (modelResult.status === 'fulfilled') {
+        setModel(modelResult.value)
+      } else {
+        const cause = modelResult.reason
+        setModelError(
+          cause instanceof ApiError ? cause.message : 'Сведения о модели недоступны',
+        )
       }
 
-      try {
-        const modelPayload = await fetchModel()
-        if (!cancelled) setModel(modelPayload)
-      } catch (cause) {
-        if (!cancelled) {
-          setModelError(
-            cause instanceof ApiError ? cause.message : 'Сведения о модели недоступны',
-          )
-        }
-      }
-
-      try {
-        const payload = await fetchAnalytics()
-        if (!cancelled) setAnalytics(payload)
-      } catch (cause) {
-        if (!cancelled) {
-          setAnalyticsError({
-            message: cause instanceof ApiError ? cause.message : 'Аналитика недоступна',
-            // 503 отдаёт сам backend, когда артефакта нет. Всё остальное —
-            // сеть, прокси или внутренняя ошибка, и выгрузка их не вылечит.
-            artifactMissing: cause instanceof ApiError && cause.status === 503,
-          })
-        }
+      if (analyticsResult.status === 'fulfilled') {
+        setAnalytics(analyticsResult.value)
+      } else {
+        const cause = analyticsResult.reason
+        setAnalyticsError({
+          message: cause instanceof ApiError ? cause.message : 'Аналитика недоступна',
+          // 503 отдаёт сам backend, когда артефакта нет. Всё остальное —
+          // сеть, прокси или внутренняя ошибка, и выгрузка их не вылечит.
+          artifactMissing: cause instanceof ApiError && cause.status === 503,
+        })
       }
     }
 
