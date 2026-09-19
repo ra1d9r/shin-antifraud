@@ -37,14 +37,21 @@ jobs:
       - name: Линтер
         run: python -m ruff check .
 
-      - name: Датасет и модель
+      - name: Датасет, модель и аналитика
         # Артефакты не лежат в репозитории (.gitignore исключает CSV
         # и .joblib), а тесты HTTP-слоя поднимают приложение с настоящей
         # моделью. Генерация и обучение детерминированы: метрики выходят
         # ровно те, что записаны в README.
+        #
+        # Аналитика выгружается здесь же, и это обязательно. Обучение ставит
+        # модели новую метку времени, а `evaluation.json` в репозитории
+        # посчитан на модели с машины разработчика. Без перевыгрузки отчёт
+        # относится к чужой модели — что и ловит проверка свежести
+        # в test_analytics.py. Ровно так же поступает docker/backend.Dockerfile.
         run: |
           python backend/scripts/generate_dataset.py
           python backend/scripts/train_model.py
+          python backend/scripts/export_evaluation.py
 
       - name: Тесты
         working-directory: backend
