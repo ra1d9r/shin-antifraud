@@ -17,6 +17,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import Tile from './Tile'
 import { fetchDrift } from './api'
+import { formatCount } from './format'
 import {
   DRIFT_STATUS_LABEL,
   driftHeadline,
@@ -76,7 +77,7 @@ export default function DriftPanel() {
         />
         <Tile
           label="Наблюдений с запуска"
-          value={report.observed_rows.toLocaleString('ru-RU')}
+          value={formatCount(report.observed_rows)}
           note={report.enough_data ? undefined : `минимум ${report.min_observations}`}
         />
         <Tile
@@ -87,7 +88,7 @@ export default function DriftPanel() {
         />
         <Tile
           label="Эталон снят по"
-          value={report.baseline_rows.toLocaleString('ru-RU')}
+          value={formatCount(report.baseline_rows)}
           note="строкам датасета"
         />
       </div>
