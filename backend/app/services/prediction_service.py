@@ -76,6 +76,25 @@ class PredictionService:
         # этого не заметит.
         self._shadow = shadow
 
+    def replace_risk_engine(self, engine: RiskEngine) -> None:
+        """Подменить движок — пороги меняются на работающей системе.
+
+        Присваивание атрибута атомарно, поэтому запрос, идущий прямо
+        сейчас, досчитает на прежнем движке, а следующий возьмёт новый.
+        Правка полей движка на месте дала бы запрос, увидевший новый
+        `approve_max` со старым `challenge_max`.
+        """
+        self._risk_engine = engine
+
+    def replace_shadow(self, shadow: ShadowRunner | None) -> None:
+        """Подменить теневую конфигурацию.
+
+        Нужно вместе с `replace_risk_engine`: при смене порогов тень
+        пересобирается, и без этого сервис продолжал бы кормить прежний
+        объект, а эндпоинт показывал бы новый — навсегда пустым.
+        """
+        self._shadow = shadow
+
     @property
     def explainer_method(self) -> str:
         return self._explainer.method

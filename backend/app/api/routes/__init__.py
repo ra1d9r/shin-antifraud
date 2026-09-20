@@ -2,6 +2,7 @@
 
 from app.api.routes import (
     analytics,
+    config,
     feedback,
     graph,
     health,
@@ -15,6 +16,7 @@ from app.api.routes import (
 
 __all__ = [
     "analytics",
+    "config",
     "feedback",
     "graph",
     "health",

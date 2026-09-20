@@ -53,6 +53,13 @@ class Settings(BaseSettings):
     # Каждое правило задаёт МИНИМАЛЬНЫЙ Risk Score при срабатывании: правила
     # только поднимают оценку модели, но никогда её не снижают.
     rules_enabled: bool = True
+
+    # Пароль на смену порогов в рантайме. Пустая строка — эндпоинт записи
+    # выключен, и это умышленно безопасное значение по умолчанию: адрес,
+    # которым можно отключить блокировки, без пароля открыт кому угодно,
+    # а публичный демонстрационный стенд у проекта есть.
+    config_admin_token: str = ""
+
     rule_impossible_travel_min_score: int = Field(default=75, ge=0, le=100)
     rule_high_risk_country_min_score: int = Field(default=55, ge=0, le=100)
     rule_unusual_country_min_score: int = Field(default=40, ge=0, le=100)
@@ -118,6 +125,24 @@ class Settings(BaseSettings):
     max_idempotency_keys: int = Field(default=5_000, gt=0)
 
     # ---------------------------------------------------------- validators
+    @field_validator("config_admin_token")
+    @classmethod
+    def _token_is_sendable_in_a_header(cls, value: str) -> str:
+        """Пароль уходит в заголовок X-Admin-Token, а заголовки — latin-1.
+
+        Кириллический пароль пройдёт в `.env`, но отправить его не сможет
+        ни один клиент: HTTP-заголовки не переносят такие символы. Эндпоинт
+        оказался бы настроенным и недоступным одновременно, и разбираться
+        пришлось бы по UnicodeEncodeError в чужом коде.
+        """
+        if value and not value.isascii():
+            raise ValueError(
+                "CONFIG_ADMIN_TOKEN должен состоять из ASCII-символов: "
+                "он передаётся заголовком X-Admin-Token, а HTTP-заголовки "
+                "не переносят кириллицу"
+            )
+        return value
+
     @field_validator("risk_challenge_max")
     @classmethod
     def _challenge_above_approve(cls, value: int, info) -> int:

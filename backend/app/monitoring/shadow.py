@@ -66,30 +66,36 @@ class ShadowConfig:
     rules_enabled: bool
 
     @classmethod
-    def from_settings(cls, settings: Settings) -> ShadowConfig:
+    def from_settings(cls, settings: Settings, primary: RiskEngine) -> ShadowConfig:
         """Собрать теневую конфигурацию, наследуя незаданное у основной.
 
         Наследование, а не полная копия настроек: теневая конфигурация
         обычно отличается одним-двумя значениями, и требовать перечислить
         остальные значило бы завести второе место, где они разъезжаются
         с основными.
+
+        Наследуется от **работающего движка**, а не от `.env`. Пороги
+        можно менять на живой системе, и после такой смены наследование
+        от `.env` дало бы тень, отличающуюся не тем, чем задумано:
+        настройка говорила «те же пороги, но без политик», а на деле
+        получились бы ещё и прежние пороги.
         """
         return cls(
             thresholds=RiskThresholds(
                 approve_max=(
                     settings.shadow_approve_max
                     if settings.shadow_approve_max is not None
-                    else settings.risk_approve_max
+                    else primary.thresholds.approve_max
                 ),
                 challenge_max=(
                     settings.shadow_challenge_max
                     if settings.shadow_challenge_max is not None
-                    else settings.risk_challenge_max
+                    else primary.thresholds.challenge_max
                 ),
                 critical_min=(
                     settings.shadow_critical_min
                     if settings.shadow_critical_min is not None
-                    else settings.risk_critical_min
+                    else primary.thresholds.critical_min
                 ),
             ),
             rules_enabled=settings.shadow_rules_enabled,
@@ -184,7 +190,7 @@ class ShadowRunner:
 
     @classmethod
     def from_settings(cls, settings: Settings, primary: RiskEngine) -> ShadowRunner:
-        config = ShadowConfig.from_settings(settings)
+        config = ShadowConfig.from_settings(settings, primary)
         engine = RiskEngine(
             thresholds=config.thresholds,
             # Правила строятся из тех же настроек: теневая конфигурация

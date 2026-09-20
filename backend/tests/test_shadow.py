@@ -145,11 +145,27 @@ def test_unset_thresholds_are_inherited_from_the_primary() -> None:
         shadow_approve_max=5,
     )
 
-    config = ShadowConfig.from_settings(settings)
+    config = ShadowConfig.from_settings(settings, engine(30, 70))
 
     assert config.thresholds.approve_max == 5
     assert config.thresholds.challenge_max == 70
     assert config.thresholds.critical_min == 90
+
+
+def test_inheritance_follows_the_running_engine_not_the_env() -> None:
+    """Пороги можно менять на живой системе.
+
+    После такой смены наследование от `.env` дало бы тень,
+    отличающуюся не тем, чем задумано: настройка говорит «те же пороги,
+    но без политик», а получились бы ещё и прежние пороги.
+    """
+    settings = Settings(risk_approve_max=30, risk_challenge_max=70, risk_critical_min=90)
+    moved = engine(approve_max=4, challenge_max=55)
+
+    config = ShadowConfig.from_settings(settings, moved)
+
+    assert config.thresholds.approve_max == 4
+    assert config.thresholds.challenge_max == 55
 
 
 def test_difference_is_described_in_words() -> None:

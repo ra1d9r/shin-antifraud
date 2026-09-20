@@ -11,7 +11,9 @@
 from __future__ import annotations
 
 import time
+from collections import deque
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import Depends, Request
@@ -23,7 +25,8 @@ from app.core.logging import get_logger
 from app.ml.pipeline import TrainedModel, load_model
 from app.monitoring.drift import BaselineNotFoundError, DriftMonitor, load_baseline
 from app.monitoring.shadow import ShadowRunner
-from app.risk_engine.engine import RiskEngine
+from app.risk_engine.engine import RiskEngine, RiskThresholds
+from app.risk_engine.rules import build_rules
 from app.services.prediction_service import PredictionService
 from app.store.feedback import FeedbackStore
 from app.store.idempotency import IdempotencyStore
@@ -68,7 +71,14 @@ class AppState:
     shadow: ShadowRunner | None = None
     shadow_error: str | None = None
     model_error: str | None = None
+    # Правки порогов на работающей системе. Живут в памяти: перезапуск
+    # возвращает к `.env`, и неудачную правку отменяет рестарт.
+    threshold_changes: deque = field(default_factory=lambda: deque(maxlen=20))
     started_at: float = field(default_factory=time.monotonic)
+
+    @property
+    def thresholds_overridden(self) -> bool:
+        return bool(self.threshold_changes)
 
     @property
     def model_loaded(self) -> bool:
@@ -247,6 +257,91 @@ def _load_drift_baseline(state: AppState) -> None:
         len(baseline.features),
         baseline.rows,
     )
+
+
+def apply_thresholds(
+    state: AppState,
+    *,
+    thresholds: RiskThresholds,
+    rules_enabled: bool,
+    changed_by: str | None = None,
+    reason: str | None = None,
+) -> dict:
+    """Сменить пороги на работающей системе и привести за ними остальное.
+
+    Порядок здесь важнее самой смены. Пороги меняют не одно число:
+    от них зависит всё, что система уже успела насчитать.
+
+    **Движок заменяется целиком, а не правится по полю.** `RiskThresholds`
+    неизменяем, и подмена одного объекта на другой атомарна: запрос,
+    идущий прямо сейчас, увидит либо старую конфигурацию, либо новую,
+    но никогда половину одной и половину другой.
+
+    **Теневое сравнение обнуляется.** Оно сравнивает две конфигурации;
+    если одна изменилась посреди набора, матрица смешивает разное
+    и перестаёт что-либо означать.
+
+    **Тень пересобирается.** Незаданные пороги она наследует у основной —
+    значит после смены основной наследование надо вывести заново, иначе
+    тень осталась бы отличаться не тем, чем задумано.
+
+    **Аналитика помечается устаревшей.** Она посчитана на прежних порогах.
+    Тот же механизм, что при смене модели: скрывать числа хуже, чем
+    показать их с пометкой.
+
+    **Дрейф НЕ сбрасывается.** Он сравнивает распределение входных
+    признаков с обучающим, а пороги на признаки не влияют вовсе.
+    Обнулить его значило бы выбросить исправные наблюдения за компанию.
+    """
+    state.risk_engine = RiskEngine(
+        thresholds=thresholds,
+        rules=build_rules(state.settings),
+        rules_enabled=rules_enabled,
+    )
+    if state.service is not None:
+        state.service.replace_risk_engine(state.risk_engine)
+
+    shadow_reset = False
+    if state.shadow is not None:
+        _build_shadow(state)
+        # Сервису надо отдать именно новый объект: он держит ссылку,
+        # а не читает состояние. Без этого тень замолчала бы навсегда —
+        # сервис кормил бы прежний runner, а эндпоинт показывал новый.
+        if state.service is not None:
+            state.service.replace_shadow(state.shadow)
+        shadow_reset = True
+
+    marked_stale = False
+    if state.evaluation is not None and not state.evaluation_stale:
+        state.evaluation_stale = True
+        state.evaluation_stale_reason = (
+            f"Пороги изменены на работающей системе "
+            f"(APPROVE <= {thresholds.approve_max} < CHALLENGE <= "
+            f"{thresholds.challenge_max}), а отчёт посчитан на прежних. "
+            "Выгрузите заново: python backend/scripts/export_evaluation.py"
+        )
+        marked_stale = True
+
+    state.threshold_changes.appendleft(
+        {
+            "at": datetime.now(UTC).replace(tzinfo=None),
+            "approve_max": thresholds.approve_max,
+            "challenge_max": thresholds.challenge_max,
+            "critical_min": thresholds.critical_min,
+            "rules_enabled": rules_enabled,
+            "changed_by": changed_by,
+            "reason": reason,
+        }
+    )
+    logger.warning(
+        "Пороги изменены в рантайме: APPROVE <= %s < CHALLENGE <= %s, политики %s (%s)",
+        thresholds.approve_max,
+        thresholds.challenge_max,
+        "включены" if rules_enabled else "выключены",
+        changed_by or "без подписи",
+    )
+
+    return {"shadow_reset": shadow_reset, "analytics_marked_stale": marked_stale}
 
 
 # ------------------------------------------------------------ зависимости
