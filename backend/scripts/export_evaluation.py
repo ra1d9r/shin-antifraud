@@ -1,7 +1,18 @@
-"""Выгрузка аналитики по всему датасету в артефакт (брифинг §5.A, §11).
+"""Выгрузка аналитики по всему датасету в артефакты (брифинг §5.A, §11).
 
 Запуск:
     python backend/scripts/export_evaluation.py
+
+## Два артефакта за один проход
+
+Скрипт пишет `evaluation.json` (что система делает со всем потоком) и
+`feature_baseline.json` (как выглядит распределение признаков, на которых
+она строилась). Второе нужно наблюдению за дрейфом: живой поток
+сравнивается с этим снимком.
+
+Артефакта два, а проход один, потому что дорогая часть — построение
+признаков по 100 000 строк. Считать их дважды в двух скриптах значило бы
+удвоить и время сборки образа, и время прогона CI.
 
 ## Зачем артефакт, а не расчёт на лету
 
@@ -37,6 +48,7 @@ from app.analytics.source import prepare_inputs  # noqa: E402
 from app.config.settings import get_settings  # noqa: E402
 from app.core.console import enable_utf8_output  # noqa: E402
 from app.core.logging import configure_logging, get_logger  # noqa: E402
+from app.monitoring.drift import build_baseline  # noqa: E402
 from app.risk_engine.engine import RiskThresholds  # noqa: E402
 
 enable_utf8_output()
@@ -49,6 +61,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dataset", type=str, default=None, help="путь к CSV с транзакциями")
     parser.add_argument("--model", type=str, default=None, help="путь к модели")
     parser.add_argument("--output", type=str, default=None, help="куда записать JSON")
+    parser.add_argument(
+        "--baseline-output", type=str, default=None, help="куда записать эталон распределения"
+    )
     parser.add_argument("--approve-max", type=int, default=settings.risk_approve_max)
     parser.add_argument("--challenge-max", type=int, default=settings.risk_challenge_max)
     parser.add_argument(
@@ -98,6 +113,24 @@ def main() -> int:
         json.dumps(report.to_dict(), indent=2, ensure_ascii=False), encoding="utf-8"
     )
 
+    # --------------------------------------------- эталон распределения
+    #
+    # Считается по всему датасету, а не по обучающей доле сплита.
+    # Разбиение стратифицированное и случайное, на 100 000 строк оно
+    # маргинальные распределения не двигает, а весь набор — это ровно то,
+    # что генератор данных считает нормой.
+    baseline = build_baseline(inputs.features, model_trained_at=inputs.model.trained_at)
+    baseline_output = (
+        Path(args.baseline_output).resolve()
+        if args.baseline_output
+        else settings.feature_baseline_file
+    )
+    baseline_output.parent.mkdir(parents=True, exist_ok=True)
+    baseline_output.write_text(
+        json.dumps(baseline.to_dict(), indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    measurable = sum(1 for feature in baseline.features if feature.measurable)
+
     elapsed = time.perf_counter() - started
 
     print()
@@ -112,6 +145,10 @@ def main() -> int:
     print(f"  оптимальный порог : {report.optimal_threshold}"
           f" (текущий APPROVE <= {report.thresholds['approve_max']})")
     print(f"  файл              : {output}")
+    print()
+    print(f"  эталон признаков  : {baseline_output}")
+    print(f"  признаков в нём   : {len(baseline.features)}"
+          f" (сравнимых {measurable})")
     print(f"  заняло            : {elapsed:.1f} с")
     print("=" * 72)
     return 0

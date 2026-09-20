@@ -70,6 +70,9 @@ class Settings(BaseSettings):
     # Аналитика по всему датасету: считается скриптом, приложением только читается.
     # Полный проход занимает около двадцати секунд — на старте столько ждать нельзя.
     evaluation_path: str = "backend/models/evaluation.json"
+    # Эталонное распределение признаков: с ним сравнивается живой поток.
+    # Снимается тем же проходом по датасету, что и аналитика.
+    feature_baseline_path: str = "backend/models/feature_baseline.json"
     dataset_path: str = "backend/data/raw/transactions.csv"
 
     dataset_rows: int = Field(default=100_000, gt=0)
@@ -90,6 +93,9 @@ class Settings(BaseSettings):
 
     # -------------------------------------------------------------- storage
     max_stored_transactions: int = Field(default=5_000, gt=0)
+    # Разметка аналитика: ручная работа человека, её нельзя терять при
+    # перезапуске. Дописывается построчно в JSON Lines.
+    feedback_path: str = "backend/data/feedback/labels.jsonl"
 
     # ---------------------------------------------------------- validators
     @field_validator("risk_challenge_max")
@@ -141,8 +147,16 @@ class Settings(BaseSettings):
         return self.resolve(self.evaluation_path)
 
     @property
+    def feature_baseline_file(self) -> Path:
+        return self.resolve(self.feature_baseline_path)
+
+    @property
     def dataset_file(self) -> Path:
         return self.resolve(self.dataset_path)
+
+    @property
+    def feedback_file(self) -> Path:
+        return self.resolve(self.feedback_path)
 
 
 @lru_cache(maxsize=1)

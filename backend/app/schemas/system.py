@@ -6,7 +6,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from app.schemas.enums import Decision, RiskLevel, ScenarioKey
+from app.schemas.enums import Decision, RiskLevel, ScenarioKey, Verdict
 from app.schemas.transaction import TransactionRequest
 
 
@@ -59,7 +59,8 @@ class StatsResponse(BaseModel):
     fraud_rate: float = Field(
         description=(
             "Доля транзакций, признанных рискованными: решение отличается от APPROVE. "
-            "Это оценка системы, а не проверенная истина — разметки в проде нет."
+            "Это оценка системы, а не проверенная истина: здесь она судит сама себя. "
+            "Подтверждённые числа — в GET /feedback/summary, по разметке аналитика."
         )
     )
     decisions: DecisionBreakdown
@@ -88,6 +89,13 @@ class TransactionRecordOut(BaseModel):
     risk_level: RiskLevel
     triggered_rules: list[str] = Field(default_factory=list)
     top_reason: str | None = None
+    # Разметка аналитика, если операцию уже разобрали. null — ещё нет.
+    # Лежит здесь, а не отдельным запросом: таблица без пометки «уже
+    # проверено» заставила бы разбирать одно и то же дважды.
+    verdict: Verdict | None = None
+    actual_fraud: bool | None = Field(
+        default=None, description="Подтверждённая метка: была ли операция мошеннической"
+    )
 
 
 class TransactionListResponse(BaseModel):

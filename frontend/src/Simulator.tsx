@@ -11,16 +11,40 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
-import { ApiError, apiBaseUrl, fetchScenarios, predict } from './api'
+import { ApiError, apiBaseUrl, fetchScenarios, predict, sendFeedback } from './api'
 import { CONTEXT_FIELDS, FORM_FIELDS, formToRequest, scenarioToForm } from './form'
+import { VERDICT_LABEL, feedbackHeadline } from './feedback'
 import { WAKE_UP_HINT, useSlowHint } from './useSlowHint'
 import type { FieldSpec, FormState } from './form'
-import type { Decision, PredictionResponse, Scenario } from './types'
+import type {
+  Decision,
+  FeedbackAccepted,
+  PredictionResponse,
+  Scenario,
+  Verdict,
+} from './types'
 
 /** Что показать в блоке ошибки: заголовок и разбор по полям. */
 interface DisplayError {
   title: string
   details: string[]
+}
+
+/**
+ * Один прогон анализа.
+ *
+ * `persisted` запоминается вместе с ответом, а не читается из галочки:
+ * галочку могли переключить уже после анализа, и тогда интерфейс
+ * предлагал бы разметить операцию, которой в истории нет.
+ *
+ * `seq` отличает два одинаковых ответа подряд. Без него повторное нажатие
+ * Analyze не сбрасывало бы блок разметки, и рядом со свежим вердиктом
+ * висело бы подтверждение метки, поставленной на прошлый.
+ */
+interface Analysis {
+  seq: number
+  result: PredictionResponse
+  persisted: boolean
 }
 
 const DECISION_CLASS: Record<Decision, string> = {
@@ -33,7 +57,7 @@ export default function Simulator() {
   const [scenarios, setScenarios] = useState<Scenario[]>([])
   const [activeScenario, setActiveScenario] = useState<string>('')
   const [form, setForm] = useState<FormState>({})
-  const [result, setResult] = useState<PredictionResponse | null>(null)
+  const [analysis, setAnalysis] = useState<Analysis | null>(null)
   const [error, setError] = useState<DisplayError | null>(null)
   const [loading, setLoading] = useState(false)
   const [startupError, setStartupError] = useState<string>('')
@@ -72,7 +96,7 @@ export default function Simulator() {
   const applyScenario = useCallback((scenario: Scenario) => {
     setActiveScenario(scenario.key)
     setForm(scenarioToForm(scenario))
-    setResult(null)
+    setAnalysis(null)
     setError(null)
   }, [])
 
@@ -86,21 +110,26 @@ export default function Simulator() {
       // Заведомо испорченный запрос не отправляем: иначе backend ответит 200
       // по другим данным, и пользователь не узнает, что его ввод потерян.
       setError({ title: 'Форма заполнена неверно — запрос не отправлен', details: invalid })
-      setResult(null)
+      setAnalysis(null)
       return
     }
 
     setLoading(true)
     setError(null)
     try {
-      setResult(await predict({ ...body, persist }))
+      const result = await predict({ ...body, persist })
+      setAnalysis((previous) => ({
+        seq: (previous?.seq ?? 0) + 1,
+        result,
+        persisted: persist,
+      }))
     } catch (cause) {
       const failure = cause instanceof ApiError ? cause : new ApiError(String(cause), 0, null)
       setError({
         title: `${failure.status > 0 ? `HTTP ${failure.status}` : 'Сеть'} — ${failure.message}`,
         details: failure.fieldErrors,
       })
-      setResult(null)
+      setAnalysis(null)
     } finally {
       setLoading(false)
     }
@@ -215,8 +244,111 @@ export default function Simulator() {
         </section>
       )}
 
-      {result && <Result result={result} />}
+      {analysis && (
+        <>
+          <Result result={analysis.result} />
+          <FeedbackControls key={analysis.seq} analysis={analysis} />
+        </>
+      )}
     </>
+  )
+}
+
+/**
+ * Отметка вердикта — единственное место, где в систему попадает истина.
+ *
+ * Что именно значит «ошибочный», зависит от решения, и выводит это
+ * backend: он знает, что утверждал. Клиент отправляет отметку и
+ * показывает записанное — считать метку у себя значило бы завести вторую
+ * копию правила и однажды разойтись с ней (ТЗ §11).
+ */
+function FeedbackControls({ analysis }: { analysis: Analysis }) {
+  const [sending, setSending] = useState<Verdict | null>(null)
+  const [accepted, setAccepted] = useState<FeedbackAccepted | null>(null)
+  const [failure, setFailure] = useState('')
+
+  const submit = useCallback(
+    async (verdict: Verdict) => {
+      setSending(verdict)
+      setFailure('')
+      try {
+        setAccepted(await sendFeedback(analysis.result.transaction_id, verdict))
+      } catch (cause) {
+        setFailure(cause instanceof ApiError ? cause.message : 'Метку не удалось сохранить')
+      } finally {
+        setSending(null)
+      }
+    },
+    [analysis.result.transaction_id],
+  )
+
+  if (!analysis.persisted) {
+    return (
+      <section className="panel">
+        <h2>Разметка</h2>
+        <p className="hint">
+          Операция посчитана в режиме «что если»: галочка «сохранять в историю» была
+          снята, и в истории её нет — размечать нечего. Повторите анализ с включённой
+          галочкой, чтобы отметить вердикт.
+        </p>
+      </section>
+    )
+  }
+
+  return (
+    <section className="panel">
+      <h2>Система права?</h2>
+      <p className="hint">
+        Отметка — не оценка интерфейса, а настоящая метка для системы. Из накопленного
+        считается подтверждённое качество на вкладке «Дашборд», и оно же станет
+        обучающей выборкой следующего цикла. Отметка учитывает, что именно система
+        утверждала: подтверждённый BLOCK означает фрод, подтверждённый APPROVE —
+        чистую операцию.
+      </p>
+
+      <div className="scenario-buttons">
+        <button
+          type="button"
+          className="chip"
+          disabled={sending !== null}
+          onClick={() => void submit('CORRECT')}
+        >
+          {sending === 'CORRECT' ? 'Сохраняю…' : VERDICT_LABEL.CORRECT}
+        </button>
+        <button
+          type="button"
+          className="chip"
+          disabled={sending !== null}
+          onClick={() => void submit('INCORRECT')}
+        >
+          {sending === 'INCORRECT' ? 'Сохраняю…' : VERDICT_LABEL.INCORRECT}
+        </button>
+      </div>
+
+      {failure && (
+        <p className="hint">
+          <strong className="error-text">{failure}</strong>
+        </p>
+      )}
+
+      {accepted && (
+        <p className="hint">
+          Записано:{' '}
+          <strong>
+            {accepted.record.actual_fraud
+              ? 'операция подтверждена как мошенническая'
+              : 'операция подтверждена как добросовестная'}
+          </strong>
+          . {feedbackHeadline(accepted.summary)}.
+          {accepted.summary.storage_error && (
+            <>
+              {' '}
+              <span className="warn-text">{accepted.summary.storage_error}</span>
+            </>
+          )}
+        </p>
+      )}
+    </section>
   )
 }
 

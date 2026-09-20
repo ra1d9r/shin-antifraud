@@ -10,12 +10,16 @@
 import type {
   AnalyticsOverview,
   ApiErrorBody,
+  DriftReport,
+  FeedbackAccepted,
+  FeedbackSummary,
   HealthResponse,
   PredictionResponse,
   ModelInfo,
   Scenario,
   ScenarioList,
   TransactionRequest,
+  Verdict,
 } from './types'
 
 const BASE_URL = (import.meta.env.VITE_API_URL ?? 'http://localhost:8000').replace(/\/$/, '')
@@ -165,6 +169,42 @@ export function fetchAnalytics(): Promise<AnalyticsOverview> {
 
 export function fetchModel(): Promise<ModelInfo> {
   return request<ModelInfo>('/model')
+}
+
+/**
+ * Отметить вердикт верным или ошибочным.
+ *
+ * Настоящую метку («был ли это фрод») клиент не вычисляет: он не знает
+ * и не должен знать, что система считает подозрительным. Вывод делает
+ * backend, зная собственное решение по операции.
+ *
+ * Ответ приносит и метку, и пересчитанную сводку — отдельный запрос
+ * за ней был бы лишним кругом по сети.
+ */
+export function sendFeedback(
+  transactionId: string,
+  verdict: Verdict,
+  extra?: { analyst?: string; comment?: string },
+): Promise<FeedbackAccepted> {
+  return request<FeedbackAccepted>(
+    `/transactions/${encodeURIComponent(transactionId)}/feedback`,
+    { method: 'POST', body: JSON.stringify({ verdict, ...extra }) },
+  )
+}
+
+/** Измеренное качество по накопленной разметке. */
+export function fetchFeedbackSummary(): Promise<FeedbackSummary> {
+  return request<FeedbackSummary>('/feedback/summary')
+}
+
+/**
+ * Сдвиг распределения признаков относительно обучающего.
+ *
+ * Считает backend: PSI, границы корзин и раскладка по ним живут там же,
+ * где эталон, и на клиент приходят готовыми.
+ */
+export function fetchDrift(): Promise<DriftReport> {
+  return request<DriftReport>('/monitoring/drift')
 }
 
 export const apiBaseUrl = BASE_URL

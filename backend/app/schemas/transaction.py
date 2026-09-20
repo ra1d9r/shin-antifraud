@@ -54,6 +54,12 @@ class TransactionRequest(BaseModel):
     # ------------------------------------------------------------ ТЗ §3
     transaction_id: str = Field(
         default_factory=lambda: f"txn_{uuid.uuid4().hex[:12]}",
+        # Границы такие же, как у user_id и device_id. Раньше их тут не было,
+        # и пустая строка проходила: операция ложилась в историю с пустым
+        # идентификатором, а разметить её было уже нечем — адрес
+        # /transactions//feedback никуда не ведёт.
+        min_length=1,
+        max_length=128,
         description="Идентификатор транзакции. Если не передан — генерируется.",
     )
     user_id: str = Field(min_length=1, max_length=128, description="Идентификатор клиента")

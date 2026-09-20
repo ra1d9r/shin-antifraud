@@ -27,6 +27,7 @@ from datetime import UTC, datetime
 from app.core.exceptions import ModelNotLoadedError
 from app.core.logging import get_logger
 from app.features.builder import TransactionInput, build_features
+from app.monitoring.drift import DriftMonitor
 from app.risk_engine.engine import RiskEngine
 from app.schemas.prediction import (
     ExplanationOut,
@@ -58,12 +59,16 @@ class PredictionService:
         explainer: Explainer,
         profiles: UserProfileStore,
         transactions: TransactionStore,
+        drift: DriftMonitor | None = None,
     ) -> None:
         self._model = model
         self._risk_engine = risk_engine
         self._explainer = explainer
         self._profiles = profiles
         self._transactions = transactions
+        # Необязательная зависимость: без выгруженного эталона наблюдение
+        # не заводится, и сервис работает ровно как прежде.
+        self._drift = drift
 
     @property
     def explainer_method(self) -> str:
@@ -89,6 +94,13 @@ class PredictionService:
 
         # Состояние меняем только после того, как ответ полностью посчитан.
         if request.persist:
+            # Наблюдение за дрейфом учитывает только то, что система
+            # признала реальной операцией. Режим «что если» сюда не
+            # попадает: иначе десяток нажатий Analyze на одном сценарии
+            # сдвинул бы картину сильнее, чем настоящий поток.
+            if self._drift is not None:
+                self._drift.observe(features)
+
             self._profiles.record(
                 request.user_id,
                 amount=request.amount,

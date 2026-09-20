@@ -54,6 +54,13 @@ class InvalidConfigurationError(ShinError):
     error_code = "invalid_configuration"
 
 
+class TransactionNotFoundError(ShinError):
+    """Транзакции нет в истории обработанных."""
+
+    status_code = 404
+    error_code = "transaction_not_found"
+
+
 class DatasetNotFoundError(ShinError):
     """Датасет для обучения не найден."""
 

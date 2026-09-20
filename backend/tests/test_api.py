@@ -55,18 +55,28 @@ def transaction_body(**overrides) -> dict:
 
 
 @pytest.fixture(scope="module")
-def client():
-    """Приложение поднимается один раз: загрузка модели небыстрая."""
-    with TestClient(create_app()) as test_client:
+def client(tmp_path_factory):
+    """Приложение поднимается один раз: загрузка модели небыстрая.
+
+    Архив разметки уводится во временный каталог. С настройками по
+    умолчанию прогон тестов дописывал бы метки в рабочий
+    `backend/data/feedback/labels.jsonl` — то есть в настоящую разметку
+    разработчика, которую ничем не восстановить.
+    """
+    settings = Settings(
+        feedback_path=str(tmp_path_factory.mktemp("feedback") / "labels.jsonl")
+    )
+    with TestClient(create_app(settings)) as test_client:
         yield test_client
 
 
 @pytest.fixture(autouse=True)
 def clean_state(client):
-    """Каждый тест начинает с пустой историей и пустыми профилями."""
+    """Каждый тест начинает с пустой историей, профилями и разметкой."""
     state = client.app.state.shin
     state.transactions.clear()
     state.profiles.clear()
+    state.feedback.clear()
     yield
 
 
@@ -452,6 +462,144 @@ def test_cors_allows_frontend_origin(client) -> None:
     )
     assert response.status_code in (200, 204)
     assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
+
+
+# -------------------------------------------- разметка аналитика
+
+
+def analyze(client, **overrides) -> dict:
+    """Провести операцию через систему, чтобы её было что размечать."""
+    return client.post("/predict", json=transaction_body(**overrides)).json()
+
+
+def test_feedback_turns_a_verdict_into_a_label(client) -> None:
+    """Аналитик отвечает «система права?», а система выводит настоящую метку."""
+    predicted = analyze(client, transaction_id="txn_feedback_1")
+
+    response = client.post(
+        f"/transactions/{predicted['transaction_id']}/feedback",
+        json={"verdict": "INCORRECT", "analyst": "ops", "comment": "клиент подтвердил покупку"},
+    )
+    assert response.status_code == 200
+    record = response.json()["record"]
+
+    assert record["verdict"] == "INCORRECT"
+    assert record["decision"] == predicted["decision"]
+    # Решение системы копируется в метку: транзакцию вытеснит из буфера,
+    # а размеченная строка должна остаться пригодной для дообучения.
+    assert record["risk_score"] == predicted["risk_score"]
+    assert record["analyst"] == "ops"
+
+
+def test_feedback_returns_the_recalculated_summary(client) -> None:
+    """Сводка приходит тем же ответом — лишний круг по сети ни к чему."""
+    analyze(client, transaction_id="txn_feedback_2")
+
+    summary = client.post(
+        "/transactions/txn_feedback_2/feedback", json={"verdict": "CORRECT"}
+    ).json()["summary"]
+
+    assert summary["labeled_total"] == 1
+    assert summary["correct"] == 1
+    assert summary["correct_share"] == 1.0
+
+
+def test_relabeling_replaces_and_does_not_double_count(client) -> None:
+    analyze(client, transaction_id="txn_feedback_3")
+
+    client.post("/transactions/txn_feedback_3/feedback", json={"verdict": "CORRECT"})
+    second = client.post(
+        "/transactions/txn_feedback_3/feedback", json={"verdict": "INCORRECT"}
+    ).json()
+
+    assert second["summary"]["labeled_total"] == 1
+    assert second["summary"]["incorrect"] == 1
+
+
+def test_feedback_on_unknown_transaction_explains_both_causes(client) -> None:
+    """Опечатка и `persist=false` выглядят одинаково — говорим обе причины."""
+    response = client.post(
+        "/transactions/txn_never-existed/feedback", json={"verdict": "CORRECT"}
+    )
+
+    assert response.status_code == 404
+    payload = response.json()
+    assert payload["error_code"] == "transaction_not_found"
+    assert "persist=false" in payload["message"]
+
+
+def test_unsaved_transaction_cannot_be_labeled(client) -> None:
+    """Режим «что если» историю не меняет, значит и размечать нечего."""
+    client.post("/predict", json=transaction_body(transaction_id="txn_ghost", persist=False))
+
+    response = client.post("/transactions/txn_ghost/feedback", json={"verdict": "CORRECT"})
+    assert response.status_code == 404
+
+
+def test_empty_transaction_id_is_rejected_at_the_border(client) -> None:
+    """Пустой идентификатор попадал в историю, а разметить его было нечем:
+    адрес /transactions//feedback никуда не ведёт."""
+    response = client.post("/predict", json=transaction_body(transaction_id=""))
+
+    assert response.status_code == 422
+    assert any("transaction_id" in item["field"] for item in response.json()["details"]["errors"])
+
+
+def test_feedback_rejects_an_unknown_verdict(client) -> None:
+    analyze(client, transaction_id="txn_feedback_4")
+
+    response = client.post(
+        "/transactions/txn_feedback_4/feedback", json={"verdict": "MAYBE"}
+    )
+    assert response.status_code == 422
+    assert response.json()["error_code"] == "validation_error"
+
+
+def test_summary_is_empty_before_any_labeling(client) -> None:
+    payload = client.get("/feedback/summary").json()
+
+    assert payload["labeled_total"] == 0
+    # Не ноль: «точность 0 %» и «ещё не измерена» — разные утверждения.
+    assert payload["precision"] is None
+    assert payload["correct_share"] is None
+
+
+def test_accumulated_labels_are_retrievable(client) -> None:
+    """На эфемерном диске это единственный способ забрать разметку наружу."""
+    for index in (1, 2):
+        analyze(client, transaction_id=f"txn_list_{index}")
+        client.post(f"/transactions/txn_list_{index}/feedback", json={"verdict": "CORRECT"})
+
+    payload = client.get("/feedback").json()
+
+    assert payload["total"] == 2
+    assert {item["transaction_id"] for item in payload["items"]} == {
+        "txn_list_1",
+        "txn_list_2",
+    }
+
+
+def test_transactions_table_shows_what_is_already_labeled(client) -> None:
+    """Без пометки аналитик разбирал бы одно и то же дважды."""
+    analyze(client, transaction_id="txn_marked")
+    analyze(client, transaction_id="txn_untouched")
+    client.post("/transactions/txn_marked/feedback", json={"verdict": "CORRECT"})
+
+    rows = {item["transaction_id"]: item for item in client.get("/transactions").json()["items"]}
+
+    assert rows["txn_marked"]["verdict"] == "CORRECT"
+    assert rows["txn_marked"]["actual_fraud"] is not None
+    assert rows["txn_untouched"]["verdict"] is None
+
+
+def test_labels_are_written_to_disk(client) -> None:
+    """Ручную работу человека нельзя терять при перезапуске."""
+    analyze(client, transaction_id="txn_persisted")
+    client.post("/transactions/txn_persisted/feedback", json={"verdict": "CORRECT"})
+
+    archive = client.app.state.shin.feedback.path
+    assert archive.exists()
+    assert "txn_persisted" in archive.read_text(encoding="utf-8")
 
 
 def test_openapi_schema_is_available(client) -> None:

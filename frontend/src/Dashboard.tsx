@@ -13,6 +13,9 @@
 
 import { useMemo, useState } from 'react'
 
+import DriftPanel from './DriftPanel'
+import FeedbackPanel from './FeedbackPanel'
+import Tile from './Tile'
 import type { AnalyticsOverview, CurvePoint, ModelInfo } from './types'
 
 const DECISION_CLASS: Record<string, string> = {
@@ -256,6 +259,10 @@ export default function Dashboard({
         </section>
       )}
 
+      <FeedbackPanel />
+
+      <DriftPanel />
+
       {!model?.loaded && modelError && (
         <section className="panel alert">
           <h2>Сведения о модели не получены</h2>
@@ -295,26 +302,6 @@ function costNote(point: CurvePoint, current: CurvePoint): string {
   return delta < 0
     ? `на ${formatMoney(-delta)} дешевле текущего`
     : `на ${formatMoney(delta)} дороже текущего`
-}
-
-function Tile({
-  label,
-  value,
-  note,
-  tone,
-}: {
-  label: string
-  value: string
-  note?: string
-  tone?: 'good' | 'bad' | 'warn'
-}) {
-  return (
-    <div className={tone ? `tile ${tone}` : 'tile'}>
-      <span className="tile-label">{label}</span>
-      <strong className="tile-value">{value}</strong>
-      {note && <span className="tile-note">{note}</span>}
-    </div>
-  )
 }
 
 /**
