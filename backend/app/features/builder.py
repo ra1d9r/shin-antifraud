@@ -128,8 +128,14 @@ def _safe_ratio(numerator: float, denominator: float) -> float:
     return _clip(numerator / max(abs(denominator), 0.01), 0.0, MAX_RATIO)
 
 
-def _ip_subnet(ip_address: str | None) -> str | None:
-    """Первые три октета IPv4 — подсеть /24."""
+def ip_subnet(ip_address: str | None) -> str | None:
+    """Первые три октета IPv4 — подсеть /24.
+
+    Публичная, потому что то же определение подсети нужно графу связей.
+    Вторая копия «первых трёх октетов» рано или поздно разошлась бы
+    с этой, и признак `ip_subnet_changed` перестал бы означать то же,
+    что рёбра графа.
+    """
     if not ip_address:
         return None
     parts = ip_address.split(".")
@@ -187,7 +193,7 @@ def build_features(transaction: TransactionInput) -> dict[str, float]:
     # ---------------------------------------------------- IP (ТЗ §4.4)
     previous_ip = transaction.previous_ip_address
     ip_changed = bool(previous_ip) and transaction.ip_address != previous_ip
-    ip_subnet_changed = bool(previous_ip) and _ip_subnet(transaction.ip_address) != _ip_subnet(previous_ip)
+    ip_subnet_changed = bool(previous_ip) and ip_subnet(transaction.ip_address) != ip_subnet(previous_ip)
 
     # ---------------------------------------------------- частота (ТЗ §4.5, §4.8)
     frequency = float(max(transaction.transaction_frequency, MIN_TRANSACTION_COUNT))

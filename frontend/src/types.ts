@@ -364,6 +364,37 @@ export interface ShadowComparison {
   recent: Disagreement[]
 }
 
+/* ------------------------------------------------- граф связей */
+
+/**
+ * Чем связана группа и насколько этому можно верить.
+ *
+ * DEVICE — есть общее устройство, объясняется плохо.
+ * SUBNET_ONLY — только общая подсеть, а её делят корпоративный NAT,
+ * оператор связи и один провайдер в одном доме.
+ */
+export type LinkStrength = 'DEVICE' | 'SUBNET_ONLY'
+
+export interface Cluster {
+  users: string[]
+  size: number
+  shared_devices: string[]
+  shared_subnets: string[]
+  strength: LinkStrength
+  transactions: number
+  flagged: number
+  total_amount: number
+  max_risk_score: number
+}
+
+export interface ClusterReport {
+  scanned_transactions: number
+  known_users: number
+  linked_users: number
+  weak_clusters: number
+  clusters: Cluster[]
+}
+
 /** Сведения о модели из GET /model. */
 export interface ModelInfo {
   loaded: boolean

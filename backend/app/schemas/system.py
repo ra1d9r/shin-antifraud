@@ -89,6 +89,10 @@ class TransactionRecordOut(BaseModel):
     risk_level: RiskLevel
     triggered_rules: list[str] = Field(default_factory=list)
     top_reason: str | None = None
+    ip_subnet: str | None = Field(
+        default=None,
+        description="Подсеть /24 — по ней строится граф связей. Полный адрес не хранится",
+    )
     # Разметка аналитика, если операцию уже разобрали. null — ещё нет.
     # Лежит здесь, а не отдельным запросом: таблица без пометки «уже
     # проверено» заставила бы разбирать одно и то же дважды.

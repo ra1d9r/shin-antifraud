@@ -10,6 +10,7 @@
 import type {
   AnalyticsOverview,
   ApiErrorBody,
+  ClusterReport,
   DriftReport,
   FeedbackAccepted,
   FeedbackSummary,
@@ -217,6 +218,16 @@ export function fetchDrift(): Promise<DriftReport> {
  */
 export function fetchShadow(): Promise<ShadowComparison> {
   return request<ShadowComparison>('/monitoring/shadow')
+}
+
+/**
+ * Клиенты, связанные общим устройством или подсетью.
+ *
+ * Граф строится на backend по буферу обработанных операций: там же
+ * лежит история, и второй её копии на клиенте быть не должно.
+ */
+export function fetchClusters(): Promise<ClusterReport> {
+  return request<ClusterReport>('/graph/clusters')
 }
 
 export const apiBaseUrl = BASE_URL

@@ -16,6 +16,7 @@ import { useMemo, useState } from 'react'
 import DriftPanel from './DriftPanel'
 import { formatCount as formatNumber, formatMoney } from './format'
 import FeedbackPanel from './FeedbackPanel'
+import GraphPanel from './GraphPanel'
 import ShadowPanel from './ShadowPanel'
 import Tile from './Tile'
 import type { AnalyticsOverview, CurvePoint, ModelInfo } from './types'
@@ -254,6 +255,8 @@ export default function Dashboard({
       )}
 
       <FeedbackPanel />
+
+      <GraphPanel />
 
       <ShadowPanel />
 

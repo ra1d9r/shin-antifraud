@@ -35,6 +35,9 @@ class TransactionRecord:
     risk_level: RiskLevel
     triggered_rules: tuple[str, ...]
     top_reason: str | None
+    # Подсеть /24, а не полный адрес: графу связей нужна только она,
+    # а хранить меньше персональных данных — лучше по умолчанию.
+    ip_subnet: str | None = None
 
 
 class TransactionStore:
