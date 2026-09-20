@@ -25,6 +25,7 @@ from app.api.deps import build_state
 from app.api.routes import (
     analytics,
     feedback,
+    graph,
     health,
     monitoring,
     predict,
@@ -105,7 +106,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     prefix = settings.api_prefix.rstrip("/")
     for module in (
-        health, predict, scenarios, stats, transactions, analytics, feedback, monitoring
+        health,
+        predict,
+        scenarios,
+        stats,
+        transactions,
+        analytics,
+        feedback,
+        monitoring,
+        graph,
     ):
         app.include_router(module.router, prefix=prefix)
 

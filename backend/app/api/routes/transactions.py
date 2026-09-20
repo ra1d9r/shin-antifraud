@@ -73,6 +73,7 @@ def list_transactions(
                 risk_level=record.risk_level,
                 triggered_rules=list(record.triggered_rules),
                 top_reason=record.top_reason,
+                ip_subnet=record.ip_subnet,
                 verdict=label.verdict if label else None,
                 actual_fraud=label.actual_fraud if label else None,
             )

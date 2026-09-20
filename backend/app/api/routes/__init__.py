@@ -3,6 +3,7 @@
 from app.api.routes import (
     analytics,
     feedback,
+    graph,
     health,
     monitoring,
     predict,
@@ -14,6 +15,7 @@ from app.api.routes import (
 __all__ = [
     "analytics",
     "feedback",
+    "graph",
     "health",
     "monitoring",
     "predict",

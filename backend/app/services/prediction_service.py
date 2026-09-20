@@ -26,7 +26,7 @@ from datetime import UTC, datetime
 
 from app.core.exceptions import ModelNotLoadedError
 from app.core.logging import get_logger
-from app.features.builder import TransactionInput, build_features
+from app.features.builder import TransactionInput, build_features, ip_subnet
 from app.monitoring.drift import DriftMonitor
 from app.monitoring.shadow import ShadowRunner
 from app.risk_engine.engine import RiskEngine
@@ -144,6 +144,7 @@ class PredictionService:
                     risk_level=assessment.risk_level,
                     triggered_rules=tuple(rule.key for rule in assessment.triggered_rules),
                     top_reason=explanation.reasons[0] if explanation.reasons else None,
+                    ip_subnet=ip_subnet(request.ip_address),
                 )
             )
 
