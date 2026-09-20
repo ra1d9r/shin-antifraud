@@ -10,6 +10,7 @@
 import type {
   AnalyticsOverview,
   ApiErrorBody,
+  DriftReport,
   FeedbackAccepted,
   FeedbackSummary,
   HealthResponse,
@@ -194,6 +195,16 @@ export function sendFeedback(
 /** Измеренное качество по накопленной разметке. */
 export function fetchFeedbackSummary(): Promise<FeedbackSummary> {
   return request<FeedbackSummary>('/feedback/summary')
+}
+
+/**
+ * Сдвиг распределения признаков относительно обучающего.
+ *
+ * Считает backend: PSI, границы корзин и раскладка по ним живут там же,
+ * где эталон, и на клиент приходят готовыми.
+ */
+export function fetchDrift(): Promise<DriftReport> {
+  return request<DriftReport>('/monitoring/drift')
 }
 
 export const apiBaseUrl = BASE_URL

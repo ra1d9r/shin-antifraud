@@ -46,6 +46,8 @@
 | D-14 | Отметка вердикта аналитиком | `backend/app/api/routes/feedback.py`, `POST /transactions/{id}/feedback` | DONE |
 | D-14 | Накопление настоящих меток и архив на диске | `backend/app/store/feedback.py` | DONE |
 | D-14 | Измеренное качество по разметке | `GET /feedback/summary`, `frontend/src/FeedbackPanel.tsx` | DONE |
+| D-15 | Эталон распределения признаков | `backend/app/monitoring/drift.py`, `backend/models/feature_baseline.json` | DONE |
+| D-15 | PSI живого потока против обучающего | `GET /monitoring/drift`, `frontend/src/DriftPanel.tsx` | DONE |
 | §12 | `.env.example` | `.env.example` | DONE |
 | §12 | CORS | `backend/app/main.py` | DONE |
 | §12 | `requirements.txt` | `backend/requirements.txt` | DONE |

@@ -13,6 +13,7 @@
 
 import { useMemo, useState } from 'react'
 
+import DriftPanel from './DriftPanel'
 import FeedbackPanel from './FeedbackPanel'
 import Tile from './Tile'
 import type { AnalyticsOverview, CurvePoint, ModelInfo } from './types'
@@ -259,6 +260,8 @@ export default function Dashboard({
       )}
 
       <FeedbackPanel />
+
+      <DriftPanel />
 
       {!model?.loaded && modelError && (
         <section className="panel alert">

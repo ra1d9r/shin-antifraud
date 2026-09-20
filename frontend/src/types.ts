@@ -277,6 +277,45 @@ export interface FeedbackAccepted {
   summary: FeedbackSummary
 }
 
+/* ------------------------------------------- дрейф распределения */
+
+/**
+ * Во что сложился PSI признака или всей картины.
+ *
+ * `COLLECTING` — наблюдений пока мало, чтобы называть число.
+ * `NOT_MEASURABLE` — признак в обучающей выборке постоянен.
+ */
+export type DriftStatus =
+  | 'STABLE'
+  | 'MODERATE'
+  | 'SIGNIFICANT'
+  | 'NOT_MEASURABLE'
+  | 'COLLECTING'
+
+export interface FeatureDrift {
+  name: string
+  description: string
+  status: DriftStatus
+  /** null — сравнивать нечего или наблюдений мало. */
+  psi: number | null
+  labels: string[]
+  expected: number[]
+  observed: number[]
+}
+
+export interface DriftReport {
+  status: DriftStatus
+  observed_rows: number
+  baseline_rows: number
+  baseline_generated_at: string
+  model_trained_at?: string | null
+  min_observations: number
+  enough_data: boolean
+  drifted: number
+  invalid_values: number
+  features: FeatureDrift[]
+}
+
 /** Сведения о модели из GET /model. */
 export interface ModelInfo {
   loaded: boolean

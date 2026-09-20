@@ -267,7 +267,19 @@ def _labels_for(edges: tuple[float, ...], *, is_flag: bool) -> tuple[str, ...]:
         return ("всё",)
 
     def fmt(value: float) -> str:
-        return f"{value:g}"
+        # Подпись читают глазами в узком столбце таблицы. Шесть значащих
+        # цифр (`:g`) давали «2.21321–2.75868» — точность, которой
+        # в подписи нечего делать, ценой нечитаемости. Экспоненциальная
+        # запись (`:.3g` дал бы «1.23e+03») тем более.
+        size = abs(value)
+        if size >= 100:
+            return f"{value:.0f}"
+        if size >= 10:
+            return f"{value:.1f}"
+        # Три значащих цифры, а не два знака после запятой: у признаков
+        # вроде geo_distance_km нижние децили лежат около нуля, и
+        # округление до сотых слепило бы несколько границ в одну «0».
+        return f"{value:.3g}"
 
     labels = [f"< {fmt(edges[0])}"]
     labels.extend(f"{fmt(left)}–{fmt(right)}" for left, right in pairwise(edges))
