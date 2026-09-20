@@ -628,3 +628,28 @@ summary {
 .legend-swatch.observed {
   background: var(--accent);
 }
+
+/* --- теневая конфигурация --- */
+
+.configs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.config {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+/* Пунктир, а не цвет: теневая конфигурация ничего не решает,
+   и выглядеть равноправной с работающей она не должна. */
+.config.shadow {
+  border-style: dashed;
+}

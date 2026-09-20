@@ -18,10 +18,11 @@ from fastapi import Depends, Request
 
 from app.analytics.report import load_report
 from app.config.settings import Settings, get_settings
-from app.core.exceptions import ModelNotLoadedError, ShinError
+from app.core.exceptions import ModelNotLoadedError, ShadowUnavailableError, ShinError
 from app.core.logging import get_logger
 from app.ml.pipeline import TrainedModel, load_model
 from app.monitoring.drift import BaselineNotFoundError, DriftMonitor, load_baseline
+from app.monitoring.shadow import ShadowRunner
 from app.risk_engine.engine import RiskEngine
 from app.services.prediction_service import PredictionService
 from app.store.feedback import FeedbackStore
@@ -58,6 +59,10 @@ class AppState:
     # работает как раньше — просто не видит дрейф и говорит об этом.
     drift: DriftMonitor | None = None
     drift_error: str | None = None
+    # Вторая конфигурация на том же потоке. Её решения никуда не уходят:
+    # ответ API от неё не зависит ни одним полем.
+    shadow: ShadowRunner | None = None
+    shadow_error: str | None = None
     model_error: str | None = None
     started_at: float = field(default_factory=time.monotonic)
 
@@ -92,6 +97,7 @@ def build_state(settings: Settings | None = None) -> AppState:
     state.feedback.load()
 
     state.risk_engine = RiskEngine.from_settings(settings)
+    _build_shadow(state)
 
     try:
         state.model = load_model(settings.model_file)
@@ -129,8 +135,38 @@ def build_state(settings: Settings | None = None) -> AppState:
         profiles=state.profiles,
         transactions=state.transactions,
         drift=state.drift,
+        shadow=state.shadow,
     )
     return state
+
+
+def _build_shadow(state: AppState) -> None:
+    """Собрать теневую конфигурацию.
+
+    Гасится как всё остальное на старте: кривые пороги в `.env` не должны
+    ронять приложение. Тень — инструмент наблюдения, и лишиться из-за него
+    работающей системы было бы обменом в неверную сторону.
+    """
+    if not state.settings.shadow_enabled:
+        state.shadow_error = "Теневой режим выключен настройкой SHADOW_ENABLED."
+        return
+    if state.risk_engine is None:  # pragma: no cover — движок строится выше
+        return
+
+    try:
+        state.shadow = ShadowRunner.from_settings(state.settings, state.risk_engine)
+    except ShinError as exc:
+        state.shadow_error = f"Теневая конфигурация некорректна: {exc.message}"
+        logger.warning("%s", state.shadow_error)
+        return
+
+    if state.shadow.differs:
+        logger.info("Теневая конфигурация: %s", state.shadow.report().difference)
+    else:
+        # Не ошибка: так бывает, когда тень ещё не настроили. Но и сравнивать
+        # нечего, и панель должна сказать это словами, а не показывать
+        # стопроцентное согласие как достижение.
+        logger.warning("Теневая конфигурация совпадает с основной — сравнивать нечего")
 
 
 def _load_evaluation(state: AppState) -> None:
@@ -232,6 +268,15 @@ def get_feedback(state: Annotated[AppState, Depends(get_state)]) -> FeedbackStor
     return state.feedback
 
 
+def get_shadow(state: Annotated[AppState, Depends(get_state)]) -> ShadowRunner:
+    """Теневая конфигурация. Без неё запрос завершается кодом 503."""
+    if state.shadow is None:
+        raise ShadowUnavailableError(
+            state.shadow_error or "Теневой режим недоступен"
+        )
+    return state.shadow
+
+
 def get_drift(state: Annotated[AppState, Depends(get_state)]) -> DriftMonitor:
     """Наблюдение за дрейфом. Без эталона запрос завершается кодом 503."""
     if state.drift is None:
@@ -254,4 +299,5 @@ ServiceDep = Annotated[PredictionService, Depends(get_service)]
 TransactionsDep = Annotated[TransactionStore, Depends(get_transactions)]
 FeedbackDep = Annotated[FeedbackStore, Depends(get_feedback)]
 DriftDep = Annotated[DriftMonitor, Depends(get_drift)]
+ShadowDep = Annotated[ShadowRunner, Depends(get_shadow)]
 SettingsDep = Annotated[Settings, Depends(get_app_settings)]

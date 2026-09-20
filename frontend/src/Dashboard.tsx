@@ -14,7 +14,9 @@
 import { useMemo, useState } from 'react'
 
 import DriftPanel from './DriftPanel'
+import { formatCount as formatNumber, formatMoney } from './format'
 import FeedbackPanel from './FeedbackPanel'
+import ShadowPanel from './ShadowPanel'
 import Tile from './Tile'
 import type { AnalyticsOverview, CurvePoint, ModelInfo } from './types'
 
@@ -22,14 +24,6 @@ const DECISION_CLASS: Record<string, string> = {
   APPROVE: 'approve',
   CHALLENGE: 'challenge',
   BLOCK: 'block',
-}
-
-function formatNumber(value: number): string {
-  return value.toLocaleString('ru-RU')
-}
-
-function formatMoney(value: number): string {
-  return Math.round(value).toLocaleString('ru-RU')
 }
 
 function formatShare(value: number): string {
@@ -260,6 +254,8 @@ export default function Dashboard({
       )}
 
       <FeedbackPanel />
+
+      <ShadowPanel />
 
       <DriftPanel />
 

@@ -28,6 +28,7 @@ from app.core.exceptions import ModelNotLoadedError
 from app.core.logging import get_logger
 from app.features.builder import TransactionInput, build_features
 from app.monitoring.drift import DriftMonitor
+from app.monitoring.shadow import ShadowRunner
 from app.risk_engine.engine import RiskEngine
 from app.schemas.prediction import (
     ExplanationOut,
@@ -60,6 +61,7 @@ class PredictionService:
         profiles: UserProfileStore,
         transactions: TransactionStore,
         drift: DriftMonitor | None = None,
+        shadow: ShadowRunner | None = None,
     ) -> None:
         self._model = model
         self._risk_engine = risk_engine
@@ -69,6 +71,10 @@ class PredictionService:
         # Необязательная зависимость: без выгруженного эталона наблюдение
         # не заводится, и сервис работает ровно как прежде.
         self._drift = drift
+        # Тень тоже необязательна, и это принципиально: ответ на запрос
+        # не зависит от неё ни одним полем. Если она сломается, клиент
+        # этого не заметит.
+        self._shadow = shadow
 
     @property
     def explainer_method(self) -> str:
@@ -100,6 +106,18 @@ class PredictionService:
             # сдвинул бы картину сильнее, чем настоящий поток.
             if self._drift is not None:
                 self._drift.observe(features)
+
+            # Вторая конфигурация видит ту же операцию и выносит своё
+            # решение. Оно никуда не уходит: ни в ответ, ни в историю,
+            # ни в профиль клиента. Считаются только расхождения.
+            if self._shadow is not None:
+                self._shadow.observe(
+                    primary=assessment,
+                    shadow=self._shadow.assess(probability, features),
+                    transaction_id=request.transaction_id,
+                    user_id=request.user_id,
+                    amount=request.amount,
+                )
 
             self._profiles.record(
                 request.user_id,

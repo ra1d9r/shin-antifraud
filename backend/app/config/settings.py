@@ -64,6 +64,22 @@ class Settings(BaseSettings):
     rule_velocity_txn_per_hour: int = Field(default=6, ge=1)
     rule_new_account_amount_ratio: float = Field(default=4.0, gt=0.0)
 
+    # ---------------------------------------------------------- теневой режим
+    # Вторая конфигурация на том же потоке: её решения никуда не уходят,
+    # считаются только расхождения с основной.
+    shadow_enabled: bool = True
+    # `None` — наследовать у основной. Теневая конфигурация обычно
+    # отличается одним-двумя значениями, и требовать перечислить остальные
+    # значило бы завести второе место, где они разъезжаются с основными.
+    shadow_approve_max: int | None = Field(default=None, ge=0, le=100)
+    shadow_challenge_max: int | None = Field(default=None, ge=0, le=100)
+    shadow_critical_min: int | None = Field(default=None, ge=0, le=100)
+    # По умолчанию тень проверяет самое неприятное открытие дашборда:
+    # четыре политики из шести не ловят ничего сверх модели, а трение
+    # добавляют. Тень считает, чего стоило бы их выключить — на живом
+    # потоке, а не на обучающем датасете.
+    shadow_rules_enabled: bool = False
+
     # ------------------------------------------------------------------- ml
     model_path: str = "backend/models/fraud_model.joblib"
     metrics_path: str = "backend/models/model_metrics.json"

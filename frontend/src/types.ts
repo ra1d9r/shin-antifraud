@@ -316,6 +316,54 @@ export interface DriftReport {
   features: FeatureDrift[]
 }
 
+/* ------------------------------------------------- теневой режим */
+
+/** Одна конфигурация Risk Engine. */
+export interface Configuration {
+  approve_max: number
+  challenge_max: number
+  critical_min: number
+  rules_enabled: boolean
+}
+
+export interface MatrixCell {
+  primary: Decision
+  shadow: Decision
+  count: number
+  amount: number
+}
+
+export interface Disagreement {
+  transaction_id: string
+  user_id: string
+  amount: number
+  primary_decision: Decision
+  primary_score: number
+  shadow_decision: Decision
+  shadow_score: number
+  at: string
+}
+
+/** Что дало бы переключение конфигурации на этом потоке. */
+export interface ShadowComparison {
+  enabled: boolean
+  /** false — теневая совпадает с основной, и согласие ничего не означает. */
+  differs: boolean
+  difference: string
+  primary: Configuration
+  shadow: Configuration
+  observed: number
+  agreed: number
+  disagreed: number
+  agreement_share: number | null
+  freed_count: number
+  freed_amount: number
+  tightened_count: number
+  tightened_amount: number
+  matrix: MatrixCell[]
+  recent: Disagreement[]
+}
+
 /** Сведения о модели из GET /model. */
 export interface ModelInfo {
   loaded: boolean

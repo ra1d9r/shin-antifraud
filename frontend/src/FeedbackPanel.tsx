@@ -20,6 +20,7 @@ import { useEffect, useState } from 'react'
 import Tile from './Tile'
 import { fetchFeedbackSummary } from './api'
 import { formatMeasuredShare } from './feedback'
+import { formatMoney } from './format'
 import type { FeedbackSummary } from './types'
 
 const DECISION_CLASS: Record<string, string> = {
@@ -97,7 +98,7 @@ export default function FeedbackPanel() {
               value={String(summary.false_negative)}
               note={
                 summary.fraud_amount_missed > 0
-                  ? `на ${Math.round(summary.fraud_amount_missed).toLocaleString('ru-RU')}`
+                  ? `на ${formatMoney(summary.fraud_amount_missed)}`
                   : undefined
               }
               tone={summary.false_negative > 0 ? 'bad' : 'good'}

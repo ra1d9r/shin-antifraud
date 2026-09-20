@@ -48,6 +48,8 @@
 | D-14 | Измеренное качество по разметке | `GET /feedback/summary`, `frontend/src/FeedbackPanel.tsx` | DONE |
 | D-15 | Эталон распределения признаков | `backend/app/monitoring/drift.py`, `backend/models/feature_baseline.json` | DONE |
 | D-15 | PSI живого потока против обучающего | `GET /monitoring/drift`, `frontend/src/DriftPanel.tsx` | DONE |
+| D-16 | Вторая конфигурация на том же потоке | `backend/app/monitoring/shadow.py` | DONE |
+| D-16 | Сравнение конфигураций без риска | `GET /monitoring/shadow`, `frontend/src/ShadowPanel.tsx` | DONE |
 | §12 | `.env.example` | `.env.example` | DONE |
 | §12 | CORS | `backend/app/main.py` | DONE |
 | §12 | `requirements.txt` | `backend/requirements.txt` | DONE |

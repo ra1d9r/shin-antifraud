@@ -18,6 +18,7 @@ import type {
   ModelInfo,
   Scenario,
   ScenarioList,
+  ShadowComparison,
   TransactionRequest,
   Verdict,
 } from './types'
@@ -205,6 +206,17 @@ export function fetchFeedbackSummary(): Promise<FeedbackSummary> {
  */
 export function fetchDrift(): Promise<DriftReport> {
   return request<DriftReport>('/monitoring/drift')
+}
+
+/**
+ * Что дало бы переключение конфигурации на этом потоке.
+ *
+ * Решения теневой конфигурации не приходят в ответе на /predict
+ * намеренно: поле в основном ответе — это поле, которое кто-нибудь
+ * однажды прочитает по ошибке и покажет клиенту.
+ */
+export function fetchShadow(): Promise<ShadowComparison> {
+  return request<ShadowComparison>('/monitoring/shadow')
 }
 
 export const apiBaseUrl = BASE_URL
