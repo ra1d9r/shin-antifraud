@@ -11,6 +11,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
+import FeaturePanel from './FeaturePanel'
 import { ApiError, apiBaseUrl, fetchReport, fetchScenarios, predict, sendFeedback } from './api'
 import {
   CONTEXT_FIELDS,
@@ -588,6 +589,8 @@ function Result({ result }: { result: PredictionResponse }) {
         </table>
         </div>
       </section>
+
+      <FeaturePanel features={result.features} />
 
       <section className="panel">
         <details>

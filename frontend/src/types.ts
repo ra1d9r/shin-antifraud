@@ -107,6 +107,28 @@ export interface PredictionResponse {
   processing_ms: number
 }
 
+/* ---------------------------------------- справочник признаков */
+
+export interface FeatureInfo {
+  index: number
+  name: string
+  description: string
+  is_flag: boolean
+  /** Знаков после запятой. Правило приходит с backend, а не решается тут. */
+  decimals: number
+  reason_high: string
+}
+
+export interface FeatureSection {
+  section: string
+  features: FeatureInfo[]
+}
+
+export interface FeatureRegistry {
+  count: number
+  sections: FeatureSection[]
+}
+
 /** Готовый сценарий из `GET /scenarios`. */
 export interface Scenario {
   key: string

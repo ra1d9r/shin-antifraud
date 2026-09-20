@@ -23,29 +23,6 @@ from app.features.definitions import FEATURE_SPECS  # noqa: E402
 
 enable_utf8_output()
 
-# Соответствие признаков пунктам ТЗ §4 — единственная рукописная часть.
-TZ_SECTIONS: dict[str, tuple[str, ...]] = {
-    "§4.1 Отклонение суммы от обычной": (
-        "amount_log", "amount_deviation_ratio", "amount_zscore",
-        "amount_vs_previous_ratio", "is_round_amount", "is_micro_amount",
-    ),
-    "§4.2 Необычная страна": (
-        "is_unusual_country", "country_changed_from_previous", "is_high_risk_country",
-    ),
-    "§4.3 Новый device": ("is_new_device", "known_device_count"),
-    "§4.4 Изменение IP": ("ip_changed", "ip_subnet_changed"),
-    "§4.5 / §4.8 Частота и количество за период": (
-        "transaction_frequency", "frequency_ratio", "txn_count_last_hour", "is_high_frequency",
-    ),
-    "§4.6 Резкое изменение геолокации": (
-        "geo_distance_km", "hours_since_previous", "travel_speed_kmh", "is_impossible_travel",
-    ),
-    "§4.7 Время транзакции": ("hour_of_day", "is_night", "is_weekend"),
-    "§4.9 Прочее поведение": (
-        "account_age_days", "is_new_account", "is_high_risk_merchant",
-    ),
-}
-
 HEADER = """# Справочник признаков
 
 > **Этот файл сгенерирован автоматически.** Не редактируйте его руками —
@@ -61,30 +38,26 @@ HEADER = """# Справочник признаков
 
 
 def build_document() -> str:
-    specs = {spec.name: spec for spec in FEATURE_SPECS}
-    covered: set[str] = set()
+    """Собрать документ, группируя по разделу из самого реестра.
+
+    Раньше соответствие признаков пунктам ТЗ жило здесь отдельным
+    списком, и новый признак можно было в него не добавить — скрипт
+    ловил это проверкой и падал. Теперь раздел — обязательное поле
+    признака, и забыть его нельзя: не соберётся сам реестр.
+    """
     parts = [HEADER.format(count=len(FEATURE_SPECS))]
 
-    for section, names in TZ_SECTIONS.items():
+    for section in dict.fromkeys(spec.section for spec in FEATURE_SPECS):
         parts.append(f"\n## {section}\n")
         parts.append("| # | Признак | Тип | Описание | Формулировка для XAI |")
         parts.append("|---|---|---|---|---|")
-        for name in names:
-            spec = specs[name]
-            covered.add(name)
-            index = FEATURE_SPECS.index(spec)
+        for index, spec in enumerate(FEATURE_SPECS):
+            if spec.section != section:
+                continue
             kind = "флаг" if spec.is_flag else "число"
             parts.append(
                 f"| {index} | `{spec.name}` | {kind} | {spec.description} | {spec.reason_high} |"
             )
-
-    missing = [spec.name for spec in FEATURE_SPECS if spec.name not in covered]
-    if missing:
-        raise SystemExit(
-            "Признаки не отнесены ни к одному пункту ТЗ: "
-            + ", ".join(missing)
-            + "\nДобавьте их в TZ_SECTIONS в backend/scripts/export_features.py"
-        )
 
     return "\n".join(parts) + "\n"
 
