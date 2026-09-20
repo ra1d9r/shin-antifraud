@@ -13,8 +13,9 @@ import { describeConfiguration } from './shadow'
 
 describe('количество', () => {
   it('разряды разделяются', () => {
-    // Неразрывный пробел русской локали — сравниваем по цифрам.
-    expect(formatCount(99360).replace(/\s| /g, '')).toBe('99360')
+    // Русская локаль разделяет разряды неразрывным пробелом, и `\s`
+    // в JS его покрывает — поэтому сравнение идёт по одним цифрам.
+    expect(formatCount(99360).replace(/\s/g, '')).toBe('99360')
   })
 
   it('нечисло не показывается как NaN', () => {
@@ -25,8 +26,8 @@ describe('количество', () => {
 
 describe('сумма', () => {
   it('копейки отбрасываются', () => {
-    expect(formatMoney(2196.37).replace(/\s| /g, '')).toBe('2196')
-    expect(formatMoney(2196.62).replace(/\s| /g, '')).toBe('2197')
+    expect(formatMoney(2196.37).replace(/\s/g, '')).toBe('2196')
+    expect(formatMoney(2196.62).replace(/\s/g, '')).toBe('2197')
   })
 
   it('ноль остаётся нулём', () => {
