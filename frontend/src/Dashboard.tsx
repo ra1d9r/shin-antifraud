@@ -12,8 +12,10 @@
  */
 
 import { useMemo, useState } from 'react'
+import type { MouseEvent } from 'react'
 
 import DriftPanel from './DriftPanel'
+import { readoutX, thresholdAtPointer } from './chart'
 import { formatCount as formatNumber, formatMoney } from './format'
 import FeedbackPanel from './FeedbackPanel'
 import GraphPanel from './GraphPanel'
@@ -306,9 +308,14 @@ function costNote(point: CurvePoint, current: CurvePoint): string {
 /**
  * График компромисса.
  *
- * Рисуется вручную в SVG, без библиотеки графиков: три ломаных и три
- * вертикальные засечки не стоят двухсот килобайт зависимости, а в бандле
- * тестового интерфейса это заметная доля.
+ * Рисуется вручную в SVG, без библиотеки графиков: три ломаных, три
+ * засечки и подсказка под курсором не стоят двухсот килобайт зависимости,
+ * а в бандле тестового интерфейса это заметная доля.
+ *
+ * Наведение показывает числа: по картинке видно форму, но решение
+ * принимают по величинам, а снимать их с оси на глаз — гадание.
+ * Клавиатурный путь к тем же числам уже есть — ползунок под графиком,
+ * поэтому подсказка мышью ничего не запирает.
  */
 function TradeOffChart({
   curve,
@@ -340,6 +347,16 @@ function TradeOffChart({
     { at: optimalThreshold, color: 'var(--approve)', label: 'оптимум' },
     { at: selected, color: 'var(--text)', label: '' },
   ]
+
+  // Точка под курсором. null — курсор вне графика, и подсказки нет.
+  const [hovered, setHovered] = useState<number | null>(null)
+
+  const track = (event: MouseEvent<SVGRectElement>) => {
+    const box = event.currentTarget.getBoundingClientRect()
+    setHovered(thresholdAtPointer(event.clientX - box.left, box.width))
+  }
+
+  const point = hovered === null ? null : (curve.find((item) => item.threshold === hovered) ?? null)
 
   return (
     <svg className="chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Кривая компромисса">
@@ -392,6 +409,67 @@ function TradeOffChart({
           — итого
         </text>
       </g>
+
+      {point && <Readout point={point} x={x(point.threshold)} y={y} width={width} />}
+
+      {/* Прозрачная накладка ловит мышь по всей площади: попадать
+          курсором в саму ломаную толщиной в полтора пикселя — мучение. */}
+      <rect
+        x={padding.left}
+        y={padding.top}
+        width={width - padding.left - padding.right}
+        height={height - padding.top - padding.bottom}
+        fill="transparent"
+        onMouseMove={track}
+        onMouseLeave={() => setHovered(null)}
+      />
     </svg>
+  )
+}
+
+/**
+ * Числа под курсором.
+ *
+ * Подсказка переезжает на другую сторону засечки у правого края: иначе
+ * на порогах под сотню она уходила бы за границу картинки.
+ */
+function Readout({
+  point,
+  x,
+  y,
+  width,
+}: {
+  point: CurvePoint
+  x: number
+  y: (cost: number) => number
+  width: number
+}) {
+  const boxWidth = 186
+  const boxHeight = 74
+  const boxX = readoutX(x, boxWidth, width)
+
+  const rows: [string, string, string][] = [
+    ['потери от фрода', formatMoney(point.fraud_loss), 'fraud'],
+    ['стоимость проверок', formatMoney(point.friction_cost), 'friction'],
+    ['итого', formatMoney(point.total_cost), 'total'],
+  ]
+
+  return (
+    <g className="chart-readout" pointerEvents="none">
+      <line x1={x} x2={x} y1={16} y2={y(0)} className="readout-rule" />
+      {rows.map(([, , tone], index) => (
+        <circle key={tone} cx={x} cy={y([point.fraud_loss, point.friction_cost, point.total_cost][index])} r={3} className={`readout-dot ${tone}`} />
+      ))}
+
+      <rect x={boxX} y={20} width={boxWidth} height={boxHeight} rx={5} className="readout-box" />
+      <text x={boxX + 10} y={36} className="readout-title">
+        порог {point.threshold}
+      </text>
+      {rows.map(([label, value, tone], index) => (
+        <text key={label} x={boxX + 10} y={51 + index * 14} className={`readout-row ${tone}`}>
+          {label}: {value}
+        </text>
+      ))}
+    </g>
   )
 }

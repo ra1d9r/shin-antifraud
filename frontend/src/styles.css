@@ -662,3 +662,41 @@ summary {
   max-height: 60vh;
   overflow-y: auto;
 }
+
+/* --- числа под курсором на графике --- */
+
+.chart rect[fill="transparent"] {
+  cursor: crosshair;
+}
+
+.readout-rule {
+  stroke: var(--text);
+  stroke-width: 1;
+  opacity: 0.45;
+}
+
+.readout-dot.fraud { fill: var(--block); }
+.readout-dot.friction { fill: var(--challenge); }
+.readout-dot.total { fill: var(--accent); }
+
+/* Почти непрозрачная подложка: под ней проходят три ломаных,
+   и на просвет числа читались бы поверх линий. */
+.readout-box {
+  fill: #0e1117;
+  fill-opacity: 0.94;
+  stroke: var(--border);
+}
+
+.readout-title {
+  fill: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.readout-row {
+  font-size: 11px;
+}
+
+.readout-row.fraud { fill: var(--block); }
+.readout-row.friction { fill: var(--challenge); }
+.readout-row.total { fill: var(--accent); }
