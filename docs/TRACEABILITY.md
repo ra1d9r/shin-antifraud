@@ -52,6 +52,7 @@
 | D-16 | Сравнение конфигураций без риска | `GET /monitoring/shadow`, `frontend/src/ShadowPanel.tsx` | DONE |
 | D-17 | Граф связей по устройствам и подсетям | `backend/app/graph/clusters.py` | DONE |
 | D-17 | Показ групп связанных клиентов | `GET /graph/clusters`, `frontend/src/GraphPanel.tsx` | DONE |
+| D-18 | Текстовый отчёт по операции | `backend/app/reports/transaction.py`, `POST /report` | DONE |
 | §12 | `.env.example` | `.env.example` | DONE |
 | §12 | CORS | `backend/app/main.py` | DONE |
 | §12 | `requirements.txt` | `backend/requirements.txt` | DONE |
