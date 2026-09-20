@@ -71,6 +71,13 @@ class StatsResponse(BaseModel):
     triggered_rules: dict[str, int] = Field(
         default_factory=dict, description="Сколько раз сработала каждая политика"
     )
+    thresholds_changed_at: datetime | None = Field(
+        default=None,
+        description=(
+            "Когда пороги меняли на работающей системе. Не null — числа выше "
+            "охватывают две конфигурации, и читать их как одно измерение нельзя."
+        ),
+    )
 
 
 class TransactionRecordOut(BaseModel):
