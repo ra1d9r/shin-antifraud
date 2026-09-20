@@ -26,6 +26,7 @@ from app.monitoring.shadow import ShadowRunner
 from app.risk_engine.engine import RiskEngine
 from app.services.prediction_service import PredictionService
 from app.store.feedback import FeedbackStore
+from app.store.idempotency import IdempotencyStore
 from app.store.profiles import UserProfileStore
 from app.store.transactions import TransactionStore
 from app.xai.explainer import Explainer
@@ -43,6 +44,9 @@ class AppState:
     # Разметка аналитика живёт рядом с транзакциями, но переживает
     # и вытеснение из буфера, и перезапуск: она пишется на диск.
     feedback: FeedbackStore
+    # Повторы POST /predict. Пустое хранилище при выключенной настройке:
+    # проверять некому, и роут обработает запрос как обычно.
+    idempotency: IdempotencyStore | None = None
     model: TrainedModel | None = None
     risk_engine: RiskEngine | None = None
     explainer: Explainer | None = None
@@ -89,6 +93,11 @@ def build_state(settings: Settings | None = None) -> AppState:
         profiles=UserProfileStore(),
         transactions=TransactionStore(capacity=settings.max_stored_transactions),
         feedback=FeedbackStore(path=settings.feedback_file),
+        idempotency=(
+            IdempotencyStore(capacity=settings.max_idempotency_keys)
+            if settings.idempotency_enabled
+            else None
+        ),
     )
 
     # Метки читаются до модели: они от неё не зависят, а потерять их
@@ -277,6 +286,13 @@ def get_shadow(state: Annotated[AppState, Depends(get_state)]) -> ShadowRunner:
     return state.shadow
 
 
+def get_idempotency(
+    state: Annotated[AppState, Depends(get_state)],
+) -> IdempotencyStore | None:
+    """Хранилище повторов. `None` — идемпотентность выключена настройкой."""
+    return state.idempotency
+
+
 def get_drift(state: Annotated[AppState, Depends(get_state)]) -> DriftMonitor:
     """Наблюдение за дрейфом. Без эталона запрос завершается кодом 503."""
     if state.drift is None:
@@ -298,6 +314,7 @@ StateDep = Annotated[AppState, Depends(get_state)]
 ServiceDep = Annotated[PredictionService, Depends(get_service)]
 TransactionsDep = Annotated[TransactionStore, Depends(get_transactions)]
 FeedbackDep = Annotated[FeedbackStore, Depends(get_feedback)]
+IdempotencyDep = Annotated["IdempotencyStore | None", Depends(get_idempotency)]
 DriftDep = Annotated[DriftMonitor, Depends(get_drift)]
 ShadowDep = Annotated[ShadowRunner, Depends(get_shadow)]
 SettingsDep = Annotated[Settings, Depends(get_app_settings)]

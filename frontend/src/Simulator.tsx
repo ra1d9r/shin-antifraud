@@ -12,7 +12,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { ApiError, apiBaseUrl, fetchReport, fetchScenarios, predict, sendFeedback } from './api'
-import { CONTEXT_FIELDS, FORM_FIELDS, formToRequest, scenarioToForm } from './form'
+import {
+  CONTEXT_FIELDS,
+  FORM_FIELDS,
+  formToRequest,
+  newTransactionId,
+  scenarioToForm,
+} from './form'
 import { VERDICT_LABEL, feedbackHeadline } from './feedback'
 import { WAKE_UP_HINT, useSlowHint } from './useSlowHint'
 import type { FieldSpec, FormState } from './form'
@@ -128,6 +134,11 @@ export default function Simulator() {
         persisted: persist,
         body: sent,
       }))
+      // Следующий прогон — новая операция, и номер у неё должен быть
+      // свой. Backend идемпотентен: тот же номер с другими данными —
+      // это 409, а менять поля и нажимать Analyze снова симулятор
+      // для того и сделан.
+      setForm((previous) => ({ ...previous, transaction_id: newTransactionId() }))
     } catch (cause) {
       const failure = cause instanceof ApiError ? cause : new ApiError(String(cause), 0, null)
       setError({
@@ -229,6 +240,12 @@ export default function Simulator() {
             <span>сохранять в историю (persist)</span>
           </label>
         </div>
+
+        <p className="hint">
+          После каждого анализа <code>transaction_id</code> обновляется: следующий прогон —
+          новая операция. Backend идемпотентен, и тот же номер с другими данными он
+          отклонит, а с теми же — вернёт прежний ответ, ничего не меняя.
+        </p>
 
         {waking && <p className="hint">{WAKE_UP_HINT}</p>}
       </section>

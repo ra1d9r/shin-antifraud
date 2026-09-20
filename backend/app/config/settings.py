@@ -112,6 +112,10 @@ class Settings(BaseSettings):
     # Разметка аналитика: ручная работа человека, её нельзя терять при
     # перезапуске. Дописывается построчно в JSON Lines.
     feedback_path: str = "backend/data/feedback/labels.jsonl"
+    # Идемпотентность POST /predict по transaction_id: повтор получает
+    # тот же ответ, а состояние системы не трогается.
+    idempotency_enabled: bool = True
+    max_idempotency_keys: int = Field(default=5_000, gt=0)
 
     # ---------------------------------------------------------- validators
     @field_validator("risk_challenge_max")
