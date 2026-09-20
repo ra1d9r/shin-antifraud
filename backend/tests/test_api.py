@@ -536,6 +536,15 @@ def test_unsaved_transaction_cannot_be_labeled(client) -> None:
     assert response.status_code == 404
 
 
+def test_empty_transaction_id_is_rejected_at_the_border(client) -> None:
+    """Пустой идентификатор попадал в историю, а разметить его было нечем:
+    адрес /transactions//feedback никуда не ведёт."""
+    response = client.post("/predict", json=transaction_body(transaction_id=""))
+
+    assert response.status_code == 422
+    assert any("transaction_id" in item["field"] for item in response.json()["details"]["errors"])
+
+
 def test_feedback_rejects_an_unknown_verdict(client) -> None:
     analyze(client, transaction_id="txn_feedback_4")
 
