@@ -84,6 +84,19 @@ class AnalyticsOverview(BaseModel):
     fraud_stopped: int = Field(description="Фрод с решением, отличным от APPROVE")
     fraud_missed: int
     fraud_stopped_share: float
+    fraud_loss_prevented: float = Field(
+        description=(
+            "Спасённый бюджет (Fraud Loss Saved): деньги фрода, которые система "
+            "не пропустила. Проверка (CHALLENGE) считается остановкой — то же "
+            "допущение, что в модели стоимости."
+        )
+    )
+    fraud_loss_incurred: float = Field(
+        description="Деньги фрода, ушедшие с решением APPROVE"
+    )
+    fraud_loss_exposure: float = Field(
+        description="Во что обошёлся бы весь фрод выборки без системы вовсе"
+    )
     friction: int = Field(
         description="Легальные операции с решением, отличным от APPROVE"
     )

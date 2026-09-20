@@ -192,6 +192,12 @@ export interface AnalyticsOverview {
   fraud_stopped: number
   fraud_missed: number
   fraud_stopped_share: number
+  /** Спасённый бюджет: деньги фрода, которые система не пропустила. */
+  fraud_loss_prevented: number
+  /** Деньги фрода, ушедшие с решением APPROVE. */
+  fraud_loss_incurred: number
+  /** Во что обошёлся бы весь фрод выборки без системы вовсе. */
+  fraud_loss_exposure: number
   friction: number
   friction_share: number
   raised_by_rules: number
