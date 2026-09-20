@@ -26,6 +26,7 @@ from app.api.routes import (
     analytics,
     feedback,
     health,
+    monitoring,
     predict,
     scenarios,
     stats,
@@ -103,7 +104,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     prefix = settings.api_prefix.rstrip("/")
-    for module in (health, predict, scenarios, stats, transactions, analytics, feedback):
+    for module in (
+        health, predict, scenarios, stats, transactions, analytics, feedback, monitoring
+    ):
         app.include_router(module.router, prefix=prefix)
 
     _register_error_handlers(app)

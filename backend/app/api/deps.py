@@ -21,6 +21,7 @@ from app.config.settings import Settings, get_settings
 from app.core.exceptions import ModelNotLoadedError, ShinError
 from app.core.logging import get_logger
 from app.ml.pipeline import TrainedModel, load_model
+from app.monitoring.drift import BaselineNotFoundError, DriftMonitor, load_baseline
 from app.risk_engine.engine import RiskEngine
 from app.services.prediction_service import PredictionService
 from app.store.feedback import FeedbackStore
@@ -53,6 +54,10 @@ class AppState:
     # этом отдаётся — но с пометкой, иначе дашборд врал бы молча.
     evaluation_stale: bool = False
     evaluation_stale_reason: str | None = None
+    # Наблюдение за сдвигом распределения. Без эталона приложение
+    # работает как раньше — просто не видит дрейф и говорит об этом.
+    drift: DriftMonitor | None = None
+    drift_error: str | None = None
     model_error: str | None = None
     started_at: float = field(default_factory=time.monotonic)
 
@@ -110,6 +115,7 @@ def build_state(settings: Settings | None = None) -> AppState:
     )
 
     _load_evaluation(state)
+    _load_drift_baseline(state)
 
     state.explainer = Explainer.from_model(
         state.model,
@@ -122,6 +128,7 @@ def build_state(settings: Settings | None = None) -> AppState:
         explainer=state.explainer,
         profiles=state.profiles,
         transactions=state.transactions,
+        drift=state.drift,
     )
     return state
 
@@ -168,6 +175,35 @@ def _load_evaluation(state: AppState) -> None:
     logger.warning("%s", state.evaluation_stale_reason)
 
 
+def _load_drift_baseline(state: AppState) -> None:
+    """Прочитать эталон распределения и завести наблюдение.
+
+    Гасится так же, как всё остальное на старте: без эталона система
+    работает ровно как прежде, только не видит дрейф. Падать здесь —
+    значит из-за диагностики лишиться того, что она диагностирует.
+    """
+    try:
+        baseline = load_baseline(state.settings.feature_baseline_file)
+    except ShinError as exc:
+        state.drift_error = exc.message
+        logger.warning("%s", exc.message)
+        return
+    except Exception as exc:  # noqa: BLE001 — причина уходит в ответ как есть
+        state.drift_error = (
+            f"Эталон распределения не прочитался ({exc}). "
+            "Выгрузите заново: python backend/scripts/export_evaluation.py"
+        )
+        logger.error("%s", state.drift_error)
+        return
+
+    state.drift = DriftMonitor(baseline)
+    logger.info(
+        "Эталон распределения загружен: %s признаков по %s строкам",
+        len(baseline.features),
+        baseline.rows,
+    )
+
+
 # ------------------------------------------------------------ зависимости
 
 
@@ -196,6 +232,19 @@ def get_feedback(state: Annotated[AppState, Depends(get_state)]) -> FeedbackStor
     return state.feedback
 
 
+def get_drift(state: Annotated[AppState, Depends(get_state)]) -> DriftMonitor:
+    """Наблюдение за дрейфом. Без эталона запрос завершается кодом 503."""
+    if state.drift is None:
+        raise BaselineNotFoundError(
+            state.drift_error
+            or (
+                "Эталон распределения не выгружен. Выполните: "
+                "python backend/scripts/export_evaluation.py"
+            )
+        )
+    return state.drift
+
+
 def get_app_settings(state: Annotated[AppState, Depends(get_state)]) -> Settings:
     return state.settings
 
@@ -204,4 +253,5 @@ StateDep = Annotated[AppState, Depends(get_state)]
 ServiceDep = Annotated[PredictionService, Depends(get_service)]
 TransactionsDep = Annotated[TransactionStore, Depends(get_transactions)]
 FeedbackDep = Annotated[FeedbackStore, Depends(get_feedback)]
+DriftDep = Annotated[DriftMonitor, Depends(get_drift)]
 SettingsDep = Annotated[Settings, Depends(get_app_settings)]
