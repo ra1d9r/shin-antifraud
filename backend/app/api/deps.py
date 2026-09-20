@@ -23,6 +23,7 @@ from app.core.logging import get_logger
 from app.ml.pipeline import TrainedModel, load_model
 from app.risk_engine.engine import RiskEngine
 from app.services.prediction_service import PredictionService
+from app.store.feedback import FeedbackStore
 from app.store.profiles import UserProfileStore
 from app.store.transactions import TransactionStore
 from app.xai.explainer import Explainer
@@ -37,6 +38,9 @@ class AppState:
     settings: Settings
     profiles: UserProfileStore
     transactions: TransactionStore
+    # Разметка аналитика живёт рядом с транзакциями, но переживает
+    # и вытеснение из буфера, и перезапуск: она пишется на диск.
+    feedback: FeedbackStore
     model: TrainedModel | None = None
     risk_engine: RiskEngine | None = None
     explainer: Explainer | None = None
@@ -74,7 +78,13 @@ def build_state(settings: Settings | None = None) -> AppState:
         settings=settings,
         profiles=UserProfileStore(),
         transactions=TransactionStore(capacity=settings.max_stored_transactions),
+        feedback=FeedbackStore(path=settings.feedback_file),
     )
+
+    # Метки читаются до модели: они от неё не зависят, а потерять их
+    # из-за незагрузившейся модели было бы обиднее всего — это единственное
+    # в системе, что нельзя пересчитать заново.
+    state.feedback.load()
 
     state.risk_engine = RiskEngine.from_settings(settings)
 
@@ -181,6 +191,11 @@ def get_transactions(state: Annotated[AppState, Depends(get_state)]) -> Transact
     return state.transactions
 
 
+def get_feedback(state: Annotated[AppState, Depends(get_state)]) -> FeedbackStore:
+    """Хранилище разметки. Модель для него не нужна: метки — про прошлое."""
+    return state.feedback
+
+
 def get_app_settings(state: Annotated[AppState, Depends(get_state)]) -> Settings:
     return state.settings
 
@@ -188,4 +203,5 @@ def get_app_settings(state: Annotated[AppState, Depends(get_state)]) -> Settings
 StateDep = Annotated[AppState, Depends(get_state)]
 ServiceDep = Annotated[PredictionService, Depends(get_service)]
 TransactionsDep = Annotated[TransactionStore, Depends(get_transactions)]
+FeedbackDep = Annotated[FeedbackStore, Depends(get_feedback)]
 SettingsDep = Annotated[Settings, Depends(get_app_settings)]

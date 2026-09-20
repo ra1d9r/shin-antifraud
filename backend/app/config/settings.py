@@ -90,6 +90,9 @@ class Settings(BaseSettings):
 
     # -------------------------------------------------------------- storage
     max_stored_transactions: int = Field(default=5_000, gt=0)
+    # Разметка аналитика: ручная работа человека, её нельзя терять при
+    # перезапуске. Дописывается построчно в JSON Lines.
+    feedback_path: str = "backend/data/feedback/labels.jsonl"
 
     # ---------------------------------------------------------- validators
     @field_validator("risk_challenge_max")
@@ -143,6 +146,10 @@ class Settings(BaseSettings):
     @property
     def dataset_file(self) -> Path:
         return self.resolve(self.dataset_path)
+
+    @property
+    def feedback_file(self) -> Path:
+        return self.resolve(self.feedback_path)
 
 
 @lru_cache(maxsize=1)

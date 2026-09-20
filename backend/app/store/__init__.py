@@ -1,6 +1,15 @@
-"""In-memory хранилища: профили клиентов и обработанные транзакции."""
+"""Хранилища состояния: профили, обработанные транзакции, разметка аналитика."""
 
+from app.store.feedback import FeedbackRecord, FeedbackStore, FeedbackSummary
 from app.store.profiles import UserProfile, UserProfileStore
 from app.store.transactions import TransactionRecord, TransactionStore
 
-__all__ = ["TransactionRecord", "TransactionStore", "UserProfile", "UserProfileStore"]
+__all__ = [
+    "FeedbackRecord",
+    "FeedbackStore",
+    "FeedbackSummary",
+    "TransactionRecord",
+    "TransactionStore",
+    "UserProfile",
+    "UserProfileStore",
+]

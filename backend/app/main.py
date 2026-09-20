@@ -22,7 +22,15 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.deps import build_state
-from app.api.routes import analytics, health, predict, scenarios, stats, transactions
+from app.api.routes import (
+    analytics,
+    feedback,
+    health,
+    predict,
+    scenarios,
+    stats,
+    transactions,
+)
 from app.config.settings import Settings, get_settings
 from app.core.exceptions import ShinError
 from app.core.logging import configure_logging, get_logger
@@ -95,7 +103,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     prefix = settings.api_prefix.rstrip("/")
-    for module in (health, predict, scenarios, stats, transactions, analytics):
+    for module in (health, predict, scenarios, stats, transactions, analytics, feedback):
         app.include_router(module.router, prefix=prefix)
 
     _register_error_handlers(app)

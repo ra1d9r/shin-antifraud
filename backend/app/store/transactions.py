@@ -72,6 +72,23 @@ class TransactionStore:
         with self._lock:
             return len(self._records)
 
+    def get(self, transaction_id: str) -> TransactionRecord | None:
+        """Найти операцию по идентификатору — нужно разметке аналитика.
+
+        Перебор по буферу, а не индекс: записей не больше
+        `MAX_STORED_TRANSACTIONS`, а поиск случается раз на ручной разбор.
+        Индекс пришлось бы чистить при вытеснении из deque, и это был бы
+        второй источник правды о том, что в буфере лежит.
+
+        Идём с конца: идентификатор задаёт клиент, повторы возможны, и
+        размечать логично последнюю операцию с таким номером.
+        """
+        with self._lock:
+            for record in reversed(self._records):
+                if record.transaction_id == transaction_id:
+                    return record
+        return None
+
     def clear(self) -> None:
         with self._lock:
             self._records.clear()
@@ -162,8 +179,9 @@ class TransactionStore:
             "average_risk_score": round(
                 sum(record.risk_score for record in records) / total, 2
             ),
-            # Доля рискованных по мнению системы. Подтверждённой разметки
-            # в проде нет, поэтому это оценка, а не измеренная истина.
+            # Доля рискованных по мнению системы — оценка, а не измеренная
+            # истина: здесь она судит сама себя. Подтверждённое считает
+            # FeedbackStore по разметке аналитика.
             "fraud_rate": round((challenged + blocked) / total, 4),
             "decisions": {"approve": approved, "challenge": challenged, "block": blocked},
             "risk_levels": dict(levels.most_common()),

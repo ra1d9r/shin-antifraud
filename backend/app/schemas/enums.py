@@ -33,6 +33,19 @@ class ImpactDirection(StrEnum):
     DECREASES_RISK = "DECREASES_RISK"
 
 
+class Verdict(StrEnum):
+    """Оценка аналитиком решения системы.
+
+    Аналитик отвечает на вопрос «система была права?», а не «это фрод?»:
+    он только что прочитал вердикт, ему остаётся согласиться или нет.
+    Настоящая метка выводится из отметки и решения — см.
+    `app.store.feedback.derive_actual_fraud`.
+    """
+
+    CORRECT = "CORRECT"
+    INCORRECT = "INCORRECT"
+
+
 class ScenarioKey(StrEnum):
     """Готовые сценарии hand-testing (ТЗ §9)."""
 
