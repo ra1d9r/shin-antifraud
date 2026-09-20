@@ -170,18 +170,22 @@ function Comparison({ feature }: { feature: FeatureDrift }) {
           const expected = feature.expected[index] ?? 0
           const observed = feature.observed[index] ?? 0
           return (
-            <div className="bin" key={label}>
+            <div
+              className="bin"
+              key={label}
+              // Подсказка на всю колонку, а не на каждый столбик:
+              // сравнивают два числа, а не смотрят одно.
+              title={
+                `${label}
+` +
+                `обучающее: ${formatBinShare(expected)}
+` +
+                `сейчас: ${formatBinShare(observed)}`
+              }
+            >
               <div className="bin-bars">
-                <span
-                  className="bin-bar expected"
-                  style={{ height: `${(expected / peak) * 100}%` }}
-                  title={`обучающее: ${formatBinShare(expected)}`}
-                />
-                <span
-                  className="bin-bar observed"
-                  style={{ height: `${(observed / peak) * 100}%` }}
-                  title={`сейчас: ${formatBinShare(observed)}`}
-                />
+                <span className="bin-bar expected" style={{ height: `${(expected / peak) * 100}%` }} />
+                <span className="bin-bar observed" style={{ height: `${(observed / peak) * 100}%` }} />
               </div>
               <span className="bin-label">{label}</span>
               <span className="bin-share">{formatBinShare(observed)}</span>
