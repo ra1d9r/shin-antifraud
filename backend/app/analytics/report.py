@@ -25,6 +25,7 @@
 from __future__ import annotations
 
 import json
+from bisect import bisect_right
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -142,6 +143,12 @@ class DatasetReport:
     """Полная картина работы системы на датасете."""
 
     generated_at: str
+    # Метка модели, на которой посчитан отчёт. Без неё артефакт молча
+    # устаревает при переобучении: числа на дашборде остаются от прежней
+    # модели, и заметить это можно только случайно. Ровно так однажды
+    # устарели метрики в README.
+    model_trained_at: str | None
+    model_algorithm: str | None
     rows: int
     fraud_rows: int
     legit_rows: int
@@ -188,6 +195,8 @@ class DatasetReport:
     def to_dict(self) -> dict[str, Any]:
         return {
             "generated_at": self.generated_at,
+            "model_trained_at": self.model_trained_at,
+            "model_algorithm": self.model_algorithm,
             "rows": self.rows,
             "fraud_rows": self.fraud_rows,
             "legit_rows": self.legit_rows,
@@ -313,27 +322,38 @@ def _trade_off_curve(
     зависел бы от двух порогов сразу и перестал бы читаться. Зато вопрос
     «куда двигать чувствительность» он отвечает прямо.
     """
-    fraud_amounts = sorted(
-        (score, amount) for score, amount, fraud in zip(scores, amounts, is_fraud, strict=True) if fraud
+    # Оба списка отсортированы по счёту, и это используется: граница ищется
+    # двоичным поиском, а стоимость пропуска берётся из префиксных сумм.
+    # Раньше сортировка стояла, но каждый из 101 порога всё равно проходил
+    # оба списка целиком — работа впустую и обманчивый вид оптимизации.
+    fraud_sorted = sorted(
+        (score, amount)
+        for score, amount, fraud in zip(scores, amounts, is_fraud, strict=True)
+        if fraud
     )
+    fraud_scores = [score for score, _ in fraud_sorted]
     legit_scores = sorted(
         score for score, fraud in zip(scores, is_fraud, strict=True) if not fraud
     )
 
+    # prefix[k] — во что обходится пропуск k самых низкооценённых операций.
+    prefix = [0.0]
+    for _, amount in fraud_sorted:
+        prefix.append(
+            prefix[-1] + amount * settings.cost_fraud_loss_ratio + settings.cost_fraud_fixed
+        )
+
     points = []
     for threshold in range(0, 101, CURVE_STEP):
-        missed = [amount for score, amount in fraud_amounts if score <= threshold]
-        friction = sum(1 for score in legit_scores if score > threshold)
+        missed_count = bisect_right(fraud_scores, threshold)
+        friction = len(legit_scores) - bisect_right(legit_scores, threshold)
 
-        fraud_loss = sum(
-            amount * settings.cost_fraud_loss_ratio + settings.cost_fraud_fixed
-            for amount in missed
-        )
+        fraud_loss = prefix[missed_count]
         points.append(
             CurvePoint(
                 threshold=threshold,
-                fraud_missed=len(missed),
-                fraud_stopped=len(fraud_amounts) - len(missed),
+                fraud_missed=missed_count,
+                fraud_stopped=len(fraud_sorted) - missed_count,
                 friction=friction,
                 fraud_loss=fraud_loss,
                 friction_cost=friction * settings.cost_false_challenge,
@@ -350,6 +370,7 @@ def build_report(
     *,
     settings: Settings,
     thresholds: RiskThresholds,
+    model=None,
     rules_enabled: bool = True,
 ) -> DatasetReport:
     """Посчитать полный отчёт по датасету.
@@ -361,6 +382,8 @@ def build_report(
         probabilities: вероятности фрода от модели.
         settings: конфигурация, включая параметры стоимости.
         thresholds: пороги решений.
+        model: обученная модель — нужна только ради метки в отчёте, чтобы
+            было видно, к какой модели относятся числа.
         rules_enabled: считать ли с политиками поверх модели.
     """
     records = features.to_dict(orient="records")
@@ -404,6 +427,8 @@ def build_report(
 
     return DatasetReport(
         generated_at=datetime.now(UTC).replace(microsecond=0).isoformat(),
+        model_trained_at=getattr(model, "trained_at", None),
+        model_algorithm=getattr(model, "algorithm", None),
         rows=len(records),
         fraud_rows=fraud_rows,
         legit_rows=len(records) - fraud_rows,

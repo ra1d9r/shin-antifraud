@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { ApiError, apiBaseUrl, fetchScenarios, predict } from './api'
 import { CONTEXT_FIELDS, FORM_FIELDS, formToRequest, scenarioToForm } from './form'
+import { WAKE_UP_HINT, useSlowHint } from './useSlowHint'
 import type { FieldSpec, FormState } from './form'
 import type { Decision, PredictionResponse, Scenario } from './types'
 
@@ -37,6 +38,8 @@ export default function Simulator() {
   const [loading, setLoading] = useState(false)
   const [startupError, setStartupError] = useState<string>('')
   const [persist, setPersist] = useState(true)
+  // Ждём либо ответа на анализ, либо самой первой загрузки сценариев.
+  const waking = useSlowHint(loading || (scenarios.length === 0 && startupError === ''))
 
   // Пресеты берём с backend: тот же источник, что у автотестов и
   // docs/HAND_TESTING.md, поэтому кнопки не могут с ними разойтись.
@@ -192,6 +195,8 @@ export default function Simulator() {
             <span>сохранять в историю (persist)</span>
           </label>
         </div>
+
+        {waking && <p className="hint">{WAKE_UP_HINT}</p>}
       </section>
 
       {error && (

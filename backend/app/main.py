@@ -19,6 +19,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.deps import build_state
 from app.api.routes import analytics, health, predict, scenarios, stats, transactions
@@ -111,6 +112,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     return app
 
 
+# Коды, которые фреймворк отдаёт сам. Сообщения на русском — как и всё,
+# что видит человек: ответ Starlette 'Not Found' в интерфейсе смотрелся бы
+# чужеродно рядом с остальными.
+_HTTP_ERRORS: dict[int, tuple[str, str]] = {
+    400: ("bad_request", "Тело запроса не разобрано"),
+    404: ("not_found", "Такого адреса на backend нет"),
+    405: ("method_not_allowed", "Этот метод для адреса не поддерживается"),
+}
+
+
 def _register_error_handlers(app: FastAPI) -> None:
     """Перевод доменных ошибок в HTTP.
 
@@ -134,6 +145,25 @@ def _register_error_handlers(app: FastAPI) -> None:
                 "message": "Некорректные данные запроса",
                 "details": {"errors": _readable_validation_errors(exc)},
             },
+        )
+
+    @app.exception_handler(StarletteHTTPException)
+    async def handle_http_error(request: Request, exc: StarletteHTTPException) -> JSONResponse:
+        """Привести ответы фреймворка к тому же контракту, что и свои.
+
+        Без этого 404, 405 и «не разобралось тело» отдавали форму Starlette
+        `{"detail": "Not Found"}`, а всё остальное — `{error_code, message,
+        details}`. Клиент читает `message`, не находил его и показывал голое
+        «HTTP 404» вместо объяснения.
+        """
+        detail = exc.detail if isinstance(exc.detail, str) else "Запрос отклонён"
+        code, message = _HTTP_ERRORS.get(exc.status_code, ("http_error", detail))
+
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error_code": code, "message": message, "details": {"detail": detail}},
+            # Заголовки фреймворка важны: у 405 в них список разрешённых методов.
+            headers=getattr(exc, "headers", None),
         )
 
     @app.exception_handler(Exception)

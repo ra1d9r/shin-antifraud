@@ -174,6 +174,12 @@ export interface CurvePoint {
 
 export interface AnalyticsOverview {
   generated_at: string
+  /** Метка модели, на которой посчитан отчёт. */
+  model_trained_at?: string | null
+  model_algorithm?: string | null
+  /** Отчёт посчитан на другой модели, чем загружена сейчас. */
+  stale: boolean
+  stale_reason?: string | null
   rows: number
   fraud_rows: number
   legit_rows: number

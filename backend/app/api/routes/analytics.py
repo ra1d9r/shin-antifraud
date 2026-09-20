@@ -37,4 +37,10 @@ def analytics_overview(state: StateDep) -> AnalyticsOverview:
                 "python backend/scripts/export_evaluation.py"
             )
         )
-    return AnalyticsOverview(**state.evaluation)
+    # Пометка о несвежести живёт в состоянии, а не в артефакте: сам отчёт
+    # не знает, какая модель загружена сейчас.
+    return AnalyticsOverview(
+        **state.evaluation,
+        stale=state.evaluation_stale,
+        stale_reason=state.evaluation_stale_reason,
+    )

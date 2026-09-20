@@ -321,6 +321,41 @@ def test_zero_counters_are_normalised_not_rejected(client) -> None:
     assert payload["features"]["txn_count_last_hour"] == 1.0
 
 
+def test_framework_errors_follow_the_same_contract(client) -> None:
+    """404 и 405 обязаны отвечать так же, как собственные ошибки.
+
+    Starlette отдаёт свою форму {"detail": ...}, а весь остальной API —
+    {error_code, message, details}. Клиент читает message, не находил его
+    и показывал голое «HTTP 404» вместо объяснения.
+    """
+    for response in (client.get("/такого-адреса-нет"), client.get("/predict")):
+        payload = response.json()
+
+        assert response.status_code in (404, 405)
+        assert set(payload) == {"error_code", "message", "details"}
+        assert payload["message"] and not payload["message"].startswith("HTTP")
+
+
+def test_method_not_allowed_keeps_allow_header(client) -> None:
+    """Заголовок Allow — часть ответа 405, и обработчик не должен его терять."""
+    response = client.get("/predict")
+
+    assert response.status_code == 405
+    assert "allow" in {name.lower() for name in response.headers}
+
+
+def test_malformed_body_is_explained(client) -> None:
+    """Нечитаемое тело объясняется словами, а не кодом."""
+    response = client.post(
+        "/predict", content="{это не json", headers={"Content-Type": "application/json"}
+    )
+
+    assert response.status_code in (400, 422)
+    payload = response.json()
+    assert "error_code" in payload
+    assert payload["message"]
+
+
 # --------------------------------------------------------------- /stats
 
 

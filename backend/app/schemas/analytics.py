@@ -58,6 +58,18 @@ class AnalyticsOverview(BaseModel):
     """Полная картина работы системы на датасете."""
 
     generated_at: str = Field(description="Когда выгружена аналитика")
+    model_trained_at: str | None = Field(
+        default=None, description="Метка модели, на которой посчитан отчёт"
+    )
+    model_algorithm: str | None = Field(default=None)
+    stale: bool = Field(
+        default=False,
+        description=(
+            "Отчёт посчитан на другой модели, чем загружена сейчас. "
+            "Числа описывают прошлое состояние системы."
+        ),
+    )
+    stale_reason: str | None = Field(default=None)
     rows: int
     fraud_rows: int
     legit_rows: int

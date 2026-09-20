@@ -1,5 +1,7 @@
 {
-  "generated_at": "2026-09-18T21:33:25+00:00",
+  "generated_at": "2026-09-19T08:20:09+00:00",
+  "model_trained_at": "2026-09-17T14:03:39",
+  "model_algorithm": "lightgbm",
   "rows": 99360,
   "fraud_rows": 1936,
   "legit_rows": 97424,

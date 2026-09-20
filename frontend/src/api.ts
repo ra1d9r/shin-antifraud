@@ -40,40 +40,92 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Сколько ждать backend, прежде чем признать запрос безнадёжным.
+ *
+ * У `fetch` нет таймаута по умолчанию: он ждёт вечно. Пока его не было,
+ * зависший backend оставлял интерфейс с надписью «Анализ…» и заблокированной
+ * кнопкой навсегда — без сообщения и без возможности повторить.
+ *
+ * Минута выглядит щедро — сам запрос укладывается в десятки миллисекунд даже
+ * с построением SHAP-объяснения. Но на бесплатном хостинге сервис засыпает
+ * после простоя, и первое обращение сначала будит контейнер: это тридцать
+ * секунд и больше. С прежними пятнадцатью секундами жюри, открывшее ссылку
+ * после паузы, видело бы ошибку таймаута вместо дашборда.
+ */
+const REQUEST_TIMEOUT_MS = 60_000
+
+/** Человеческое описание статуса, когда backend не прислал своего. */
+function describeStatus(status: number): string {
+  if (status === 404) return 'Адрес не найден на backend'
+  if (status === 405) return 'Метод не поддерживается'
+  if (status === 408 || status === 504) return 'Backend не успел ответить'
+  if (status >= 500) return 'Backend ответил ошибкой'
+  return 'Запрос отклонён'
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  let response: Response
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+
   try {
-    response = await fetch(`${BASE_URL}${path}`, {
-      headers: { 'Content-Type': 'application/json' },
-      ...init,
-    })
-  } catch {
-    // Сеть не ответила вовсе: backend не поднят или заблокирован CORS.
-    // Исходная ошибка не сохраняется намеренно: TypeError: Failed to fetch
-    // ничего не говорит человеку, который открыл тестовый интерфейс,
-    // а вот адрес backend и вопрос «поднят ли он» говорят.
-    throw new ApiError(
-      `Backend недоступен по адресу ${BASE_URL}. Поднят ли он?`,
-      0,
-      null,
-    )
-  }
-
-  if (!response.ok) {
-    let body: ApiErrorBody | null = null
+    let response: Response
     try {
-      body = (await response.json()) as ApiErrorBody
-    } catch {
-      // Тело не JSON — body остаётся null, заданным выше.
+      response = await fetch(`${BASE_URL}${path}`, {
+        headers: { 'Content-Type': 'application/json' },
+        ...init,
+        // Сигнал ставится после развёртывания init намеренно: свой таймаут
+        // важнее возможного чужого сигнала.
+        signal: controller.signal,
+      })
+    } catch (cause) {
+      if (cause instanceof DOMException && cause.name === 'AbortError') {
+        throw new ApiError(
+          `Backend не ответил за ${REQUEST_TIMEOUT_MS / 1000} секунд. ` +
+            'Столько не занимает даже пробуждение уснувшего сервиса — ' +
+            'похоже, он недоступен. Попробуйте обновить страницу.',
+          0,
+          null,
+        )
+      }
+      // Сеть не ответила вовсе: backend не поднят или заблокирован CORS.
+      // Исходная ошибка не сохраняется намеренно: TypeError: Failed to fetch
+      // ничего не говорит человеку, который открыл тестовый интерфейс,
+      // а вот адрес backend и вопрос «поднят ли он» говорят.
+      throw new ApiError(`Backend недоступен по адресу ${BASE_URL}. Поднят ли он?`, 0, null)
     }
-    throw new ApiError(
-      body?.message ?? `HTTP ${response.status}`,
-      response.status,
-      body,
-    )
-  }
 
-  return (await response.json()) as T
+    if (!response.ok) {
+      let body: ApiErrorBody | null = null
+      try {
+        body = (await response.json()) as ApiErrorBody
+      } catch {
+        // Тело не JSON — body остаётся null, заданным выше.
+      }
+      // Без `describeStatus` сюда подставлялось «HTTP 500», и заголовок
+      // ошибки в интерфейсе читался как «HTTP 500 — HTTP 500».
+      throw new ApiError(body?.message ?? describeStatus(response.status), response.status, body)
+    }
+
+    try {
+      return (await response.json()) as T
+    } catch {
+      // Раньше разбор тела стоял вне try, и пользователь видел сырое
+      // `SyntaxError: Failed to execute 'json' on 'Response'`, помеченное
+      // как сетевая ошибка. Так выглядит ответ прокси, отдавшего HTML
+      // с кодом 200, или оборванное соединение.
+      throw new ApiError(
+        'Backend ответил не в формате JSON. Между браузером и backend может стоять прокси.',
+        response.status,
+        null,
+      )
+    }
+  } finally {
+    // Снимаем таймер и после успеха: свой контроллер у каждого запроса, так
+    // что сработка на завершённом ничему не повредит, но копить висящие
+    // таймеры на каждый вызов незачем.
+    clearTimeout(timer)
+  }
 }
 
 /** Анализ транзакции — основной вызов интерфейса. */

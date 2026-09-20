@@ -8,6 +8,17 @@
 Transaction -> Feature Engineering -> ML Model -> Risk Score -> Risk Engine -> Decision -> XAI Explanation
 ```
 
+## Демонстрация
+
+| | |
+|---|---|
+| **Интерфейс** | **<https://shin-antifraud.onrender.com>** |
+| API и Swagger | <https://shin-fraud-api.onrender.com/docs> |
+
+> Backend развёрнут на бесплатном тарифе и засыпает после простоя. Первое
+> обращение сначала будит контейнер — это до минуты, интерфейс в это время
+> сам объясняет, что происходит. Дальше всё отвечает мгновенно.
+
 ---
 
 ## 1. Описание проекта
