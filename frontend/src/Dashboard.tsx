@@ -93,15 +93,21 @@ export default function Dashboard({
             tone="good"
           />
           <Tile
+            label="Спасённый бюджет (Fraud Loss Saved)"
+            value={formatMoney(data.fraud_loss_prevented)}
+            note={`из ${formatMoney(data.fraud_loss_exposure)} под угрозой`}
+            tone="good"
+          />
+          <Tile
             label="Фрод пропущен"
             value={formatNumber(data.fraud_missed)}
-            note="ушли с решением APPROVE"
+            note={`ушли с решением APPROVE, на ${formatMoney(data.fraud_loss_incurred)}`}
             tone={data.fraud_missed > 0 ? 'bad' : 'good'}
           />
           <Tile
-            label="Трение (False Positive Rate)"
+            label="Процент ложных срабатываний (False Positive Rate)"
             value={formatShare(data.friction_share)}
-            note={`${formatNumber(data.friction)} честных клиентов побеспокоено`}
+            note={`${formatNumber(data.friction)} честных клиентов побеспокоено зря`}
             tone="warn"
           />
           <Tile
@@ -110,6 +116,18 @@ export default function Dashboard({
             note="сумма всех транзакций"
           />
         </div>
+        <p className="hint">
+          <strong>Спасённый бюджет</strong> — деньги фрода, которые не ушли: сумма
+          операций, остановленных блокировкой или отправленных на проверку, по той же
+          формуле, по которой считается стоимость на кривой ниже. Проверка считается
+          остановкой: это допущение модели стоимости, а не факт — клиент может
+          подтвердить операцию, и тогда фрод пройдёт.
+        </p>
+        <p className="hint">
+          <strong>Трение</strong> и есть ложные срабатывания: добросовестные клиенты,
+          которых система задержала. Здесь это видно в процентах, а в деньгах — на кривой
+          ниже, потому что стоимость проверки и стоимость блокировки разные.
+        </p>
         <p className="hint">
           Аналитика выгружена {new Date(data.generated_at).toLocaleString('ru-RU')}. Считается
           по датасету с известной разметкой — поэтому здесь, в отличие от `/stats`, виден

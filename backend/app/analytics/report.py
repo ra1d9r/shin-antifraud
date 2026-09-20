@@ -160,6 +160,13 @@ class DatasetReport:
     fraud_blocked: int
     fraud_stopped: int
     fraud_missed: int
+    #: Деньги фрода, которые система не пропустила, — «спасённый бюджет»
+    #: из брифинга §5.A. Считается по тем же решениям, что и счётчики
+    #: выше, а не по кривой: кривая моделирует один рычаг, а система
+    #: работает тремя уровнями с политиками поверх.
+    fraud_loss_prevented: float
+    #: Деньги фрода, ушедшие с решением APPROVE.
+    fraud_loss_incurred: float
     friction: int
     raised_by_rules: int
 
@@ -177,6 +184,15 @@ class DatasetReport:
     @property
     def fraud_stopped_share(self) -> float:
         return self.fraud_stopped / max(1, self.fraud_rows)
+
+    @property
+    def fraud_loss_exposure(self) -> float:
+        """Во что обошёлся бы весь фрод выборки без системы вовсе.
+
+        Сумма двух предыдущих по построению: каждая мошенническая
+        операция либо остановлена, либо пропущена, третьего нет.
+        """
+        return self.fraud_loss_prevented + self.fraud_loss_incurred
 
     @property
     def friction_share(self) -> float:
@@ -209,6 +225,9 @@ class DatasetReport:
             "fraud_stopped": self.fraud_stopped,
             "fraud_missed": self.fraud_missed,
             "fraud_stopped_share": round(self.fraud_stopped_share, 4),
+            "fraud_loss_prevented": round(self.fraud_loss_prevented, 2),
+            "fraud_loss_incurred": round(self.fraud_loss_incurred, 2),
+            "fraud_loss_exposure": round(self.fraud_loss_exposure, 2),
             "friction": self.friction,
             "friction_share": round(self.friction_share, 4),
             "raised_by_rules": self.raised_by_rules,
@@ -293,6 +312,36 @@ def _rule_stats(
             )
         )
     return tuple(stats)
+
+
+def _fraud_money(
+    decisions: list[Decision],
+    amounts: list[float],
+    is_fraud: list[bool],
+    settings: Settings,
+) -> tuple[float, float]:
+    """Деньги фрода: остановленные и ушедшие.
+
+    Цена одной мошеннической операции берётся той же формулой, что
+    в `_total_cost`, — иначе «спасённый бюджет» на плитке и стоимость
+    на кривой считались бы по разным правилам и не сходились бы.
+
+    Проверка (CHALLENGE) считается остановкой. Это допущение модели
+    стоимости, а не факт: клиент может подтвердить операцию и фрод
+    пройдёт. Но то же допущение уже заложено в `_total_cost`, где
+    потерю даёт только `fraud and APPROVE`, и разойтись с ним здесь
+    значило бы получить две разные версии одной величины.
+    """
+    prevented = incurred = 0.0
+    for decision, amount, fraud in zip(decisions, amounts, is_fraud, strict=True):
+        if not fraud:
+            continue
+        loss = amount * settings.cost_fraud_loss_ratio + settings.cost_fraud_fixed
+        if decision is Decision.APPROVE:
+            incurred += loss
+        else:
+            prevented += loss
+    return prevented, incurred
 
 
 def _total_cost(
@@ -422,6 +471,8 @@ def build_report(
         for probability, row in zip(probabilities, records, strict=True)
     ]
 
+    prevented, incurred = _fraud_money(decisions, amounts, is_fraud, settings)
+
     curve = _trade_off_curve(scores, amounts, is_fraud, settings)
     optimal = min(curve, key=lambda point: point.total_cost).threshold
 
@@ -439,6 +490,8 @@ def build_report(
         fraud_blocked=fraud_blocked,
         fraud_stopped=fraud_stopped,
         fraud_missed=fraud_rows - fraud_stopped,
+        fraud_loss_prevented=prevented,
+        fraud_loss_incurred=incurred,
         friction=friction,
         raised_by_rules=sum(1 for item in assessments if item.raised_by_rules),
         rules=(

@@ -74,6 +74,51 @@ def test_shares_are_fractions(report) -> None:
         assert 0.0 <= share <= 1.0
 
 
+# --------------------------------------------- спасённый бюджет (§5.A)
+
+
+def test_saved_and_lost_money_add_up_to_everything_at_stake(report) -> None:
+    """Каждая мошенническая операция либо остановлена, либо пропущена.
+
+    Инвариант держит определение честным: если суммы разойдутся,
+    значит часть фрода посчитана дважды или потеряна, и «спасённый
+    бюджет» перестанет означать то, что написано на плитке.
+    """
+    assert report.fraud_loss_prevented + report.fraud_loss_incurred == pytest.approx(
+        report.fraud_loss_exposure
+    )
+
+
+def test_saved_money_follows_the_same_formula_as_the_cost_model(report) -> None:
+    """Иначе плитка и кривая считали бы одно разными правилами.
+
+    Потери на текущем пороге по кривой — это ровно тот фрод, который
+    ушёл с решением APPROVE. Совпадение не случайно: обе величины
+    берут `amount * ratio + fixed` по одним и тем же операциям.
+    """
+    at_current = next(
+        point for point in report.curve if point.threshold == report.thresholds["approve_max"]
+    )
+
+    assert report.fraud_loss_incurred == pytest.approx(at_current.fraud_loss)
+
+
+def test_nothing_saved_when_everything_is_approved(report) -> None:
+    """Вырожденный случай задаёт смысл шкалы: без системы спасено ноль."""
+    exposure = report.fraud_loss_exposure
+    no_system = next(point for point in report.curve if point.threshold == 100)
+
+    assert no_system.fraud_loss == pytest.approx(exposure)
+
+
+def test_saved_money_is_in_the_artifact(report) -> None:
+    payload = report.to_dict()
+
+    for field in ("fraud_loss_prevented", "fraud_loss_incurred", "fraud_loss_exposure"):
+        assert field in payload, f"{field} нужен дашборду — брифинг §5.A"
+        assert payload[field] >= 0
+
+
 # ------------------------------------------------------------ кривая
 
 

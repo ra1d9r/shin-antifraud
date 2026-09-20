@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-20T10:43:01+00:00",
+  "generated_at": "2026-09-20T20:01:12+00:00",
   "model_trained_at": "2026-09-17T14:03:39",
   "model_algorithm": "lightgbm",
   "rows": 99360,
@@ -34,6 +34,9 @@
   "fraud_stopped": 1849,
   "fraud_missed": 87,
   "fraud_stopped_share": 0.9551,
+  "fraud_loss_prevented": 494858.11,
+  "fraud_loss_incurred": 29280.39,
+  "fraud_loss_exposure": 524138.5,
   "friction": 2011,
   "friction_share": 0.0206,
   "raised_by_rules": 1965,
