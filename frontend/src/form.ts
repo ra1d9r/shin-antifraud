@@ -141,3 +141,21 @@ export function formToRequest(form: FormState): ParsedForm {
 
   return { body: body as unknown as TransactionRequest, invalid }
 }
+
+/**
+ * Новый идентификатор операции.
+ *
+ * Нужен, потому что backend стал идемпотентным: повтор с тем же
+ * `transaction_id`, но другими данными — это вторая операция под чужим
+ * номером, и он отвечает 409. А симулятор для того и сделан, чтобы
+ * менять поля и нажимать Analyze снова, — значит каждый прогон должен
+ * быть новой операцией.
+ *
+ * Формат совпадает с тем, что генерирует схема, но контрактом не
+ * является: backend принимает любую непустую строку до 128 символов.
+ * Здесь важна только уникальность.
+ */
+export function newTransactionId(): string {
+  const random = Math.random().toString(16).slice(2, 14).padEnd(12, '0')
+  return `txn_${random}`
+}

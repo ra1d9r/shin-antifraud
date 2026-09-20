@@ -72,11 +72,19 @@ def client(tmp_path_factory):
 
 @pytest.fixture(autouse=True)
 def clean_state(client):
-    """Каждый тест начинает с пустой историей, профилями и разметкой."""
+    """Каждый тест начинает с пустой историей, профилями и разметкой.
+
+    Повторы тоже забываются. Без этого тесты протекали друг в друга
+    через идемпотентность: два теста подряд занимают номера txn_0..txn_2,
+    и второй получал их повтором — в очищенную историю они уже не
+    попадали, хотя на живой системе это было бы верным поведением.
+    """
     state = client.app.state.shin
     state.transactions.clear()
     state.profiles.clear()
     state.feedback.clear()
+    if state.idempotency is not None:
+        state.idempotency.clear()
     yield
 
 
