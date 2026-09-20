@@ -52,6 +52,17 @@ class CurvePointOut(BaseModel):
     fraud_loss: float
     friction_cost: float
     total_cost: float
+    precision: float | None = Field(
+        default=None,
+        description=(
+            "Доля настоящего фрода среди помеченного. null — система не пометила "
+            "никого, делить не на что; ноль означал бы другое."
+        ),
+    )
+    recall: float | None = Field(
+        default=None, description="Доля пойманного фрода от всего фрода в выборке"
+    )
+    f1: float | None = Field(default=None, description="Гармоническое среднее двух предыдущих")
 
 
 class AnalyticsOverview(BaseModel):

@@ -512,7 +512,14 @@ summary {
 .chart-line.friction { stroke: var(--challenge); }
 .chart-line.total { stroke: var(--accent); }
 
+/* График качества: цвета не повторяют денежный, иначе на двух графиках
+   подряд одна линия читалась бы как продолжение другой. */
+.chart-line.precision { stroke: #7c5cff; }
+.chart-line.recall { stroke: #2ea86a; }
+
 .legend { font-size: 11px; }
+.legend.precision { fill: #7c5cff; }
+.legend.recall { fill: #2ea86a; }
 .legend.fraud { fill: var(--block); }
 .legend.friction { fill: var(--challenge); }
 .legend.total { fill: var(--accent); }
@@ -700,3 +707,7 @@ summary {
 .readout-row.fraud { fill: var(--block); }
 .readout-row.friction { fill: var(--challenge); }
 .readout-row.total { fill: var(--accent); }
+
+/* Метрики качества — приглушённо: у них своя шкала, и к точкам
+   на линиях они не относятся. */
+.readout-row.muted-row { fill: var(--muted); }
