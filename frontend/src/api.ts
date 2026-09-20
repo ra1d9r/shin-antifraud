@@ -12,6 +12,7 @@ import type {
   ApiErrorBody,
   ClusterReport,
   DriftReport,
+  FeatureRegistry,
   FeedbackAccepted,
   FeedbackSummary,
   HealthResponse,
@@ -214,6 +215,17 @@ export function fetchHealth(): Promise<HealthResponse> {
  */
 export function fetchAnalytics(): Promise<AnalyticsOverview> {
   return request<AnalyticsOverview>('/analytics/overview')
+}
+
+/**
+ * Справочник признаков — описания к числам вектора.
+ *
+ * Отдельным запросом, а не вместе с предсказанием: описания не меняются
+ * от транзакции к транзакции, и возить их в каждом ответе было бы
+ * расточительством.
+ */
+export function fetchFeatureRegistry(): Promise<FeatureRegistry> {
+  return request<FeatureRegistry>('/features')
 }
 
 export function fetchModel(): Promise<ModelInfo> {

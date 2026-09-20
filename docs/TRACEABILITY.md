@@ -55,6 +55,7 @@
 | D-18 | Текстовый отчёт по операции | `backend/app/reports/transaction.py`, `POST /report` | DONE |
 | D-19 | Идемпотентность `POST /predict` | `backend/app/store/idempotency.py`, `backend/app/api/routes/predict.py` | DONE |
 | D-20 | Пороги в рантайме | `backend/app/api/routes/config.py`, `apply_thresholds` в `api/deps.py` | DONE |
+| брифинг §5.B | Справочник признаков и показ всего вектора | `GET /features`, `frontend/src/FeaturePanel.tsx` | DONE |
 | §12 | `.env.example` | `.env.example` | DONE |
 | §12 | CORS | `backend/app/main.py` | DONE |
 | §12 | `requirements.txt` | `backend/requirements.txt` | DONE |
