@@ -43,6 +43,9 @@
 | §9 | Сценарий `high_frequency` (шестой, решение D-9) | `backend/app/services/scenarios.py` | DONE |
 | §9 | Сценарии hand-testing | `backend/app/services/scenarios.py`, `api/routes/scenarios.py`, `docs/HAND_TESTING.md` | DONE |
 | §10 | Business Cost: кривая Fraud Loss против Customer Inconvenience | `app/analytics/report.py`, `frontend/src/Dashboard.tsx` | DONE |
+| D-14 | Отметка вердикта аналитиком | `backend/app/api/routes/feedback.py`, `POST /transactions/{id}/feedback` | DONE |
+| D-14 | Накопление настоящих меток и архив на диске | `backend/app/store/feedback.py` | DONE |
+| D-14 | Измеренное качество по разметке | `GET /feedback/summary`, `frontend/src/FeedbackPanel.tsx` | DONE |
 | §12 | `.env.example` | `.env.example` | DONE |
 | §12 | CORS | `backend/app/main.py` | DONE |
 | §12 | `requirements.txt` | `backend/requirements.txt` | DONE |

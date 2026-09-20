@@ -203,6 +203,80 @@ export interface AnalyticsOverview {
   optimal_threshold: number
 }
 
+/* -------------------------------------------- разметка аналитика */
+
+/**
+ * Что аналитик сказал о вердикте системы.
+ *
+ * Он отвечает «система была права?», а не «это фрод?»: настоящую метку
+ * backend выводит сам, зная, что система утверждала.
+ */
+export type Verdict = 'CORRECT' | 'INCORRECT'
+
+export interface FeedbackRecord {
+  transaction_id: string
+  user_id: string
+  verdict: Verdict
+  /** Подтверждённая метка, выведенная из отметки и решения системы. */
+  actual_fraud: boolean
+  decision: Decision
+  risk_score: number
+  model_score: number
+  amount: number
+  triggered_rules: string[]
+  labeled_at: string
+  analyst?: string | null
+  comment?: string | null
+}
+
+export interface DecisionFeedback {
+  decision: Decision
+  labeled: number
+  fraud: number
+  legit: number
+}
+
+export interface RuleFeedback {
+  key: string
+  labeled: number
+  fraud: number
+  legit: number
+}
+
+/**
+ * Измеренное качество по подтверждённым меткам.
+ *
+ * Доли приходят `null`, когда делить не на что: «точность 0 %»
+ * и «точность ещё не измерена» — разные утверждения.
+ */
+export interface FeedbackSummary {
+  labeled_total: number
+  correct: number
+  incorrect: number
+  correct_share: number | null
+  fraud_confirmed: number
+  legit_confirmed: number
+  true_positive: number
+  false_positive: number
+  true_negative: number
+  false_negative: number
+  precision: number | null
+  recall: number | null
+  fraud_amount_missed: number
+  by_decision: DecisionFeedback[]
+  rules: RuleFeedback[]
+  storage_path?: string | null
+  /** Метки не доходят до диска и пропадут при перезапуске. */
+  storage_error?: string | null
+  skipped_lines: number
+}
+
+/** Ответ на разметку: метка и сразу пересчитанная сводка. */
+export interface FeedbackAccepted {
+  record: FeedbackRecord
+  summary: FeedbackSummary
+}
+
 /** Сведения о модели из GET /model. */
 export interface ModelInfo {
   loaded: boolean
