@@ -61,6 +61,13 @@ class TransactionNotFoundError(ShinError):
     error_code = "transaction_not_found"
 
 
+class ShadowUnavailableError(ShinError):
+    """Теневая конфигурация не собрана или выключена."""
+
+    status_code = 503
+    error_code = "shadow_unavailable"
+
+
 class DatasetNotFoundError(ShinError):
     """Датасет для обучения не найден."""
 

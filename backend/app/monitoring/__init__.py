@@ -12,15 +12,25 @@ from app.monitoring.drift import (
     load_baseline,
     population_stability_index,
 )
+from app.monitoring.shadow import (
+    Disagreement,
+    ShadowConfig,
+    ShadowReport,
+    ShadowRunner,
+)
 
 __all__ = [
     "BaselineMismatchError",
     "BaselineNotFoundError",
+    "Disagreement",
     "DriftBaseline",
     "DriftMonitor",
     "DriftReport",
     "DriftStatus",
     "FeatureBaseline",
+    "ShadowConfig",
+    "ShadowReport",
+    "ShadowRunner",
     "build_baseline",
     "load_baseline",
     "population_stability_index",
