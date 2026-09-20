@@ -170,6 +170,11 @@ export interface CurvePoint {
   fraud_loss: number
   friction_cost: number
   total_cost: number
+  /** Доля настоящего фрода среди помеченного. null — не помечен никто. */
+  precision: number | null
+  /** Доля пойманного фрода от всего фрода в выборке. */
+  recall: number | null
+  f1: number | null
 }
 
 export interface AnalyticsOverview {

@@ -16,6 +16,7 @@ import type { MouseEvent } from 'react'
 
 import DriftPanel from './DriftPanel'
 import { readoutX, thresholdAtPointer } from './chart'
+import { formatMeasuredShare } from './feedback'
 import { formatCount as formatNumber, formatMoney } from './format'
 import FeedbackPanel from './FeedbackPanel'
 import GraphPanel from './GraphPanel'
@@ -150,6 +151,13 @@ export default function Dashboard({
           optimalThreshold={data.optimal_threshold}
         />
 
+        <QualityChart
+          curve={data.curve}
+          selected={threshold}
+          currentThreshold={data.thresholds.approve_max}
+          optimalThreshold={data.optimal_threshold}
+        />
+
         <div className="slider">
           <label>
             <span>Порог чувствительности: {threshold}</span>
@@ -183,7 +191,25 @@ export default function Dashboard({
             note={costNote(point, current)}
             tone={point.total_cost <= current.total_cost ? 'good' : 'bad'}
           />
+          <Tile
+            label="Точность (Precision)"
+            value={formatMeasuredShare(point.precision)}
+            note="доля настоящего фрода среди помеченного"
+          />
+          <Tile
+            label="Полнота (Recall)"
+            value={formatMeasuredShare(point.recall)}
+            note="доля пойманного фрода от всего"
+          />
         </div>
+
+        <p className="hint">
+          Точность и потери лежат в одной точке намеренно: это и есть компромисс,
+          который требует кейс. Ведите ползунок влево — точность падает, потому что
+          под проверку попадает всё больше честных клиентов; вправо — падает полнота,
+          потому что фрод начинает проходить. Дешевле всего не там, где точность
+          выше, и в этом вся сложность.
+        </p>
       </section>
 
       <section className="panel">
@@ -312,6 +338,108 @@ export default function Dashboard({
         </section>
       )}
     </>
+  )
+}
+
+/**
+ * Точность и полнота по тому же порогу.
+ *
+ * Отдельным графиком, а не второй осью на денежном: деньги измеряются
+ * сотнями тысяч, метрики — долями единицы, и общая ось сделала бы одну
+ * из двух пар линий плоской. Вторая ось справа читается неоднозначно —
+ * по линии не видно, к какой шкале она относится.
+ *
+ * Ось порога общая с графиком выше, засечки те же. Вместе они и есть
+ * «индикация компромисса между точностью и потерями бизнеса» из
+ * брифинга §5.A: слева точность низкая, а потери малы; справа наоборот.
+ */
+function QualityChart({
+  curve,
+  selected,
+  currentThreshold,
+  optimalThreshold,
+}: {
+  curve: CurvePoint[]
+  selected: number
+  currentThreshold: number
+  optimalThreshold: number
+}) {
+  const width = 720
+  const height = 150
+  const padding = { top: 14, right: 16, bottom: 26, left: 56 }
+
+  const x = (threshold: number) =>
+    padding.left + (threshold / 100) * (width - padding.left - padding.right)
+  const y = (share: number) =>
+    height - padding.bottom - share * (height - padding.top - padding.bottom)
+
+  // Точки без значения пропускаются, а не рисуются нулём: на пороге 100
+  // система никого не помечает, и точность там не ноль, а неизвестна.
+  const line = (pick: (point: CurvePoint) => number | null) =>
+    curve
+      .filter((point) => pick(point) !== null)
+      .map((point) => `${x(point.threshold).toFixed(1)},${y(pick(point) as number).toFixed(1)}`)
+      .join(' ')
+
+  const marks = [
+    { at: currentThreshold, color: 'var(--accent)' },
+    { at: optimalThreshold, color: 'var(--approve)' },
+    { at: selected, color: 'var(--text)' },
+  ]
+
+  return (
+    <svg
+      className="chart"
+      viewBox={`0 0 ${width} ${height}`}
+      role="img"
+      aria-label="Точность и полнота по порогу"
+    >
+      {[0, 0.25, 0.5, 0.75, 1].map((share) => (
+        <g key={share}>
+          <line
+            x1={padding.left}
+            x2={width - padding.right}
+            y1={y(share)}
+            y2={y(share)}
+            className="chart-grid"
+          />
+          <text x={padding.left - 8} y={y(share) + 4} className="chart-tick" textAnchor="end">
+            {`${share * 100} %`}
+          </text>
+        </g>
+      ))}
+
+      {[0, 25, 50, 75, 100].map((tick) => (
+        <text key={tick} x={x(tick)} y={height - 8} className="chart-tick" textAnchor="middle">
+          {tick}
+        </text>
+      ))}
+
+      {marks.map((mark, index) => (
+        <line
+          key={index}
+          x1={x(mark.at)}
+          x2={x(mark.at)}
+          y1={padding.top}
+          y2={height - padding.bottom}
+          stroke={mark.color}
+          strokeDasharray="4 4"
+          strokeWidth={1}
+        />
+      ))}
+
+      <polyline className="chart-line precision" points={line((point) => point.precision)} />
+      <polyline className="chart-line recall" points={line((point) => point.recall)} />
+
+      <g className="chart-legend">
+        <text x={padding.left + 8} y={padding.top + 12} className="legend precision">
+          — точность (Precision)
+        </text>
+        <text x={padding.left + 190} y={padding.top + 12} className="legend recall">
+          — полнота (Recall)
+        </text>
+      </g>
+    </svg>
   )
 }
 
@@ -462,15 +590,24 @@ function Readout({
   y: (cost: number) => number
   width: number
 }) {
-  const boxWidth = 186
-  const boxHeight = 74
-  const boxX = readoutX(x, boxWidth, width)
-
   const rows: [string, string, string][] = [
     ['потери от фрода', formatMoney(point.fraud_loss), 'fraud'],
     ['стоимость проверок', formatMoney(point.friction_cost), 'friction'],
     ['итого', formatMoney(point.total_cost), 'total'],
   ]
+
+  // Метрики идут отдельным блоком под деньгами: у них своя шкала,
+  // и точки на линиях к ним не относятся.
+  const metrics = [
+    `точность ${formatMeasuredShare(point.precision)}`,
+    `полнота ${formatMeasuredShare(point.recall)}`,
+  ]
+
+  const boxWidth = 186
+  // Две строки метрик плюс разделитель: коробка растёт, иначе они
+  // вылезли бы за подложку и легли поверх линий графика.
+  const boxHeight = 74 + metrics.length * 14 + 6
+  const boxX = readoutX(x, boxWidth, width)
 
   return (
     <g className="chart-readout" pointerEvents="none">
@@ -486,6 +623,23 @@ function Readout({
       {rows.map(([label, value, tone], index) => (
         <text key={label} x={boxX + 10} y={51 + index * 14} className={`readout-row ${tone}`}>
           {label}: {value}
+        </text>
+      ))}
+      <line
+        x1={boxX + 10}
+        x2={boxX + boxWidth - 10}
+        y1={51 + rows.length * 14 - 4}
+        y2={51 + rows.length * 14 - 4}
+        className="chart-grid"
+      />
+      {metrics.map((line, index) => (
+        <text
+          key={line}
+          x={boxX + 10}
+          y={51 + (rows.length + index) * 14 + 6}
+          className="readout-row muted-row"
+        >
+          {line}
         </text>
       ))}
     </g>

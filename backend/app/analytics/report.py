@@ -126,6 +126,39 @@ class CurvePoint:
     def total_cost(self) -> float:
         return self.fraud_loss + self.friction_cost
 
+    # Метрики качества выводятся из тех же счётчиков, а не считаются
+    # заново: помеченное системой — это `fraud_stopped` плюс `friction`,
+    # и второй проход по данным дал бы ровно те же числа, только с риском
+    # однажды разойтись с первым.
+    #
+    # Брифинг §5.A требует «индикацию компромисса между точностью
+    # (Precision/Recall) и потерями бизнеса», а стоимость уже лежит
+    # в этой же точке — значит компромисс виден в одной строке.
+
+    @property
+    def precision(self) -> float | None:
+        """Доля настоящего фрода среди помеченного.
+
+        `None`, когда система не пометила никого: делить не на что,
+        а ноль означал бы «всё помеченное оказалось честным» — другое
+        утверждение.
+        """
+        flagged = self.fraud_stopped + self.friction
+        return self.fraud_stopped / flagged if flagged else None
+
+    @property
+    def recall(self) -> float | None:
+        """Доля пойманного фрода от всего фрода в выборке."""
+        total_fraud = self.fraud_stopped + self.fraud_missed
+        return self.fraud_stopped / total_fraud if total_fraud else None
+
+    @property
+    def f1(self) -> float | None:
+        precision, recall = self.precision, self.recall
+        if precision is None or recall is None or precision + recall == 0:
+            return None
+        return 2 * precision * recall / (precision + recall)
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "threshold": self.threshold,
@@ -135,6 +168,9 @@ class CurvePoint:
             "fraud_loss": round(self.fraud_loss, 2),
             "friction_cost": round(self.friction_cost, 2),
             "total_cost": round(self.total_cost, 2),
+            "precision": None if self.precision is None else round(self.precision, 4),
+            "recall": None if self.recall is None else round(self.recall, 4),
+            "f1": None if self.f1 is None else round(self.f1, 4),
         }
 
 

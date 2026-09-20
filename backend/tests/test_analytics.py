@@ -315,3 +315,89 @@ def test_report_without_rules_has_no_rule_statistics() -> None:
     assert report.rules_enabled is False
     assert report.raised_by_rules == 0
     assert report.model_trained_at == model.trained_at
+
+
+# ------------------------------- точность и полнота на кривой (§5.A)
+
+
+def test_precision_and_recall_agree_with_the_counters(report) -> None:
+    """Метрики выводятся из счётчиков, а не считаются вторым проходом.
+
+    Если они разойдутся, значит кто-то завёл второй способ считать
+    помеченное — и однажды два способа дадут разные числа на одной
+    странице.
+    """
+    for point in report.curve:
+        flagged = point.fraud_stopped + point.friction
+        if flagged == 0:
+            assert point.precision is None
+        else:
+            assert point.precision == pytest.approx(point.fraud_stopped / flagged)
+
+        total_fraud = point.fraud_stopped + point.fraud_missed
+        assert point.recall == pytest.approx(point.fraud_stopped / total_fraud)
+
+
+def test_recall_falls_as_the_threshold_rises(report) -> None:
+    """Свойство конструкции: поднимая порог, поймать больше нельзя.
+
+    Про точность такого сказать нельзя — она может и просесть,
+    поэтому её монотонность здесь намеренно не проверяется.
+    """
+    recalls = [point.recall for point in report.curve]
+
+    assert recalls == sorted(recalls, reverse=True)
+
+
+def test_metrics_stay_within_their_scale(report) -> None:
+    for point in report.curve:
+        for value in (point.precision, point.recall, point.f1):
+            if value is not None:
+                assert 0.0 <= value <= 1.0
+
+
+def test_no_precision_when_nothing_is_flagged(report) -> None:
+    """Ноль означал бы «всё помеченное оказалось честным» — другое утверждение."""
+    loosest = report.curve[100]
+
+    assert loosest.friction == 0 and loosest.fraud_stopped == 0
+    assert loosest.precision is None
+    assert loosest.recall == 0.0
+    assert loosest.f1 is None
+
+
+def test_f1_is_the_harmonic_mean(report) -> None:
+    for point in report.curve:
+        if point.precision and point.recall:
+            expected = 2 * point.precision * point.recall / (point.precision + point.recall)
+            assert point.f1 == pytest.approx(expected)
+
+
+def test_trade_off_is_visible_in_one_point(report) -> None:
+    """Ради чего пункт и делался: точность и потери лежат рядом.
+
+    Брифинг §5.A просит «индикацию компромисса между точностью
+    (Precision/Recall) и потерями бизнеса» — значит обе величины
+    должны читаться из одной точки, а не из разных панелей.
+    """
+    cheapest = min(report.curve, key=lambda point: point.total_cost)
+    # Самый строгий порог, на котором система ещё кого-то помечает.
+    # Брать 99 жёстко нельзя: на маленькой выборке там уже никого нет,
+    # точность неопределена, и тест падал бы от размера датасета,
+    # а не от поведения системы.
+    strictest = max(
+        (point for point in report.curve if point.precision is not None),
+        key=lambda point: point.threshold,
+    )
+
+    # Дешевле — значит больше ложных срабатываний. Это и есть компромисс.
+    assert cheapest.precision < strictest.precision
+    assert cheapest.recall > strictest.recall
+    assert cheapest.total_cost < strictest.total_cost
+
+
+def test_metrics_are_in_the_artifact(report) -> None:
+    payload = report.to_dict()["curve"][0]
+
+    for field in ("precision", "recall", "f1"):
+        assert field in payload, f"{field} нужен дашборду — брифинг §5.A"
