@@ -11,7 +11,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
-import { ApiError, apiBaseUrl, fetchScenarios, predict, sendFeedback } from './api'
+import { ApiError, apiBaseUrl, fetchReport, fetchScenarios, predict, sendFeedback } from './api'
 import { CONTEXT_FIELDS, FORM_FIELDS, formToRequest, scenarioToForm } from './form'
 import { VERDICT_LABEL, feedbackHeadline } from './feedback'
 import { WAKE_UP_HINT, useSlowHint } from './useSlowHint'
@@ -21,6 +21,7 @@ import type {
   FeedbackAccepted,
   PredictionResponse,
   Scenario,
+  TransactionRequest,
   Verdict,
 } from './types'
 
@@ -45,6 +46,8 @@ interface Analysis {
   seq: number
   result: PredictionResponse
   persisted: boolean
+  /** Что именно отправили: отчёт собирается по тому же телу запроса. */
+  body: TransactionRequest
 }
 
 const DECISION_CLASS: Record<Decision, string> = {
@@ -117,11 +120,13 @@ export default function Simulator() {
     setLoading(true)
     setError(null)
     try {
-      const result = await predict({ ...body, persist })
+      const sent = { ...body, persist }
+      const result = await predict(sent)
       setAnalysis((previous) => ({
         seq: (previous?.seq ?? 0) + 1,
         result,
         persisted: persist,
+        body: sent,
       }))
     } catch (cause) {
       const failure = cause instanceof ApiError ? cause : new ApiError(String(cause), 0, null)
@@ -247,10 +252,85 @@ export default function Simulator() {
       {analysis && (
         <>
           <Result result={analysis.result} />
+          <TextReport key={`report-${analysis.seq}`} analysis={analysis} />
           <FeedbackControls key={analysis.seq} analysis={analysis} />
         </>
       )}
     </>
+  )
+}
+
+/**
+ * Отчёт по операции текстом.
+ *
+ * Тот же ответ, что уже показан панелями выше, но в форме, которую можно
+ * скопировать в тикет или в письмо клиентской службе. Собирает его
+ * backend: формулировки — часть того, что система утверждает о решении,
+ * и вторая их версия на клиенте разошлась бы с первой.
+ *
+ * Запрашивается по кнопке, а не вместе с анализом: страница текста нужна
+ * далеко не на каждый прогон, а лишний килобайт на спящем хостинге
+ * оплачивается ожиданием.
+ */
+function TextReport({ analysis }: { analysis: Analysis }) {
+  const [text, setText] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [failure, setFailure] = useState('')
+  const [copied, setCopied] = useState(false)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    setFailure('')
+    try {
+      setText(await fetchReport(analysis.body))
+    } catch (cause) {
+      setFailure(cause instanceof ApiError ? cause.message : 'Отчёт не получен')
+    } finally {
+      setLoading(false)
+    }
+  }, [analysis.body])
+
+  const copy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+    } catch {
+      // Буфер обмена недоступен без защищённого соединения и без
+      // разрешения. Молча ничего не делать нельзя — человек нажал
+      // кнопку и ждёт ответа, — поэтому говорим, что выделить можно
+      // руками.
+      setFailure('Скопировать не вышло — выделите текст и скопируйте вручную')
+    }
+  }, [text])
+
+  return (
+    <section className="panel">
+      <h2>Отчёт по операции</h2>
+      <p className="hint">
+        Одна страница, которую можно скопировать целиком: в тикет, в письмо клиентской
+        службе, в обоснование решения по обращению. Отчёт ничего не меняет — операция
+        от него не попадёт ни в историю, ни в статистику.
+      </p>
+
+      <div className="scenario-buttons">
+        <button type="button" className="chip" disabled={loading} onClick={() => void load()}>
+          {loading ? 'Собираю…' : text ? 'Пересобрать' : 'Показать отчёт'}
+        </button>
+        {text && (
+          <button type="button" className="chip" onClick={() => void copy()}>
+            {copied ? 'Скопировано' : 'Скопировать'}
+          </button>
+        )}
+      </div>
+
+      {failure && (
+        <p className="hint">
+          <strong className="error-text">{failure}</strong>
+        </p>
+      )}
+
+      {text && <pre className="json report">{text}</pre>}
+    </section>
   )
 }
 
@@ -451,6 +531,10 @@ function Result({ result }: { result: PredictionResponse }) {
           {result.explanation.units === 'logit' &&
             ' — вклад в логит базовой модели до калибровки; знак и порядок сохраняются.'}
         </p>
+        {/* Обёртка прокрутки: таблица из четырёх столбцов с полосами вкладов
+            не сжимается до 375 px и тянула за собой всю страницу. На дашборде
+            таблицы обёрнуты с самого начала, а здесь обёртки не было. */}
+        <div className="table-scroll">
         <table className="contributions">
           <thead>
             <tr>
@@ -485,6 +569,7 @@ function Result({ result }: { result: PredictionResponse }) {
             })}
           </tbody>
         </table>
+        </div>
       </section>
 
       <section className="panel">

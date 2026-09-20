@@ -134,6 +134,53 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 }
 
+/**
+ * Отчёт по операции текстом — одна страница для тикета или письма.
+ *
+ * Собирается на backend, а не здесь: формулировки отчёта — часть того,
+ * что система утверждает о решении, и вторая их версия на клиенте
+ * разошлась бы с первой (ТЗ §11).
+ *
+ * Ответ приходит текстом, поэтому общий `request` не подходит: он
+ * разбирает тело как JSON.
+ */
+export async function fetchReport(transaction: TransactionRequest): Promise<string> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+
+  try {
+    let response: Response
+    try {
+      response = await fetch(`${BASE_URL}/report`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(transaction),
+        signal: controller.signal,
+      })
+    } catch (cause) {
+      if (cause instanceof DOMException && cause.name === 'AbortError') {
+        throw new ApiError(`Backend не ответил за ${REQUEST_TIMEOUT_MS / 1000} секунд`, 0, null)
+      }
+      throw new ApiError(`Backend недоступен по адресу ${BASE_URL}. Поднят ли он?`, 0, null)
+    }
+
+    if (!response.ok) {
+      // Ошибка приходит в общем JSON-контракте, даже когда успех — текст.
+      let body: ApiErrorBody | null = null
+      try {
+        body = (await response.json()) as ApiErrorBody
+      } catch {
+        // Тело не JSON — body остаётся null.
+      }
+      throw new ApiError(body?.message ?? describeStatus(response.status), response.status, body)
+    }
+
+    return await response.text()
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 /** Анализ транзакции — основной вызов интерфейса. */
 export function predict(transaction: TransactionRequest): Promise<PredictionResponse> {
   return request<PredictionResponse>('/predict', {

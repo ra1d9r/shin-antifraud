@@ -653,3 +653,12 @@ summary {
 .config.shadow {
   border-style: dashed;
 }
+
+/* Отчёт выровнен пробелами, поэтому перенос строк его ломает:
+   таблица вкладов расползлась бы. Скролл по горизонтали честнее. */
+.report {
+  white-space: pre;
+  overflow-x: auto;
+  max-height: 60vh;
+  overflow-y: auto;
+}

@@ -29,6 +29,7 @@ from app.api.routes import (
     health,
     monitoring,
     predict,
+    report,
     scenarios,
     stats,
     transactions,
@@ -115,6 +116,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         feedback,
         monitoring,
         graph,
+        report,
     ):
         app.include_router(module.router, prefix=prefix)
 
