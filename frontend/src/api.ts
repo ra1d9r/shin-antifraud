@@ -20,6 +20,7 @@ import type {
   ModelInfo,
   Scenario,
   ScenarioList,
+  AdaptiveThresholdsState,
   ShadowComparison,
   StreamSummary,
   TransactionRequest,
@@ -322,4 +323,14 @@ export function runStream(count: number): Promise<StreamSummary> {
     { method: 'POST', body: JSON.stringify({ count }) },
     STREAM_TIMEOUT_MS,
   )
+}
+
+/**
+ * Подобранные пороги по категориям мерчанта и чего они стоят.
+ *
+ * Таблица приходит даже при выключенном режиме: решать, включать ли
+ * его, вслепую нельзя.
+ */
+export function fetchAdaptive(): Promise<AdaptiveThresholdsState> {
+  return request<AdaptiveThresholdsState>('/config/adaptive')
 }

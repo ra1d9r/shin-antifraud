@@ -54,6 +54,13 @@ class Settings(BaseSettings):
     # только поднимают оценку модели, но никогда её не снижают.
     rules_enabled: bool = True
 
+    # Адаптивный порог по категории мерчанта (брифинг §6). Выключен
+    # по умолчанию: выгруженная аналитика считается на одном пороге
+    # для всех операций, и включённый режим разошёлся бы с числами
+    # на дашборде. Панель показывает измеренный эффект, а решение
+    # включать остаётся за оператором.
+    adaptive_thresholds_enabled: bool = False
+
     # Пароль на смену порогов в рантайме. Пустая строка — эндпоинт записи
     # выключен, и это умышленно безопасное значение по умолчанию: адрес,
     # которым можно отключить блокировки, без пароля открыт кому угодно,
@@ -96,6 +103,7 @@ class Settings(BaseSettings):
     # Эталонное распределение признаков: с ним сравнивается живой поток.
     # Снимается тем же проходом по датасету, что и аналитика.
     feature_baseline_path: str = "backend/models/feature_baseline.json"
+    adaptive_thresholds_path: str = "backend/models/adaptive_thresholds.json"
     dataset_path: str = "backend/data/raw/transactions.csv"
 
     dataset_rows: int = Field(default=100_000, gt=0)
@@ -194,6 +202,10 @@ class Settings(BaseSettings):
     @property
     def feature_baseline_file(self) -> Path:
         return self.resolve(self.feature_baseline_path)
+
+    @property
+    def adaptive_thresholds_file(self) -> Path:
+        return self.resolve(self.adaptive_thresholds_path)
 
     @property
     def dataset_file(self) -> Path:

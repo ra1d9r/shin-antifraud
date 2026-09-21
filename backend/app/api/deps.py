@@ -25,6 +25,8 @@ from app.core.logging import get_logger
 from app.ml.pipeline import TrainedModel, load_model
 from app.monitoring.drift import BaselineNotFoundError, DriftMonitor, load_baseline
 from app.monitoring.shadow import ShadowRunner
+from app.risk_engine.adaptive import AdaptiveThresholds
+from app.risk_engine.adaptive import load as load_adaptive
 from app.risk_engine.engine import RiskEngine, RiskThresholds
 from app.risk_engine.rules import build_rules
 from app.services.prediction_service import PredictionService
@@ -70,6 +72,11 @@ class AppState:
     # ответ API от неё не зависит ни одним полем.
     shadow: ShadowRunner | None = None
     shadow_error: str | None = None
+    # Подобранные пороги по категориям мерчанта (брифинг §6). Артефакт
+    # читается всегда, чтобы панель могла показать таблицу и измеренный
+    # эффект; применяются они только при включённой настройке.
+    adaptive: AdaptiveThresholds | None = None
+    adaptive_error: str | None = None
     model_error: str | None = None
     # Правки порогов на работающей системе. Живут в памяти: перезапуск
     # возвращает к `.env`, и неудачную правку отменяет рестарт.
@@ -141,6 +148,7 @@ def build_state(settings: Settings | None = None) -> AppState:
 
     _load_evaluation(state)
     _load_drift_baseline(state)
+    _load_adaptive_thresholds(state)
 
     state.explainer = Explainer.from_model(
         state.model,
@@ -257,6 +265,45 @@ def _load_drift_baseline(state: AppState) -> None:
         len(baseline.features),
         baseline.rows,
     )
+
+
+def _load_adaptive_thresholds(state: AppState) -> None:
+    """Прочитать подобранные пороги и, если разрешено, включить их.
+
+    Гасится как всё остальное на старте: без артефакта система работает
+    на одном пороге для всех операций — ровно как до появления режима.
+
+    Таблица читается независимо от настройки: панель показывает
+    измеренный эффект и выключенного режима тоже, иначе решение
+    «включать или нет» было бы вслепую.
+    """
+    try:
+        thresholds = load_adaptive(state.settings.adaptive_thresholds_file)
+    except ShinError as exc:
+        state.adaptive_error = exc.message
+        logger.warning("%s", exc.message)
+        return
+    except Exception as exc:  # noqa: BLE001 — причина уходит в ответ как есть
+        state.adaptive_error = (
+            f"Адаптивные пороги не прочитались ({exc}). "
+            "Выгрузите заново: python backend/scripts/export_evaluation.py"
+        )
+        logger.error("%s", state.adaptive_error)
+        return
+
+    state.adaptive = thresholds
+    if state.settings.adaptive_thresholds_enabled and state.risk_engine is not None:
+        state.risk_engine.adaptive = thresholds
+        logger.info(
+            "Адаптивный порог включён: сегментов %s, общий запасной %s",
+            len(thresholds.segments),
+            thresholds.fallback_approve_max,
+        )
+    else:
+        logger.info(
+            "Адаптивный порог подобран (%s сегментов), но выключен настройкой",
+            len(thresholds.segments),
+        )
 
 
 def apply_thresholds(
