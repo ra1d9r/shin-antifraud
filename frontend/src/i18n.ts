@@ -429,6 +429,25 @@ export const DICTIONARY = {
   'curve.fraudLoss': entry('Потери от фрода', 'Алаяқтықтан шығын', 'Fraud loss'),
   'curve.checksCost': entry('Стоимость проверок', 'Тексерулер құны', 'Cost of checks'),
   'curve.total': entry('Итого', 'Жиыны', 'Total'),
+
+  // Метрика, по которой посчитана кривая (брифинг §5.C). Без неё
+  // деньги на графике появляются ниоткуда.
+  'cost.metric': entry('Метрика', 'Метрика', 'Metric'),
+  'cost.missedFraud': entry(
+    'пропущенный фрод — {ratio} суммы плюс {fixed}',
+    'өткізілген алаяқтық — соманың {ratio} үлесі және {fixed}',
+    'missed fraud — {ratio} of the amount plus {fixed}',
+  ),
+  'cost.extraCheck': entry(
+    'лишняя проверка — {amount}',
+    'артық тексеру — {amount}',
+    'an unnecessary check — {amount}',
+  ),
+  'cost.tunedAt': entry(
+    'настроена в рантайме',
+    'жұмыс кезінде бапталған',
+    'tuned at runtime',
+  ),
   'curve.precision': entry('Точность (Precision)', 'Дәлдік (Precision)', 'Precision'),
   'curve.recall': entry('Полнота (Recall)', 'Толықтық (Recall)', 'Recall'),
   'curve.precisionNote': entry(

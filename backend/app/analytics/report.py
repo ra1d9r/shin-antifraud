@@ -26,7 +26,8 @@ from __future__ import annotations
 
 import json
 from bisect import bisect_right
-from dataclasses import dataclass
+from collections.abc import Sequence
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -164,6 +165,15 @@ class CurvePoint:
     friction: int
     fraud_loss: float
     friction_cost: float
+    # Сумма сумм пропущенного фрода. Хранится отдельно от `fraud_loss`,
+    # потому что та уже умножена на веса: имея только её, пересчитать
+    # кривую на других весах нельзя. Веса — настраиваемая бизнес-метрика
+    # (брифинг §5.C), и менять их, не пересчитывая кривую, значило бы
+    # показывать на дашборде числа по старой метрике.
+    #
+    # `None` — точка из отчёта, выгруженного до появления этого поля.
+    # Тогда пересчёт недоступен, и это честно сказано в ответе API.
+    fraud_missed_amount: float | None = None
 
     @property
     def total_cost(self) -> float:
@@ -210,6 +220,9 @@ class CurvePoint:
             "friction": self.friction,
             "fraud_loss": round(self.fraud_loss, 2),
             "friction_cost": round(self.friction_cost, 2),
+            "fraud_missed_amount": (
+                None if self.fraud_missed_amount is None else round(self.fraud_missed_amount, 2)
+            ),
             "total_cost": round(self.total_cost, 2),
             "precision": None if self.precision is None else round(self.precision, 4),
             "recall": None if self.recall is None else round(self.recall, 4),
@@ -567,30 +580,105 @@ def _trade_off_curve(
         score for score, fraud in zip(scores, is_fraud, strict=True) if not fraud
     )
 
-    # prefix[k] — во что обходится пропуск k самых низкооценённых операций.
+    # prefix[k] — сумма сумм k самых низкооценённых мошеннических операций.
+    # Веса к ней не применяются: их применяет `cost_of`, и та же функция
+    # пересчитывает кривую, когда веса меняют в рантайме.
     prefix = [0.0]
     for _, amount in fraud_sorted:
-        prefix.append(
-            prefix[-1] + amount * settings.cost_fraud_loss_ratio + settings.cost_fraud_fixed
-        )
+        prefix.append(prefix[-1] + amount)
 
     points = []
     for threshold in range(0, 101, CURVE_STEP):
         missed_count = bisect_right(fraud_scores, threshold)
         friction = len(legit_scores) - bisect_right(legit_scores, threshold)
+        missed_amount = prefix[missed_count]
 
-        fraud_loss = prefix[missed_count]
         points.append(
-            CurvePoint(
-                threshold=threshold,
-                fraud_missed=missed_count,
-                fraud_stopped=len(fraud_sorted) - missed_count,
-                friction=friction,
-                fraud_loss=fraud_loss,
-                friction_cost=friction * settings.cost_false_challenge,
+            _priced(
+                CurvePoint(
+                    threshold=threshold,
+                    fraud_missed=missed_count,
+                    fraud_stopped=len(fraud_sorted) - missed_count,
+                    friction=friction,
+                    fraud_loss=0.0,
+                    friction_cost=0.0,
+                    fraud_missed_amount=missed_amount,
+                ),
+                settings,
             )
         )
     return tuple(points)
+
+
+def _priced(point: CurvePoint, settings: Settings) -> CurvePoint:
+    """Проставить точке стоимость по текущим весам.
+
+    Одна функция и для первой сборки отчёта, и для пересчёта в рантайме:
+    две копии формулы разошлись бы, и тогда кривая на дашборде перестала
+    бы отвечать той метрике, по которой система себя судит.
+    """
+    if point.fraud_missed_amount is None:
+        return point
+    return replace(
+        point,
+        fraud_loss=(
+            point.fraud_missed_amount * settings.cost_fraud_loss_ratio
+            + point.fraud_missed * settings.cost_fraud_fixed
+        ),
+        friction_cost=point.friction * settings.cost_false_challenge,
+    )
+
+
+def reprice_curve(curve: Sequence[dict[str, Any]], settings: Settings) -> list[dict[str, Any]] | None:
+    """Пересчитать кривую на других весах — без данных, по счётчикам.
+
+    Датасет в рантайме недоступен: образ удаляет его после обучения.
+    Но кривой он и не нужен — в каждой точке уже лежат счётчики
+    и сумма пропущенного фрода, а веса лишь превращают их в деньги.
+    Поэтому веса можно менять на работающей системе (брифинг §5.C),
+    и дашборд сразу показывает метрику, по которой его попросили судить.
+
+    На вход и выход идут словари: именно в такой форме отчёт живёт
+    в рантайме — он прочитан из JSON, а не собран из датаклассов.
+    Формула при этом одна и та же, `_priced`: две копии разошлись бы,
+    и кривая перестала бы отвечать той метрике, по которой система
+    себя судит.
+
+    `None`, когда отчёт выгружен до появления `fraud_missed_amount`:
+    пересчитать нечем, и притвориться, что получилось, было бы хуже
+    честного отказа.
+    """
+    points = []
+    for row in curve:
+        if row.get("fraud_missed_amount") is None:
+            return None
+        points.append(
+            _priced(
+                CurvePoint(
+                    threshold=row["threshold"],
+                    fraud_missed=row["fraud_missed"],
+                    fraud_stopped=row["fraud_stopped"],
+                    friction=row["friction"],
+                    fraud_loss=0.0,
+                    friction_cost=0.0,
+                    fraud_missed_amount=row["fraud_missed_amount"],
+                ),
+                settings,
+            )
+        )
+    return [point.to_dict() for point in points]
+
+
+def cheapest_threshold(curve: Sequence[dict[str, Any]]) -> int | None:
+    """Порог с наименьшей полной стоимостью.
+
+    Та же выборка, что при сборке отчёта (`min` по `total_cost`), но по
+    словарям: после пересчёта весов оптимум переезжает, и оставить
+    прежний значило бы показывать на дашборде отметку не от этой кривой.
+    """
+    if not curve:
+        return None
+    return min(curve, key=lambda row: row["total_cost"])["threshold"]
 
 
 def build_report(

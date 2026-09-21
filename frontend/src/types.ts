@@ -569,3 +569,20 @@ export interface ClientMessage {
   facts: string[]
   elapsed_ms: number
 }
+
+/**
+ * Веса бизнес-метрики (брифинг §5.C).
+ *
+ * По ним считается кривая компромисса и оптимальный порог. Читаются
+ * открыто: без них числа на кривой появляются ниоткуда.
+ */
+export interface CostState {
+  fraud_loss_ratio: number
+  fraud_fixed: number
+  false_block: number
+  false_challenge: number
+  overridden: boolean
+  changed_at: string | null
+  writable: boolean
+  curve_recomputable: boolean
+}

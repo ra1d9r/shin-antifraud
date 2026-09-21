@@ -1,12 +1,19 @@
 """Пороги Risk Engine на работающей системе.
 
-## Почему это не просто «поле в настройках»
+## Что настраивается на работающей системе
 
-Пороги — единственная бизнес-величина, которую разрешено менять без
-перезапуска. Причина в том, что менять их **нужно**: дашборд показывает
-кривую компромисса, теневой режим показывает, что дало бы переключение
-на живом потоке, — и после этого предлагать «поправьте `.env`
-и перезапустите прод» было бы издевательством.
+Три вещи, и все три — по одной причине: дашборд показывает, что они
+дают, и после этого предлагать «поправьте `.env` и перезапустите прод»
+было бы издевательством.
+
+| Что | Адрес | Пункт брифинга |
+|---|---|---|
+| Пороги Risk Engine | `/config/thresholds` | §4.3 |
+| Минимальные оценки политик | `/config/policies` | §4.5 «корректировать веса рисков» |
+| Веса бизнес-метрики | `/config/cost` | §5.C «гибкая настраиваемая бизнес-метрика» |
+
+Остальное — пути к артефактам, параметры датасета, настройки модели —
+по-прежнему живёт в `.env` и требует перезапуска.
 
 Но смена порога — это не присваивание. От порогов зависит всё, что
 система уже насчитала, и порядок приведения остального в согласие
@@ -34,12 +41,26 @@ from typing import Annotated
 
 from fastapi import APIRouter, Header, status
 
-from app.api.deps import SettingsDep, StateDep, apply_thresholds
+from app.api.deps import (
+    SettingsDep,
+    StateDep,
+    apply_cost_weights,
+    apply_policies,
+    apply_thresholds,
+)
+from app.config.settings import Settings
 from app.core.exceptions import ShinError
 from app.risk_engine.engine import RiskThresholds
 from app.schemas.config import (
     AdaptiveThresholdsState,
     AdaptiveValidationOut,
+    CostApplied,
+    CostState,
+    CostUpdate,
+    PolicyApplied,
+    PolicyOut,
+    PolicyState,
+    PolicyUpdate,
     SegmentThresholdOut,
     ThresholdChangeOut,
     ThresholdsApplied,
@@ -96,6 +117,25 @@ def current_thresholds(state: StateDep, settings: SettingsDep) -> ThresholdsStat
     return _state_out(state, settings)
 
 
+def require_admin(settings: Settings, token: str | None, what: str) -> None:
+    """Пустить к записи или отказать.
+
+    Вынесено, потому что проверку делают три эндпоинта. Пока она стояла
+    в одном, скопировать её в новый и забыть половину было делом одной
+    невнимательной минуты — а половина этой проверки открывает запись
+    всем.
+    """
+    expected = settings.config_admin_token
+    if not expected:
+        raise ConfigLockedError(
+            f"{what} выключена: не задан CONFIG_ADMIN_TOKEN. "
+            "Адрес, которым можно отключить блокировки, без пароля открыт "
+            "кому угодно, поэтому по умолчанию он закрыт."
+        )
+    if token != expected:
+        raise ConfigLockedError(f"Неверный или отсутствующий заголовок {ADMIN_HEADER}.")
+
+
 @router.post(
     "/config/thresholds",
     response_model=ThresholdsApplied,
@@ -131,15 +171,7 @@ def update_thresholds(
     settings: SettingsDep,
     x_admin_token: Annotated[str | None, Header(alias=ADMIN_HEADER)] = None,
 ) -> ThresholdsApplied:
-    expected = settings.config_admin_token
-    if not expected:
-        raise ConfigLockedError(
-            "Смена порогов выключена: не задан CONFIG_ADMIN_TOKEN. "
-            "Адрес, которым можно отключить блокировки, без пароля открыт "
-            "кому угодно, поэтому по умолчанию он закрыт."
-        )
-    if x_admin_token != expected:
-        raise ConfigLockedError(f"Неверный или отсутствующий заголовок {ADMIN_HEADER}.")
+    require_admin(settings, x_admin_token, "Смена порогов")
 
     effects = apply_thresholds(
         state,
@@ -199,4 +231,165 @@ def adaptive_thresholds(state: StateDep) -> AdaptiveThresholdsState:
             if thresholds.validation is None
             else AdaptiveValidationOut(**thresholds.validation.to_dict())
         ),
+    )
+
+
+# ------------------------------------------- политики (брифинг §4.5)
+
+
+def _policy_state(state: StateDep, settings: Settings) -> PolicyState:
+    engine = state.risk_engine
+    return PolicyState(
+        policies=[
+            PolicyOut(key=rule.key, title=rule.title, min_score=rule.min_score)
+            for rule in (engine.rules if engine else ())
+        ],
+        velocity_txn_per_hour=settings.rule_velocity_txn_per_hour,
+        new_account_amount_ratio=settings.rule_new_account_amount_ratio,
+        rules_enabled=engine.rules_enabled if engine else False,
+        overridden=state.policies_overridden,
+        changed_at=state.policy_changed_at,
+        writable=bool(settings.config_admin_token),
+    )
+
+
+@router.get(
+    "/config/policies",
+    response_model=PolicyState,
+    summary="Действующие пороги политик",
+    description=(
+        "С какой оценки каждая политика поднимает риск, и при каких "
+        "условиях она вообще срабатывает.\n\n"
+        "Читать открыто: те же значения видны в `POST /predict` "
+        "у каждой сработавшей политики."
+    ),
+)
+def read_policies(state: StateDep, settings: SettingsDep) -> PolicyState:
+    return _policy_state(state, settings)
+
+
+@router.post(
+    "/config/policies",
+    response_model=PolicyApplied,
+    status_code=status.HTTP_200_OK,
+    summary="Скорректировать веса рисков (брифинг §4.5)",
+    description=(
+        "Меняет минимальные оценки политик без перезапуска. Незаданные "
+        "поля остаются как есть.\n\n"
+        "| Что | Что с ним делается |\n"
+        "|---|---|\n"
+        "| Правила Risk Engine | пересобираются |\n"
+        "| Теневое сравнение | обнуляется и пересобирается |\n"
+        "| Аналитика дашборда | помечается устаревшей |\n"
+        "| Наблюдение за дрейфом | **не трогается** |\n"
+        "| История операций | сохраняется |\n\n"
+        "Политики решают судьбу операции наравне с моделью, поэтому "
+        "последствия те же, что у смены порогов, и по тем же причинам.\n\n"
+        "**Требуется заголовок `X-Admin-Token`.**"
+    ),
+    responses={
+        403: {"model": ErrorResponse, "description": "Не настроено или пароль не подошёл"},
+        422: {"description": "Не задано ни одной величины или значение вне диапазона"},
+    },
+)
+def update_policies(
+    update: PolicyUpdate,
+    state: StateDep,
+    settings: SettingsDep,
+    x_admin_token: Annotated[str | None, Header(alias=ADMIN_HEADER)] = None,
+) -> PolicyApplied:
+    require_admin(settings, x_admin_token, "Смена порогов политик")
+
+    updates = update.model_dump(exclude={"changed_by", "reason"}, exclude_none=True)
+    effects = apply_policies(
+        state,
+        updates=updates,
+        changed_by=update.changed_by,
+        reason=update.reason,
+    )
+
+    return PolicyApplied(
+        state=_policy_state(state, state.settings),
+        changed=updates,
+        **effects,
+    )
+
+
+# --------------------------------- бизнес-метрика стоимости (брифинг §5.C)
+
+
+def _cost_state(state: StateDep, settings: Settings) -> CostState:
+    curve = (state.evaluation or {}).get("curve", [])
+    return CostState(
+        fraud_loss_ratio=settings.cost_fraud_loss_ratio,
+        fraud_fixed=settings.cost_fraud_fixed,
+        false_block=settings.cost_false_block,
+        false_challenge=settings.cost_false_challenge,
+        overridden=state.cost_overridden,
+        changed_at=state.cost_changed_at,
+        writable=bool(settings.config_admin_token),
+        curve_recomputable=bool(curve)
+        and all(row.get("fraud_missed_amount") is not None for row in curve),
+    )
+
+
+@router.get(
+    "/config/cost",
+    response_model=CostState,
+    summary="Действующие веса бизнес-метрики",
+    description=(
+        "Во что система оценивает пропущенный фрод и лишнее беспокойство "
+        "клиента. Этими весами считаются кривая компромисса на дашборде "
+        "и оптимальный порог."
+    ),
+)
+def read_cost(state: StateDep, settings: SettingsDep) -> CostState:
+    return _cost_state(state, settings)
+
+
+@router.post(
+    "/config/cost",
+    response_model=CostApplied,
+    status_code=status.HTTP_200_OK,
+    summary="Настроить бизнес-метрику (брифинг §5.C)",
+    description=(
+        "Меняет веса метрики и **пересчитывает по ним кривую компромисса**. "
+        "Незаданные поля остаются как есть.\n\n"
+        "Решения не меняются: веса переводят уже принятые решения в деньги, "
+        "а не участвуют в их принятии. Поэтому ни движок, ни тень "
+        "не трогаются — меняется то, как система себя оценивает, "
+        "а не то, как она судит.\n\n"
+        "Аналитика не помечается устаревшей, а пересчитывается на месте: "
+        "датасет для этого не нужен, в каждой точке кривой уже лежат "
+        "счётчики и сумма пропущенного фрода.\n\n"
+        "Если отчёт выгружен старой версией и сумм не хранит, ответ "
+        "скажет `curve_recomputed: false` — числа на дашборде останутся "
+        "посчитанными прежними весами, и об этом будет известно.\n\n"
+        "**Требуется заголовок `X-Admin-Token`.**"
+    ),
+    responses={
+        403: {"model": ErrorResponse, "description": "Не настроено или пароль не подошёл"},
+        422: {"description": "Не задано ни одной величины или значение отрицательно"},
+    },
+)
+def update_cost(
+    update: CostUpdate,
+    state: StateDep,
+    settings: SettingsDep,
+    x_admin_token: Annotated[str | None, Header(alias=ADMIN_HEADER)] = None,
+) -> CostApplied:
+    require_admin(settings, x_admin_token, "Настройка бизнес-метрики")
+
+    updates = update.model_dump(exclude={"changed_by", "reason"}, exclude_none=True)
+    effects = apply_cost_weights(
+        state,
+        updates=updates,
+        changed_by=update.changed_by,
+        reason=update.reason,
+    )
+
+    return CostApplied(
+        state=_cost_state(state, state.settings),
+        changed=updates,
+        **effects,
     )

@@ -54,6 +54,7 @@ describe('словарь', () => {
       'model.title', // «Модель»
       'model.algorithm', // «Алгоритм»
       'common.transaction', // «Операция»
+      'cost.metric', // «Метрика»
     ])
 
     const untranslated: string[] = []

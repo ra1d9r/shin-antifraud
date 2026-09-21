@@ -870,3 +870,12 @@ summary {
   border-left: 3px solid var(--challenge);
   opacity: 0.85;
 }
+
+/* Метрика, по которой посчитана кривая компромисса (брифинг §5.C).
+   Отделена от графика тонкой линией: это подпись к нему, а не
+   очередной абзац пояснений. */
+.metric-line {
+  border-left: 2px solid var(--border);
+  padding-left: 10px;
+  margin-bottom: 12px;
+}
