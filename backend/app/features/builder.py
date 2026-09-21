@@ -298,8 +298,14 @@ def build_feature_vector(transaction: TransactionInput) -> list[float]:
 # --------------------------------------------------------------- batch mode
 
 
-def _parse_device_list(raw: object) -> tuple[str, ...]:
-    """Список устройств хранится в CSV строкой 'dev_a|dev_b'."""
+def parse_device_list(raw: object) -> tuple[str, ...]:
+    """Список устройств хранится в CSV строкой 'dev_a|dev_b'.
+
+    Публичная: тот же разделитель нужен порождению потока
+    (`api/routes/batch.py`), которое собирает из строки датасета не
+    `TransactionInput`, а HTTP-запрос. Две копии `split("|")` разошлись
+    бы ровно в тот день, когда разделитель поменяется.
+    """
     if raw is None or not isinstance(raw, str) or not raw:
         return ()
     return tuple(part for part in raw.split("|") if part)
@@ -349,7 +355,7 @@ def transaction_from_row(row: dict) -> TransactionInput:
         user_amount_std=optional_float("user_amount_std"),
         user_home_country=optional_str("user_home_country"),
         user_typical_frequency=optional_float("user_typical_frequency"),
-        known_device_ids=_parse_device_list(row.get("known_device_ids")),
+        known_device_ids=parse_device_list(row.get("known_device_ids")),
         previous_ip_address=optional_str("previous_ip_address"),
         previous_timestamp=optional_datetime("previous_timestamp"),
         previous_latitude=optional_float("previous_latitude"),
