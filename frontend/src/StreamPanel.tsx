@@ -20,6 +20,7 @@ import { useState } from 'react'
 
 import { ApiError, runStream } from './api'
 import { formatCount } from './format'
+import { useLanguage } from './LanguageContext'
 import Tile from './Tile'
 import type { StreamSummary } from './types'
 
@@ -27,6 +28,7 @@ import type { StreamSummary } from './types'
 const SIZES = [100, 300, 500] as const
 
 export default function StreamPanel({ onFinished }: { onFinished: () => void }) {
+  const { t } = useLanguage()
   const [summary, setSummary] = useState<StreamSummary | null>(null)
   // Не булево «идёт прогон», а сколько именно операций гоним: при трёх
   // кнопках под общей подписью «Идёт прогон…» непонятно, какая нажата.
@@ -42,7 +44,7 @@ export default function StreamPanel({ onFinished }: { onFinished: () => void }) 
       onFinished()
     } catch (cause) {
       setError(
-        cause instanceof ApiError ? cause.message : 'Не удалось прогнать поток',
+        cause instanceof ApiError ? cause.message : t('stream.failed'),
       )
     } finally {
       setRunning(null)
@@ -51,7 +53,7 @@ export default function StreamPanel({ onFinished }: { onFinished: () => void }) 
 
   return (
     <section className="panel">
-      <h2>Прогон потока операций</h2>
+      <h2>{t('stream.title')}</h2>
       <p className="hint">
         Операции порождаются тем же генератором, на котором обучалась модель, и идут
         обычной цепочкой обработки. Разметка потока известна, поэтому сразу видно,
@@ -71,7 +73,7 @@ export default function StreamPanel({ onFinished }: { onFinished: () => void }) 
             disabled={running !== null}
             onClick={() => run(size)}
           >
-            {running === size ? `Идёт прогон ${size}…` : `Прогнать ${size}`}
+            {running === size ? `${t('stream.running')} ${size}…` : `${t('stream.run')} ${size}`}
           </button>
         ))}
       </div>
@@ -88,26 +90,26 @@ export default function StreamPanel({ onFinished }: { onFinished: () => void }) 
       {summary && running === null && (
         <>
           <div className="tiles">
-            <Tile label="Операций прогнано" value={formatCount(summary.processed)} />
+            <Tile label={t('stream.processed')} value={formatCount(summary.processed)} />
             <Tile
-              label="Фрода в потоке"
+              label={t('stream.fraudIn')}
               value={formatCount(summary.fraud_in_stream)}
               note={`из ${formatCount(summary.processed)} операций`}
             />
             <Tile
-              label="Фрод остановлен"
+              label={t('stream.stopped')}
               value={formatCount(summary.fraud_stopped)}
-              note={`пропущено ${formatCount(summary.fraud_missed)}`}
+              note={`${t('stream.missed')} ${formatCount(summary.fraud_missed)}`}
               tone={summary.fraud_missed === 0 ? 'good' : 'warn'}
             />
             <Tile
-              label="Ложных срабатываний"
+              label={t('stream.falsePositives')}
               value={formatCount(summary.false_positives)}
               note="честные операции, которые система задержала"
               tone={summary.false_positives > 0 ? 'warn' : 'good'}
             />
             <Tile
-              label="Средний Risk Score"
+              label={t('stream.averageScore')}
               value={String(summary.average_risk_score)}
               note={`оценку подняли политики у ${formatCount(summary.raised_by_rules)}`}
             />

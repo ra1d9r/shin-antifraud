@@ -44,6 +44,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from app.assistant import phrases
+from app.assistant.phrases import DEFAULT_LANGUAGE, Language
 from app.schemas.enums import Decision
 from app.schemas.prediction import PredictionResponse
 from app.schemas.transaction import TransactionRequest
@@ -52,17 +54,6 @@ from app.schemas.transaction import TransactionRequest
 #: факторов, клиенту столько не нужно: за тремя пунктами он перестаёт
 #: читать.
 MAX_REASONS = 3
-
-#: Слова, по которым видно, что текст говорит про другой вердикт.
-#: Проверяется только противоположное решение: «подтвердите» в тексте
-#: про блокировку допустимо, а «операция отклонена» в тексте про
-#: проверку — нет.
-FORBIDDEN_WORDS: dict[Decision, tuple[str, ...]] = {
-    Decision.APPROVE: ("заблокирован", "отклонен", "отклонён", "подтверд", "2fa"),
-    Decision.CHALLENGE: ("заблокирован", "отклонен", "отклонён", "отказано"),
-    Decision.BLOCK: ("одобрен", "успешно проведена", "прошла успешно"),
-}
-
 
 @dataclass(frozen=True, slots=True)
 class DecisionFacts:
@@ -100,22 +91,6 @@ class DecisionFacts:
         return "\n".join(lines)
 
 
-SYSTEM_PROMPT = (
-    "Ты пишешь клиенту банка от лица службы безопасности. "
-    "Тебе дают решение антифрод-системы и причины, по которым оно принято. "
-    "Твоя задача — объяснить это клиенту по-русски, спокойно и без упрёков.\n\n"
-    "Строгие правила:\n"
-    "1. Не меняй решение. Если система просит подтверждение — значит просит "
-    "подтверждение, а не блокирует.\n"
-    "2. Не придумывай фактов и чисел, которых нет во входных данных.\n"
-    "3. Не называй внутренние термины: risk score, SHAP, политики, названия "
-    "признаков. Клиент их не знает.\n"
-    "4. Не обвиняй клиента: он, скорее всего, ни в чём не виноват.\n"
-    "5. Три-четыре предложения, не больше. Без приветствия и подписи.\n"
-    "6. Скажи, что делать дальше."
-)
-
-
 def build_facts(request: TransactionRequest, response: PredictionResponse) -> DecisionFacts:
     """Собрать факты решения для ассистента."""
     reasons = tuple(response.explanation.reasons[:MAX_REASONS])
@@ -132,69 +107,29 @@ def build_facts(request: TransactionRequest, response: PredictionResponse) -> De
     )
 
 
-def fallback_text(facts: DecisionFacts) -> str:
+def fallback_text(facts: DecisionFacts, language: Language = DEFAULT_LANGUAGE) -> str:
     """Тот же ответ, собранный без языковой модели.
 
     Говорит то же самое, что сказал бы ассистент, только суше.
 
     Причины **не перечисляются дословно**, хотя они есть. XAI формулирует
-    их по-английски — это официальная формулировка системы (ТЗ §7), и она
-    написана для аналитика: «Amount deviates 50.0 standard deviations from
-    the user's usual spending». Вставить такое в письмо клиенту банк
-    не может, а перевести здесь значило бы завести вторую версию каждой
-    формулировки, которая однажды разойдётся с первой.
+    их по-английски и для аналитика: «Amount deviates 50.0 standard
+    deviations from the user's usual spending». Вставить такое в письмо
+    клиенту банк не может, а перевести здесь значило бы завести вторую
+    версию каждой формулировки, которая однажды разойдётся с первой.
 
     Поэтому запасной текст честно говорит, сколько сигналов сработало,
     и не притворяется подробным объяснением. Подробное — это работа
     языковой модели, ради которой она и позвана; сами причины видны
     аналитику в поле `facts` ответа и в текстовом отчёте.
     """
-    if facts.decision is Decision.APPROVE:
-        opening = (
-            f"Операция на {facts.amount:.2f} в адрес «{facts.merchant}» прошла "
-            "обычным порядком, подтверждение не требуется."
-        )
-    elif facts.decision is Decision.CHALLENGE:
-        opening = (
-            f"Мы приостановили операцию на {facts.amount:.2f} в адрес "
-            f"«{facts.merchant}» до вашего подтверждения. Деньги не списаны."
-        )
-    else:
-        opening = (
-            f"Мы не пропустили операцию на {facts.amount:.2f} в адрес "
-            f"«{facts.merchant}». Деньги остались на счёте."
-        )
-
-    parts = [opening]
-    if facts.reasons:
-        parts.append(
-            f"Операция отличается от ваших обычных: система отметила "
-            f"{_signals(len(facts.reasons))}."
-        )
-
-    if facts.decision is Decision.CHALLENGE:
-        parts.append(
-            "Если операцию совершали вы — подтвердите её в приложении, "
-            "и она пройдёт. Если нет, обратитесь в банк."
-        )
-    elif facts.decision is Decision.BLOCK:
-        parts.append(
-            "Если операцию совершали вы, обратитесь в банк — мы поможем "
-            "провести её вручную."
-        )
-
-    return " ".join(parts)
-
-
-def _signals(count: int) -> str:
-    """«один признак» / «два признака» / «пять признаков».
-
-    Склонение маленькой таблицей, а не библиотекой: чисел здесь может
-    быть от одного до `MAX_REASONS`, и тащить зависимость ради трёх
-    вариантов не стоит.
-    """
-    words = {1: "один необычный признак", 2: "два необычных признака"}
-    return words.get(count, f"{count} необычных признака")
+    return phrases.compose(
+        facts.decision,
+        language,
+        amount=facts.amount,
+        merchant=facts.merchant,
+        reason_count=len(facts.reasons),
+    )
 
 
 def contradicts(text: str, decision: Decision) -> bool:
@@ -203,9 +138,13 @@ def contradicts(text: str, decision: Decision) -> bool:
     Для клиента «операция отклонена» и «подтвердите операцию» —
     совершенно разные новости, и перепутать их хуже, чем не написать
     ничего. Поэтому текст, противоречащий вердикту, не показывается.
+
+    Слова проверяются на всех трёх языках сразу: модель, которую
+    попросили писать по-казахски, может ответить по-русски, и проверка
+    обязана поймать противоречие в любом случае.
     """
     lowered = text.lower()
-    return any(word in lowered for word in FORBIDDEN_WORDS[decision])
+    return any(word in lowered for word in phrases.FORBIDDEN_WORDS[decision])
 
 
 def needs_assistant(decision: Decision) -> bool:

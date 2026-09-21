@@ -22,6 +22,7 @@ import { fetchFeedbackSummary } from './api'
 import { formatMeasuredShare } from './feedback'
 import { formatMoney } from './format'
 import type { FeedbackSummary } from './types'
+import { useLanguage } from './LanguageContext'
 
 const DECISION_CLASS: Record<string, string> = {
   APPROVE: 'approve',
@@ -30,6 +31,7 @@ const DECISION_CLASS: Record<string, string> = {
 }
 
 export default function FeedbackPanel() {
+  const { t } = useLanguage()
   const [summary, setSummary] = useState<FeedbackSummary | null>(null)
 
   useEffect(() => {
@@ -52,7 +54,7 @@ export default function FeedbackPanel() {
 
   return (
     <section className="panel">
-      <h2>Разметка аналитика</h2>
+      <h2>{t('feedback.title')}</h2>
       <p className="hint">
         Всё остальное на этой странице — то, что система думает о себе по обучающему
         датасету. Здесь единственные числа, которые подтвердил человек: аналитик

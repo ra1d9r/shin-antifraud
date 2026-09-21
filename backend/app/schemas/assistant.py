@@ -40,6 +40,9 @@ class ClientMessage(BaseModel):
         ),
     )
 
+    language: Literal["ru", "kk", "en"] = Field(
+        description="Язык, на котором написан текст (брифинг §6)"
+    )
     risk_score: int = Field(description="Оценка, о которой идёт речь")
     facts: list[str] = Field(
         description=(

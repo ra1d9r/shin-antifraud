@@ -16,6 +16,7 @@ import Tile from './Tile'
 import { fetchClusters } from './api'
 import { formatCount, formatMoney } from './format'
 import type { ClusterReport, LinkStrength } from './types'
+import { useLanguage } from './LanguageContext'
 
 const STRENGTH_LABEL: Record<LinkStrength, string> = {
   DEVICE: 'общее устройство',
@@ -23,6 +24,7 @@ const STRENGTH_LABEL: Record<LinkStrength, string> = {
 }
 
 export default function GraphPanel() {
+  const { t } = useLanguage()
   const [report, setReport] = useState<ClusterReport | null>(null)
 
   useEffect(() => {
@@ -47,7 +49,7 @@ export default function GraphPanel() {
 
   return (
     <section className="panel">
-      <h2>Связи между клиентами</h2>
+      <h2>{t('graph.title')}</h2>
       <p className="hint">
         Десять «разных» клиентов, заходящих с одного устройства, поодиночке выглядят
         безупречно: сумма обычная, страна привычная, устройство для каждого из них своё

@@ -12,9 +12,13 @@ from app.assistant.message import (
     fallback_text,
     needs_assistant,
 )
+from app.assistant.phrases import DEFAULT_LANGUAGE, LANGUAGES, Language, system_prompt
 
 __all__ = [
+    "DEFAULT_LANGUAGE",
+    "LANGUAGES",
     "DecisionFacts",
+    "Language",
     "LlmClient",
     "LlmConfig",
     "LlmUnavailableError",
@@ -22,4 +26,5 @@ __all__ = [
     "contradicts",
     "fallback_text",
     "needs_assistant",
+    "system_prompt",
 ]

@@ -60,6 +60,7 @@
 | брифинг §5.B | Симуляция потока транзакций | `POST /predict/stream`, `frontend/src/StreamPanel.tsx` | DONE |
 | брифинг §6 | Адаптивный порог риска (Dynamic Thresholds) | `backend/app/risk_engine/adaptive.py`, `GET /config/adaptive`, `frontend/src/AdaptivePanel.tsx` | DONE |
 | брифинг §6 | LLM-Ассистент: ответ клиенту про 2FA | `backend/app/assistant/`, `POST /explain/client`, `frontend/src/Simulator.tsx` | DONE |
+| брифинг §6 | Мультиязычный интерфейс (рус/каз/англ) | `frontend/src/i18n.ts`, `frontend/src/LanguageContext.tsx`, `backend/app/assistant/phrases.py` | DONE |
 | §12 | `.env.example` | `.env.example` | DONE |
 | §12 | CORS | `backend/app/main.py` | DONE |
 | §12 | `requirements.txt` | `backend/requirements.txt` | DONE |

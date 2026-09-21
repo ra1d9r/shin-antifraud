@@ -19,6 +19,7 @@ import { useEffect, useState } from 'react'
 
 import { fetchFeatureRegistry } from './api'
 import type { FeatureRegistry } from './types'
+import { useLanguage } from './LanguageContext'
 
 /** Величины, названные в брифинге §5.B поимённо. */
 const NAMED_IN_BRIEF = new Set([
@@ -35,6 +36,7 @@ function formatValue(value: number | undefined, isFlag: boolean, decimals: numbe
 }
 
 export default function FeaturePanel({ features }: { features: Record<string, number> }) {
+  const { t } = useLanguage()
   const [registry, setRegistry] = useState<FeatureRegistry | null>(null)
 
   useEffect(() => {
@@ -58,7 +60,7 @@ export default function FeaturePanel({ features }: { features: Record<string, nu
 
   return (
     <section className="panel">
-      <h2>Признаки операции</h2>
+      <h2>{t('sim.features')}</h2>
       <p className="hint">
         Всё, что система посчитала из транзакции перед тем, как решать — {registry.count}{' '}
         величин. Таблица вкладов выше показывает только пять сильнейших; здесь виден
@@ -83,9 +85,9 @@ export default function FeaturePanel({ features }: { features: Record<string, nu
             <table className="table">
               <thead>
                 <tr>
-                  <th>Признак</th>
-                  <th>Что означает</th>
-                  <th>Значение</th>
+                  <th>{t('sim.feature')}</th>
+                  <th>{t('sim.meaning')}</th>
+                  <th>{t('sim.value')}</th>
                 </tr>
               </thead>
               <tbody>

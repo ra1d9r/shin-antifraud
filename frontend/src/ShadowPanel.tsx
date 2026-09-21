@@ -20,6 +20,7 @@ import { formatMeasuredShare } from './feedback'
 import { formatCount, formatMoney } from './format'
 import { describeConfiguration } from './shadow'
 import type { ShadowComparison } from './types'
+import { useLanguage } from './LanguageContext'
 
 const DECISION_CLASS: Record<string, string> = {
   APPROVE: 'approve',
@@ -28,6 +29,7 @@ const DECISION_CLASS: Record<string, string> = {
 }
 
 export default function ShadowPanel() {
+  const { t } = useLanguage()
   const [report, setReport] = useState<ShadowComparison | null>(null)
 
   useEffect(() => {
@@ -50,7 +52,7 @@ export default function ShadowPanel() {
 
   return (
     <section className="panel">
-      <h2>Теневая конфигурация</h2>
+      <h2>{t('shadow.title')}</h2>
       <p className="hint">
         Вторая конфигурация видит те же настоящие операции и выносит свои решения.
         Они <strong>никуда не уходят</strong>: ответ системы от них не зависит, в историю

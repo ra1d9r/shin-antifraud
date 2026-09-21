@@ -7,6 +7,7 @@
  * решила на самом деле.
  */
 
+import type { Language } from './i18n'
 import type {
   AnalyticsOverview,
   ApiErrorBody,
@@ -353,9 +354,12 @@ export function fetchAdaptive(): Promise<AdaptiveThresholdsState> {
  * принятое. Таймаут свой: обращение к внешнему провайдеру измеряется
  * секундами, а не миллисекундами, как остальные вызовы.
  */
-export function explainForClient(transaction: TransactionRequest): Promise<ClientMessage> {
+export function explainForClient(
+  transaction: TransactionRequest,
+  language: Language,
+): Promise<ClientMessage> {
   return request<ClientMessage>(
-    '/explain/client',
+    `/explain/client?language=${language}`,
     { method: 'POST', body: JSON.stringify(transaction) },
     ASSISTANT_TIMEOUT_MS,
   )

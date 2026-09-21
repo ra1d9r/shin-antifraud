@@ -1,0 +1,191 @@
+"""Текст клиенту на трёх языках (брифинг §6).
+
+Брифинг §6 просит мультиязычный интерфейс — русский, казахский,
+английский. Для антифрода это не про кнопки: банк пишет клиенту на его
+языке, и письмо про приостановленную операцию — ровно тот случай, когда
+чужой язык недопустим.
+
+## Разделение труда
+
+Языковая модель пишет на нужном языке сама: в системный промпт уходит
+название языка. Это лучше любого словаря — она выберет естественную
+формулировку, а не подставит перевод по шаблону.
+
+Запасной текст переведён руками, потому что он должен работать без
+языковой модели вовсе. Строк здесь десяток на язык, а не десять тысяч
+слов, и это разумный объём для ручной работы.
+
+## Про качество казахского
+
+Казахские формулировки писал не носитель языка. Для десятка коротких
+фраз это приемлемо, но перед сдачей их стоит прочитать человеку,
+который говорит на нём с рождения. Сказано прямо, потому что молча
+выдать машинный казахский за готовый текст — хуже, чем признать
+ограничение.
+"""
+
+from __future__ import annotations
+
+from typing import Literal
+
+from app.schemas.enums import Decision
+
+Language = Literal["ru", "kk", "en"]
+
+LANGUAGES: tuple[Language, ...] = ("ru", "kk", "en")
+DEFAULT_LANGUAGE: Language = "ru"
+
+#: Как называется язык в промпте. Модели проще следовать названию
+#: языка, чем коду вроде `kk`.
+LANGUAGE_NAMES: dict[Language, str] = {
+    "ru": "русском",
+    "kk": "казахском (қазақ тілінде)",
+    "en": "английском",
+}
+
+#: Слова, по которым видно, что текст говорит про другой вердикт.
+#: Проверяются на всех трёх языках сразу: модель, которую попросили
+#: писать по-казахски, может ответить по-русски, и проверка обязана
+#: поймать противоречие в любом случае.
+FORBIDDEN_WORDS: dict[Decision, tuple[str, ...]] = {
+    # У APPROVE запрещены только слова про отказ. Слова про
+    # подтверждение сюда не годятся, хотя напрашиваются: правильный
+    # текст об одобренной операции звучит как «подтверждение не
+    # требуется», и запрет на корень «подтверд» отвергал бы наш
+    # собственный текст. Поймал это тест `test_our_own_text_never_
+    # contradicts_itself`, и он же держит границу дальше.
+    Decision.APPROVE: (
+        "заблокирован", "отклонен", "отклонён", "отказано",
+        "бұғатталды", "қабылданбады", "бас тартылды",
+        "blocked", "declined", "rejected",
+    ),
+    Decision.CHALLENGE: (
+        "заблокирован", "отклонен", "отклонён", "отказано",
+        "бұғатталды", "қабылданбады", "бас тартылды",
+        "blocked", "declined", "rejected",
+    ),
+    Decision.BLOCK: (
+        "одобрен", "успешно проведена", "прошла успешно",
+        "мақұлданды", "сәтті өтті",
+        "approved", "went through", "completed successfully",
+    ),
+}
+
+
+def _opening(decision: Decision, language: Language, amount: float, merchant: str) -> str:
+    table: dict[Decision, dict[Language, str]] = {
+        Decision.APPROVE: {
+            "ru": f"Операция на {amount:.2f} в адрес «{merchant}» прошла обычным "
+                  "порядком, подтверждение не требуется.",
+            "kk": f"«{merchant}» атына {amount:.2f} сомасындағы операция әдеттегідей "
+                  "өтті, растау қажет емес.",
+            "en": f"The {amount:.2f} payment to “{merchant}” went through as usual; "
+                  "no confirmation is needed.",
+        },
+        Decision.CHALLENGE: {
+            "ru": f"Мы приостановили операцию на {amount:.2f} в адрес «{merchant}» "
+                  "до вашего подтверждения. Деньги не списаны.",
+            "kk": f"«{merchant}» атына {amount:.2f} сомасындағы операцияны сіз растағанша "
+                  "тоқтата тұрдық. Ақша есептен шығарылған жоқ.",
+            "en": f"We have put the {amount:.2f} payment to “{merchant}” on hold until "
+                  "you confirm it. No money has left your account.",
+        },
+        Decision.BLOCK: {
+            "ru": f"Мы не пропустили операцию на {amount:.2f} в адрес «{merchant}». "
+                  "Деньги остались на счёте.",
+            "kk": f"«{merchant}» атына {amount:.2f} сомасындағы операцияны өткізбедік. "
+                  "Ақша шотта қалды.",
+            "en": f"We did not let the {amount:.2f} payment to “{merchant}” through. "
+                  "The money stayed in your account.",
+        },
+    }
+    return table[decision][language]
+
+
+def _signals(count: int, language: Language) -> str:
+    """«один необычный признак» и его пара на двух других языках.
+
+    Склонение маленькой таблицей, а не библиотекой: счёт здесь от одного
+    до трёх, и тащить зависимость ради трёх вариантов не стоит.
+    """
+    if language == "ru":
+        words = {1: "один необычный признак", 2: "два необычных признака"}
+        return words.get(count, f"{count} необычных признака")
+    if language == "kk":
+        return f"{count} әдеттен тыс белгі"
+    return "one unusual signal" if count == 1 else f"{count} unusual signals"
+
+
+def _difference(count: int, language: Language) -> str:
+    signals = _signals(count, language)
+    return {
+        "ru": f"Операция отличается от ваших обычных: система отметила {signals}.",
+        "kk": f"Операция сіздің әдеттегілеріңізден ерекшеленеді: жүйе {signals} байқады.",
+        "en": f"The payment differs from your usual ones: the system noted {signals}.",
+    }[language]
+
+
+def _next_step(decision: Decision, language: Language) -> str | None:
+    if decision is Decision.CHALLENGE:
+        return {
+            "ru": "Если операцию совершали вы — подтвердите её в приложении, "
+                  "и она пройдёт. Если нет, обратитесь в банк.",
+            "kk": "Егер операцияны сіз жасаған болсаңыз — оны қолданбада растаңыз, "
+                  "сонда ол өтеді. Егер жоқ болса, банкке хабарласыңыз.",
+            "en": "If this was you, confirm the payment in the app and it will go "
+                  "through. If it was not, please contact the bank.",
+        }[language]
+    if decision is Decision.BLOCK:
+        return {
+            "ru": "Если операцию совершали вы, обратитесь в банк — мы поможем "
+                  "провести её вручную.",
+            "kk": "Егер операцияны сіз жасаған болсаңыз, банкке хабарласыңыз — "
+                  "оны қолмен өткізуге көмектесеміз.",
+            "en": "If this was you, contact the bank and we will help you make the "
+                  "payment manually.",
+        }[language]
+    return None
+
+
+def compose(
+    decision: Decision,
+    language: Language,
+    *,
+    amount: float,
+    merchant: str,
+    reason_count: int,
+) -> str:
+    """Запасной текст — тот, что показывается без языковой модели."""
+    parts = [_opening(decision, language, amount, merchant)]
+    if reason_count:
+        parts.append(_difference(reason_count, language))
+    step = _next_step(decision, language)
+    if step:
+        parts.append(step)
+    return " ".join(parts)
+
+
+def system_prompt(language: Language) -> str:
+    """Инструкция языковой модели.
+
+    Язык задаётся названием, а не кодом: так модель надёжнее отвечает
+    на нужном. Правила те же для всех языков — менять их от языка
+    к языку значило бы получить три разных продукта.
+    """
+    return (
+        "Ты пишешь клиенту банка от лица службы безопасности. "
+        "Тебе дают решение антифрод-системы и причины, по которым оно принято. "
+        f"Твоя задача — объяснить это клиенту на {LANGUAGE_NAMES[language]} языке, "
+        "спокойно и без упрёков.\n\n"
+        "Строгие правила:\n"
+        "1. Не меняй решение. Если система просит подтверждение — значит просит "
+        "подтверждение, а не блокирует.\n"
+        "2. Не придумывай фактов и чисел, которых нет во входных данных.\n"
+        "3. Не называй внутренние термины: risk score, SHAP, политики, названия "
+        "признаков. Клиент их не знает.\n"
+        "4. Не обвиняй клиента: он, скорее всего, ни в чём не виноват.\n"
+        "5. Три-четыре предложения, не больше. Без приветствия и подписи.\n"
+        "6. Скажи, что делать дальше.\n"
+        f"7. Пиши только на {LANGUAGE_NAMES[language]} языке, даже если входные "
+        "данные на другом."
+    )

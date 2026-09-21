@@ -19,6 +19,7 @@ import DriftPanel from './DriftPanel'
 import { readoutX, thresholdAtPointer } from './chart'
 import { formatMeasuredShare } from './feedback'
 import { formatCount as formatNumber, formatMoney } from './format'
+import { useLanguage } from './LanguageContext'
 import FeedbackPanel from './FeedbackPanel'
 import GraphPanel from './GraphPanel'
 import ShadowPanel from './ShadowPanel'
@@ -51,9 +52,9 @@ function formatShare(value: number): string {
  * При выключенных политиках приписки нет: числа совпали бы, и строка
  * повторяла бы саму себя.
  */
-function withoutRules(data: AnalyticsOverview, value: number): string {
+function withoutRules(data: AnalyticsOverview, value: number, label: string): string {
   if (!data.rules_enabled) return ''
-  return ` · без политик ${formatShare(value)}`
+  return ` · ${label} ${formatShare(value)}`
 }
 
 export default function Dashboard({
@@ -65,6 +66,7 @@ export default function Dashboard({
   model: ModelInfo | null
   modelError?: string
 }) {
+  const { t } = useLanguage()
   // Ползунок стартует с текущего порога системы: сравнивать удобнее,
   // когда точка отсчёта — то, что работает прямо сейчас.
   const [threshold, setThreshold] = useState(data.thresholds.approve_max)
@@ -99,48 +101,48 @@ export default function Dashboard({
       )}
 
       <section className="panel">
-        <h2>Поток транзакций</h2>
+        <h2>{t('dash.flow')}</h2>
         <div className="tiles">
-          <Tile label="Всего транзакций" value={formatNumber(data.rows)} />
+          <Tile label={t('dash.total')} value={formatNumber(data.rows)} />
           <Tile
-            label="Из них фрод"
+            label={t('dash.fraudRows')}
             value={formatNumber(data.fraud_rows)}
             note={formatShare(data.fraud_rate)}
           />
           <Tile
-            label="Фрод остановлен"
+            label={t('dash.fraudStopped')}
             value={formatShare(data.fraud_stopped_share)}
             note={
-              `${formatNumber(data.fraud_stopped)} из ${formatNumber(data.fraud_rows)}` +
-              withoutRules(data, data.fraud_stopped_share_without_rules)
+              `${formatNumber(data.fraud_stopped)} ${t('dash.ofAtRisk')} ${formatNumber(data.fraud_rows)}` +
+              withoutRules(data, data.fraud_stopped_share_without_rules, t('dash.withoutPolicies'))
             }
             tone="good"
           />
           <Tile
-            label="Спасённый бюджет (Fraud Loss Saved)"
+            label={t('dash.fraudSaved')}
             value={formatMoney(data.fraud_loss_prevented)}
-            note={`из ${formatMoney(data.fraud_loss_exposure)} под угрозой`}
+            note={`${t('dash.ofAtRisk')} ${formatMoney(data.fraud_loss_exposure)} ${t('dash.atRisk')}`}
             tone="good"
           />
           <Tile
-            label="Фрод пропущен"
+            label={t('dash.fraudMissed')}
             value={formatNumber(data.fraud_missed)}
-            note={`ушли с решением APPROVE, на ${formatMoney(data.fraud_loss_incurred)}`}
+            note={`${t('dash.approvedFor')} ${formatMoney(data.fraud_loss_incurred)}`}
             tone={data.fraud_missed > 0 ? 'bad' : 'good'}
           />
           <Tile
-            label="Процент ложных срабатываний (False Positive Rate)"
+            label={t('dash.fpr')}
             value={formatShare(data.friction_share)}
             note={
-              `${formatNumber(data.friction)} честных клиентов побеспокоено зря` +
-              withoutRules(data, data.friction_share_without_rules)
+              `${formatNumber(data.friction)} ${t('dash.botheredInVain')}` +
+              withoutRules(data, data.friction_share_without_rules, t('dash.withoutPolicies'))
             }
             tone="warn"
           />
           <Tile
-            label="Оборот в выборке"
+            label={t('dash.turnover')}
             value={formatMoney(data.total_amount)}
-            note="сумма всех транзакций"
+            note={t('dash.allTransactions')}
           />
         </div>
         <p className="hint">
@@ -163,7 +165,7 @@ export default function Dashboard({
       </section>
 
       <section className="panel">
-        <h2>Fraud Loss против Customer Inconvenience</h2>
+        <h2>{t('dash.tradeOff')}</h2>
         <p className="hint">
           Один рычаг: всё, что выше порога, уходит на проверку. Слева система почти никого
           не трогает и пропускает фрод, справа ловит всё и мешает живым клиентам. Ищем дно
@@ -186,7 +188,9 @@ export default function Dashboard({
 
         <div className="slider">
           <label>
-            <span>Порог чувствительности: {threshold}</span>
+            <span>
+              {t('dash.threshold')}: {threshold}
+            </span>
             <input
               type="range"
               min={0}
@@ -239,7 +243,7 @@ export default function Dashboard({
       </section>
 
       <section className="panel">
-        <h2>Решения системы</h2>
+        <h2>{t('dash.decisions')}</h2>
         <div className="table-scroll">
         <table className="table">
           <thead>
@@ -274,7 +278,7 @@ export default function Dashboard({
 
       {data.rules.length > 0 && (
         <section className="panel">
-          <h2>Политики поверх модели</h2>
+          <h2>{t('rules.title')}</h2>
           <p className="hint">
             Предельный вклад — что политика меняет <strong>сверх</strong> решения модели.
             Срабатывание на транзакции, которую модель и так остановила, пользы не приносит,
@@ -295,12 +299,12 @@ export default function Dashboard({
           <table className="table">
             <thead>
               <tr>
-                <th>Политика</th>
-                <th>Мин. балл</th>
-                <th>Точность</th>
-                <th>+ поймано</th>
-                <th>+ трение</th>
-                <th>Цена одного фрода</th>
+                <th>{t('rules.policy')}</th>
+                <th>{t('rules.minScore')}</th>
+                <th>{t('rules.precision')}</th>
+                <th>{t('rules.gained')}</th>
+                <th>{t('rules.friction')}</th>
+                <th>{t('rules.pricePerFraud')}</th>
               </tr>
             </thead>
             <tbody>
@@ -315,8 +319,8 @@ export default function Dashboard({
                   <td>{rule.added_friction}</td>
                   <td className={rule.checks_per_fraud === null ? 'down-text' : ''}>
                     {rule.checks_per_fraud === null
-                      ? 'ноль пользы'
-                      : `${Math.round(rule.checks_per_fraud)} проверок`}
+                      ? t('rules.noUse')
+                      : `${Math.round(rule.checks_per_fraud)} ${t('rules.checks')}`}
                   </td>
                 </tr>
               ))}
@@ -325,10 +329,10 @@ export default function Dashboard({
           </div>
 
           <div className="tiles">
-            <Tile label="Стоимость: чистая модель" value={formatMoney(data.cost_without_rules)} />
-            <Tile label="Стоимость: модель + политики" value={formatMoney(data.cost_with_rules)} />
+            <Tile label={t('rules.costPure')} value={formatMoney(data.cost_without_rules)} />
+            <Tile label={t('rules.costWith')} value={formatMoney(data.cost_with_rules)} />
             <Tile
-              label={data.rules_cost_delta < 0 ? 'Политики окупаются' : 'Политики дороже, чем экономят'}
+              label={data.rules_cost_delta < 0 ? t('rules.payOff') : t('rules.costMore')}
               value={`${data.rules_cost_delta > 0 ? '+' : ''}${formatMoney(data.rules_cost_delta)}`}
               tone={data.rules_cost_delta < 0 ? 'good' : 'bad'}
               note={`оценка поднята политиками у ${formatNumber(data.raised_by_rules)} операций`}

@@ -540,6 +540,8 @@ export interface ClientMessage {
   decision: Decision
   text: string
   source: 'llm' | 'fallback'
+  /** Язык, на котором написан текст. */
+  language: 'ru' | 'kk' | 'en'
   model?: string | null
   fallback_reason?: string | null
   risk_score: number
