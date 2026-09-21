@@ -56,6 +56,7 @@ from pathlib import Path
 from app.core.exceptions import ShinError
 from app.core.logging import get_logger
 from app.features.definitions import FEATURE_SPECS
+from app.i18n import Text
 
 logger = get_logger("shin.monitoring.drift")
 
@@ -82,7 +83,7 @@ FLAG_EDGE = 0.5
 
 BASELINE_FORMAT_VERSION = "1"
 
-_DESCRIPTIONS: dict[str, str] = {spec.name: spec.description for spec in FEATURE_SPECS}
+_DESCRIPTIONS: dict[str, Text] = {spec.name: spec.description for spec in FEATURE_SPECS}
 
 
 class BaselineNotFoundError(ShinError):
@@ -373,7 +374,9 @@ class FeatureDrift:
     """Насколько один признак в проде разошёлся с обучающим."""
 
     name: str
-    description: str
+    # Три языка: в строку разрешается в обработчике маршрута,
+    # где известен запрошенный язык.
+    description: Text
     status: DriftStatus
     psi: float | None
     labels: tuple[str, ...]
@@ -476,7 +479,10 @@ class DriftMonitor:
             rows.append(
                 FeatureDrift(
                     name=feature.name,
-                    description=_DESCRIPTIONS.get(feature.name, feature.name),
+                    description=_DESCRIPTIONS.get(
+                        feature.name,
+                        Text(ru=feature.name, kk=feature.name, en=feature.name),
+                    ),
                     status=status,
                     psi=psi,
                     labels=feature.labels,

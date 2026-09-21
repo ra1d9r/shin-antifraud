@@ -16,6 +16,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from app.api.deps import DriftDep, ShadowDep
+from app.i18n import DEFAULT_LANGUAGE, Language
 from app.schemas.monitoring import DriftReportOut, FeatureDriftOut
 from app.schemas.shadow import (
     ConfigurationOut,
@@ -46,7 +47,7 @@ router = APIRouter(tags=["monitoring"])
     ),
     responses={503: {"description": "Эталон распределения не выгружен"}},
 )
-def drift_report(drift: DriftDep) -> DriftReportOut:
+def drift_report(drift: DriftDep, language: Language = DEFAULT_LANGUAGE) -> DriftReportOut:
     report = drift.report()
     return DriftReportOut(
         status=report.status,
@@ -61,7 +62,7 @@ def drift_report(drift: DriftDep) -> DriftReportOut:
         features=[
             FeatureDriftOut(
                 name=feature.name,
-                description=feature.description,
+                description=feature.description.get(language),
                 status=feature.status,
                 psi=feature.psi,
                 labels=list(feature.labels),

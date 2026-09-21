@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from enum import StrEnum
 
+from app.i18n import DEFAULT_LANGUAGE, Language, Text
+
 
 class Decision(StrEnum):
     """Решение системы по транзакции (ТЗ §1)."""
@@ -29,14 +31,33 @@ class Decision(StrEnum):
         Формулировка CHALLENGE следует брифингу: §4.3 называет действие
         «Challenge/2FA (Доп. проверка)», §10.3 — «запрос на биометрическую
         верификацию (2FA)».
+
+        Свойство отдаёт русский вариант — язык проекта. Там, где язык
+        спрошен, зовут `meaning_in`.
         """
-        return _DECISION_MEANING[self]
+        return self.meaning_in(DEFAULT_LANGUAGE)
+
+    def meaning_in(self, language: Language) -> str:
+        """То же пояснение на запрошенном языке (брифинг §6)."""
+        return _DECISION_MEANING[self].get(language)
 
 
-_DECISION_MEANING: dict[Decision, str] = {
-    Decision.APPROVE: "операция проходит, клиент ничего не заметил",
-    Decision.CHALLENGE: "нужно подтверждение владельца — 2FA или биометрия",
-    Decision.BLOCK: "операция отклонена",
+_DECISION_MEANING: dict[Decision, Text] = {
+    Decision.APPROVE: Text(
+        ru="операция проходит, клиент ничего не заметил",
+        kk="операция өтеді, клиент ештеңе байқамайды",
+        en="the transaction goes through; the client notices nothing",
+    ),
+    Decision.CHALLENGE: Text(
+        ru="нужно подтверждение владельца — 2FA или биометрия",
+        kk="иесінің растауы қажет — 2FA немесе биометрия",
+        en="the owner must confirm — 2FA or biometrics",
+    ),
+    Decision.BLOCK: Text(
+        ru="операция отклонена",
+        kk="операция қабылданбады",
+        en="the transaction is declined",
+    ),
 }
 
 

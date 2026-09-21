@@ -14,6 +14,7 @@ from typing import Annotated
 from fastapi import APIRouter, Path, Query
 
 from app.api.deps import ServiceDep
+from app.i18n import DEFAULT_LANGUAGE, Language
 from app.schemas.enums import ScenarioKey
 from app.schemas.prediction import PredictionResponse
 from app.schemas.system import ScenarioListResponse, ScenarioOut
@@ -22,12 +23,14 @@ from app.services.scenarios import SCENARIOS, get_scenario
 router = APIRouter(tags=["scenarios"])
 
 
-def _to_out(scenario) -> ScenarioOut:
+def _to_out(scenario, language: Language) -> ScenarioOut:
     return ScenarioOut(
         key=scenario.key,
+        # Название сценария техническое и одинаково на всех языках:
+        # по нему сценарий ищут в документации и в тестах.
         title=scenario.title,
-        description=scenario.description,
-        expectation=scenario.expectation,
+        description=scenario.description.get(language),
+        expectation=scenario.expectation.get(language),
         changed_from_normal=list(scenario.changed_from_normal),
         transaction=scenario.to_transaction(),
     )
@@ -45,8 +48,10 @@ def _to_out(scenario) -> ScenarioOut:
         "воспроизводится независимо от истории и времени запуска."
     ),
 )
-def list_scenarios() -> ScenarioListResponse:
-    return ScenarioListResponse(items=[_to_out(scenario) for scenario in SCENARIOS])
+def list_scenarios(language: Language = DEFAULT_LANGUAGE) -> ScenarioListResponse:
+    return ScenarioListResponse(
+        items=[_to_out(scenario, language) for scenario in SCENARIOS]
+    )
 
 
 @router.get(
@@ -57,8 +62,9 @@ def list_scenarios() -> ScenarioListResponse:
 )
 def read_scenario(
     key: Annotated[ScenarioKey, Path(description="Ключ сценария")],
+    language: Language = DEFAULT_LANGUAGE,
 ) -> ScenarioOut:
-    return _to_out(get_scenario(key))
+    return _to_out(get_scenario(key), language)
 
 
 @router.post(
@@ -77,7 +83,8 @@ def run_scenario(
     key: Annotated[ScenarioKey, Path(description="Ключ сценария")],
     service: ServiceDep,
     persist: Annotated[bool, Query(description="Сохранять ли результат в историю")] = True,
+    language: Language = DEFAULT_LANGUAGE,
 ) -> PredictionResponse:
     transaction = get_scenario(key).to_transaction()
     transaction.persist = persist
-    return service.predict(transaction)
+    return service.predict(transaction, language)

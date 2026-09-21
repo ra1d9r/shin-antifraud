@@ -28,8 +28,8 @@ from app.assistant import (
     needs_assistant,
     system_prompt,
 )
-from app.assistant.phrases import Language
 from app.core.logging import get_logger
+from app.i18n import Language
 from app.schemas.assistant import ClientMessage
 from app.schemas.system import ErrorResponse
 from app.schemas.transaction import TransactionRequest
@@ -77,7 +77,7 @@ def explain_for_client(
 
     # Копия без сохранения: объяснение — чтение, а не обработка.
     read_only = request.model_copy(update={"persist": False})
-    response = service.predict(read_only)
+    response = service.predict(read_only, language)
     facts = build_facts(read_only, response)
 
     text = fallback_text(facts, language)

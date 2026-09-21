@@ -274,9 +274,17 @@ export async function fetchReport(transaction: TransactionRequest): Promise<stri
   }
 }
 
-/** Анализ транзакции — основной вызов интерфейса. */
-export function predict(transaction: TransactionRequest): Promise<PredictionResponse> {
-  return request<PredictionResponse>('/predict', {
+/**
+ * Анализ транзакции — основной вызов интерфейса.
+ *
+ * Язык влияет только на пояснения: решение, оценка и вектор признаков
+ * от него не зависят и зависеть не могут. Проверено тестом на backend.
+ */
+export function predict(
+  transaction: TransactionRequest,
+  language: Language,
+): Promise<PredictionResponse> {
+  return request<PredictionResponse>(`/predict?language=${language}`, {
     method: 'POST',
     body: JSON.stringify(transaction),
   })
@@ -289,8 +297,8 @@ export function predict(transaction: TransactionRequest): Promise<PredictionResp
  * разойтись с автотестами и с документом `docs/HAND_TESTING.md`,
  * которые используют тот же источник.
  */
-export async function fetchScenarios(): Promise<Scenario[]> {
-  const payload = await request<ScenarioList>('/scenarios')
+export async function fetchScenarios(language: Language): Promise<Scenario[]> {
+  const payload = await request<ScenarioList>(`/scenarios?language=${language}`)
   return payload.items
 }
 
@@ -316,8 +324,8 @@ export function fetchAnalytics(): Promise<AnalyticsOverview> {
  * от транзакции к транзакции, и возить их в каждом ответе было бы
  * расточительством.
  */
-export function fetchFeatureRegistry(): Promise<FeatureRegistry> {
-  return request<FeatureRegistry>('/features')
+export function fetchFeatureRegistry(language: Language): Promise<FeatureRegistry> {
+  return request<FeatureRegistry>(`/features?language=${language}`)
 }
 
 export function fetchModel(): Promise<ModelInfo> {
@@ -356,8 +364,8 @@ export function fetchFeedbackSummary(): Promise<FeedbackSummary> {
  * Считает backend: PSI, границы корзин и раскладка по ним живут там же,
  * где эталон, и на клиент приходят готовыми.
  */
-export function fetchDrift(): Promise<DriftReport> {
-  return request<DriftReport>('/monitoring/drift')
+export function fetchDrift(language: Language): Promise<DriftReport> {
+  return request<DriftReport>(`/monitoring/drift?language=${language}`)
 }
 
 /**

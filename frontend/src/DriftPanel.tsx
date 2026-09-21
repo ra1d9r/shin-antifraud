@@ -13,7 +13,7 @@
  * загрузившейся аналитики выглядело бы как общая поломка.
  */
 
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
 import Tile from './Tile'
 import { errorText, fetchDrift } from './api'
@@ -31,9 +31,12 @@ import { usePanelData } from './usePanelData'
 import { useFormat } from './useFormat'
 
 export default function DriftPanel() {
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
   const { formatCount } = useFormat()
-  const { data: report, failure } = usePanelData(fetchDrift)
+  // Загрузчик привязан к языку: смена языка перезапрашивает отчёт,
+  // иначе описания признаков остались бы на прежнем.
+  const load = useCallback(() => fetchDrift(language), [language])
+  const { data: report, failure } = usePanelData(load)
   const [selected, setSelected] = useState<string>('')
 
 

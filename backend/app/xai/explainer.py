@@ -22,6 +22,7 @@ from typing import Any
 from app.core.exceptions import ExplanationError
 from app.core.logging import get_logger
 from app.features.definitions import FEATURE_NAMES, get_spec, has_spec
+from app.i18n import DEFAULT_LANGUAGE, Language, Text
 from app.risk_engine.engine import RiskAssessment
 from app.schemas.enums import ImpactDirection
 from app.xai import narrator
@@ -43,9 +44,12 @@ class RiskFactor:
     contribution: float
     direction: ImpactDirection
     reason: str
-    description: str
+    # Описание признака на трёх языках. Строкой становится на границе
+    # API, где известен запрошенный язык: внутри держать одну из трёх
+    # версий значило бы выбирать язык там, где его ещё не спросили.
+    description: Text
 
-    def to_dict(self) -> dict:
+    def to_dict(self, language: Language = DEFAULT_LANGUAGE) -> dict:
         return {
             "feature": self.feature,
             "value": round(self.value, 4),
@@ -53,7 +57,7 @@ class RiskFactor:
             "contribution": round(self.contribution, 6),
             "direction": self.direction.value,
             "reason": self.reason,
-            "description": self.description,
+            "description": self.description.get(language),
         }
 
 
@@ -208,5 +212,9 @@ class Explainer:
             contribution=float(contribution),
             direction=narrator.direction_of(contribution),
             reason=narrator.describe(feature, value, contribution),
-            description=spec.description if spec else feature,
+            # Неизвестный признак описывается собственным именем —
+            # техническим и одинаковым на всех языках.
+            description=spec.description
+            if spec
+            else Text(ru=feature, kk=feature, en=feature),
         )

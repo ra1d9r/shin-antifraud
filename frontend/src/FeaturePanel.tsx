@@ -15,6 +15,7 @@
  * однажды разойдётся с реестром модели.
  */
 
+import { useCallback } from 'react'
 
 import { errorText, fetchFeatureRegistry } from './api'
 import PanelError from './PanelError'
@@ -49,8 +50,10 @@ function formatValue(
 }
 
 export default function FeaturePanel({ features }: { features: Record<string, number> }) {
-  const { t } = useLanguage()
-  const { data: registry, failure } = usePanelData(fetchFeatureRegistry)
+  const { t, language } = useLanguage()
+  // См. DriftPanel: язык — часть запроса, значит и зависимость загрузки.
+  const load = useCallback(() => fetchFeatureRegistry(language), [language])
+  const { data: registry, failure } = usePanelData(load)
 
 
   if (failure !== null) {

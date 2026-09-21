@@ -47,16 +47,20 @@ def build_document() -> str:
     """
     parts = [HEADER.format(count=len(FEATURE_SPECS))]
 
-    for section in dict.fromkeys(spec.section for spec in FEATURE_SPECS):
+    # Документация на русском — языке проекта. Переводы отдаёт API
+    # по `?language=`; дублировать их здесь значило бы завести вторую
+    # копию, которая однажды разойдётся с первой.
+    for section in dict.fromkeys(spec.section.ru for spec in FEATURE_SPECS):
         parts.append(f"\n## {section}\n")
         parts.append("| # | Признак | Тип | Описание | Формулировка для XAI |")
         parts.append("|---|---|---|---|---|")
         for index, spec in enumerate(FEATURE_SPECS):
-            if spec.section != section:
+            if spec.section.ru != section:
                 continue
             kind = "флаг" if spec.is_flag else "число"
             parts.append(
-                f"| {index} | `{spec.name}` | {kind} | {spec.description} | {spec.reason_high} |"
+                f"| {index} | `{spec.name}` | {kind} | {spec.description.ru} "
+                f"| {spec.reason_high} |"
             )
 
     return "\n".join(parts) + "\n"

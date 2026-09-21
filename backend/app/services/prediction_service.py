@@ -27,7 +27,9 @@ from datetime import UTC, datetime
 from app.core.exceptions import ModelNotLoadedError
 from app.core.logging import get_logger
 from app.features.builder import TransactionInput, build_features, ip_subnet
+from app.features.definitions import get_spec, has_spec
 from app.features.merchants import merchant_category
+from app.i18n import DEFAULT_LANGUAGE, Language
 from app.monitoring.drift import DriftMonitor
 from app.monitoring.shadow import ShadowRunner
 from app.risk_engine.engine import RiskEngine
@@ -100,8 +102,17 @@ class PredictionService:
     def explainer_method(self) -> str:
         return self._explainer.method
 
-    def predict(self, request: TransactionRequest) -> PredictionResponse:
-        """Проанализировать транзакцию и вернуть решение с объяснением."""
+    def predict(
+        self,
+        request: TransactionRequest,
+        language: Language = DEFAULT_LANGUAGE,
+    ) -> PredictionResponse:
+        """Проанализировать транзакцию и вернуть решение с объяснением.
+
+        `language` влияет только на пояснения: решение, оценка и вектор
+        признаков от языка не зависят и зависеть не могут. Проверяется
+        тестом — иначе перевод однажды стал бы влиять на вердикт.
+        """
         if self._model is None:
             raise ModelNotLoadedError(
                 "Модель не загружена. Выполните: python backend/scripts/train_model.py"
@@ -175,6 +186,7 @@ class PredictionService:
         elapsed_ms = (time.perf_counter() - started) * 1000.0
 
         return PredictionResponse(
+            language=language,
             transaction_id=request.transaction_id,
             user_id=request.user_id,
             timestamp=timestamp,
@@ -203,7 +215,7 @@ class PredictionService:
                         contribution=factor.contribution,
                         direction=factor.direction,
                         reason=factor.reason,
-                        description=factor.description,
+                        description=factor.description.get(language),
                     )
                     for factor in explanation.factors
                 ],
@@ -290,3 +302,33 @@ class PredictionService:
             ),
             merchant_category=request.merchant_category,
         )
+
+
+def retranslate(response: PredictionResponse, language: Language) -> PredictionResponse:
+    """Перевести готовый ответ на другой язык, не считая его заново.
+
+    Нужно для идемпотентного повтора. Ответ на повтор берётся из памяти
+    и остался бы на языке первого запроса — а язык в отпечаток не входит
+    и входить не должен: тогда тот же платёж, посланный по-казахски
+    и по-английски, обработался бы дважды, удвоив историю и сдвинув
+    профили. Ровно то, ради чего идемпотентность и заводилась.
+
+    Пересобираются только тексты. Решение, оценка и вектор признаков
+    берутся из исходного ответа нетронутыми — ответ на повтор обязан
+    совпадать с первым, а не пересчитываться.
+    """
+    if response.language == language:
+        return response
+
+    factors = [
+        factor.model_copy(
+            update={
+                "description": get_spec(factor.feature).description.get(language)
+                if has_spec(factor.feature)
+                else factor.description
+            }
+        )
+        for factor in response.explanation.factors
+    ]
+    explanation = response.explanation.model_copy(update={"factors": factors})
+    return response.model_copy(update={"language": language, "explanation": explanation})
