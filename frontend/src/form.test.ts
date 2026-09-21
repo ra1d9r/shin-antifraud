@@ -11,6 +11,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
+import { ru } from './testTranslator'
 
 import { CONTEXT_FIELDS, FORM_FIELDS, formToRequest, scenarioToForm } from './form'
 import type { FormState } from './form'
@@ -39,58 +40,58 @@ const SCENARIO = {
 
 describe('formToRequest', () => {
   it('пустые поля не попадают в запрос', () => {
-    const { body, invalid } = formToRequest(form())
+    const { body, invalid } = formToRequest(form(), ru)
 
     expect(invalid).toEqual([])
     expect(Object.keys(body)).toEqual([])
   })
 
   it('числа разбираются в числа, а не в строки', () => {
-    const { body } = formToRequest(form({ amount: '1500.5', account_age_days: '800' }))
+    const { body } = formToRequest(form({ amount: '1500.5', account_age_days: '800' }), ru)
 
     expect(body).toMatchObject({ amount: 1500.5, account_age_days: 800 })
   })
 
   it('нечисловое значение называется поимённо и в запрос не попадает', () => {
-    const { body, invalid } = formToRequest(form({ amount: 'abc' }))
+    const { body, invalid } = formToRequest(form({ amount: 'abc' }), ru)
 
     expect(invalid).toEqual(['amount: ожидалось число, введено «abc»'])
     expect('amount' in body).toBe(false)
   })
 
   it('запятая вместо точки — обычная ошибка ввода, и она видна', () => {
-    const { invalid } = formToRequest(form({ latitude: '51,16' }))
+    const { invalid } = formToRequest(form({ latitude: '51,16' }), ru)
 
     expect(invalid).toHaveLength(1)
   })
 
   it('Infinity не проходит: JSON.stringify превратил бы его в null', () => {
-    const { body, invalid } = formToRequest(form({ amount: 'Infinity' }))
+    const { body, invalid } = formToRequest(form({ amount: 'Infinity' }), ru)
 
     expect(invalid).toHaveLength(1)
     expect('amount' in body).toBe(false)
   })
 
   it('сообщаются сразу все испорченные поля, а не первое', () => {
-    const { invalid } = formToRequest(form({ amount: 'x', latitude: 'y' }))
+    const { invalid } = formToRequest(form({ amount: 'x', latitude: 'y' }), ru)
 
     expect(invalid).toHaveLength(2)
   })
 
   it('контекстные числовые поля проверяются наравне с основными', () => {
-    const { invalid } = formToRequest(form({ user_avg_amount: 'сто' }))
+    const { invalid } = formToRequest(form({ user_avg_amount: 'сто' }), ru)
 
     expect(invalid).toEqual(['user_avg_amount: ожидалось число, введено «сто»'])
   })
 
   it('список устройств разбирается по запятым, пустые элементы отбрасываются', () => {
-    const { body } = formToRequest(form({ known_device_ids: 'dev_a, dev_b ,, dev_c' }))
+    const { body } = formToRequest(form({ known_device_ids: 'dev_a, dev_b ,, dev_c' }), ru)
 
     expect(body.known_device_ids).toEqual(['dev_a', 'dev_b', 'dev_c'])
   })
 
   it('текстовые поля уходят как есть — нормализацию делает backend', () => {
-    const { body } = formToRequest(form({ country: 'kz', merchant: 'Magnum' }))
+    const { body } = formToRequest(form({ country: 'kz', merchant: 'Magnum' }), ru)
 
     expect(body).toMatchObject({ country: 'kz', merchant: 'Magnum' })
   })
@@ -115,7 +116,7 @@ describe('scenarioToForm', () => {
 
 describe('сценарий -> форма -> запрос', () => {
   it('проходит круг без потерь и без жалоб', () => {
-    const { body, invalid } = formToRequest(scenarioToForm(SCENARIO))
+    const { body, invalid } = formToRequest(scenarioToForm(SCENARIO), ru)
 
     expect(invalid).toEqual([])
     expect(body.amount).toBe(100)

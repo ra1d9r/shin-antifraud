@@ -16,9 +16,9 @@
 import { useMemo, useState } from 'react'
 
 import Tile from './Tile'
-import { fetchDrift } from './api'
+import { errorText, fetchDrift } from './api'
 import {
-  DRIFT_STATUS_LABEL,
+  DRIFT_STATUS_KEY,
   driftHeadline,
   driftTone,
   formatBinShare,
@@ -33,7 +33,7 @@ import { useFormat } from './useFormat'
 export default function DriftPanel() {
   const { t } = useLanguage()
   const { formatCount } = useFormat()
-  const { data: report, error } = usePanelData(fetchDrift)
+  const { data: report, failure } = usePanelData(fetchDrift)
   const [selected, setSelected] = useState<string>('')
 
 
@@ -44,7 +44,9 @@ export default function DriftPanel() {
     return report.features.find((item) => item.name === selected) ?? report.features[0]
   }, [report, selected])
 
-  if (error !== null) return <PanelError title={t('drift.title')} reason={error} />
+  if (failure !== null) {
+    return <PanelError title={t('drift.title')} reason={errorText(failure.cause, t)} />
+  }
   if (report === null) return null
 
   const measurable = report.features.filter((item) => item.status !== 'NOT_MEASURABLE')
@@ -62,19 +64,27 @@ export default function DriftPanel() {
       <div className="tiles">
         <Tile
           label={t('drift.overall')}
-          value={DRIFT_STATUS_LABEL[report.status]}
+          value={t(DRIFT_STATUS_KEY[report.status])}
           note={t('drift.worstFeature')}
           tone={driftTone(report.status)}
         />
         <Tile
           label={t('drift.observed')}
           value={formatCount(report.observed_rows)}
-          note={report.enough_data ? undefined : `минимум ${report.min_observations}`}
+          note={
+            report.enough_data
+              ? undefined
+              : t('drift.minObservations', { count: report.min_observations })
+          }
         />
         <Tile
           label={t('drift.overLimit')}
-          value={report.enough_data ? `${report.drifted} из ${measurable.length}` : '—'}
-          note={report.enough_data ? 'PSI ≥ 0.1' : 'пока не считаем'}
+          value={
+            report.enough_data
+              ? t('common.outOf', { shown: report.drifted, total: measurable.length })
+              : '—'
+          }
+          note={report.enough_data ? 'PSI ≥ 0.1' : t('drift.notCountedYet')}
           tone={report.enough_data && report.drifted > 0 ? 'warn' : undefined}
         />
         <Tile
@@ -85,7 +95,7 @@ export default function DriftPanel() {
       </div>
 
       <p className="hint">
-        {driftHeadline(report.observed_rows, report.min_observations, report.enough_data)}.{' '}
+        {driftHeadline(report.observed_rows, report.min_observations, report.enough_data, t)}.{' '}
         Мера — Population Stability Index: до 0.1 стабильно, 0.1–0.25 умеренный сдвиг,
         дальше существенный. Это отраслевая договорённость скоринга, а не выведенный
         из наших данных порог — повод посмотреть, а не приговор.
@@ -125,7 +135,7 @@ export default function DriftPanel() {
                   <td className="muted">{feature.description}</td>
                   <td>{formatPsi(feature.psi)}</td>
                   <td className={tone === 'bad' ? 'error-text' : tone === 'warn' ? 'warn-text' : ''}>
-                    {DRIFT_STATUS_LABEL[feature.status]}
+                    {t(DRIFT_STATUS_KEY[feature.status])}
                   </td>
                 </tr>
               )
@@ -167,13 +177,11 @@ function Comparison({ feature }: { feature: FeatureDrift }) {
               key={label}
               // Подсказка на всю колонку, а не на каждый столбик:
               // сравнивают два числа, а не смотрят одно.
-              title={
-                `${label}
-` +
-                `обучающее: ${formatBinShare(expected)}
-` +
-                `сейчас: ${formatBinShare(observed)}`
-              }
+              title={[
+                label,
+                t('drift.binTraining', { share: formatBinShare(expected) }),
+                t('drift.binNow', { share: formatBinShare(observed) }),
+              ].join('\n')}
             >
               <div className="bin-bars">
                 <span className="bin-bar expected" style={{ height: `${(expected / peak) * 100}%` }} />

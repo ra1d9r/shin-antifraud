@@ -17,8 +17,8 @@ import Dashboard from './Dashboard'
 import LanguageSwitch, { CommentaryNote } from './LanguageSwitch'
 import Simulator from './Simulator'
 import { useLanguage } from './LanguageContext'
-import { WAKE_UP_HINT, useSlowHint } from './useSlowHint'
-import { ApiError, apiBaseUrl, fetchAnalytics, fetchHealth, fetchModel } from './api'
+import { WAKE_UP_HINT_KEY, useSlowHint } from './useSlowHint'
+import { ApiError, apiBaseUrl, errorText, fetchAnalytics, fetchHealth, fetchModel } from './api'
 import type { AnalyticsOverview, HealthResponse, ModelInfo } from './types'
 
 type View = 'dashboard' | 'simulator'
@@ -31,7 +31,8 @@ type View = 'dashboard' | 'simulator'
  * показывал команду выгрузки в обоих случаях и лечил не ту болезнь.
  */
 interface AnalyticsFailure {
-  message: string
+  /** Сама причина, а не готовый текст: язык может смениться после отказа. */
+  cause: unknown
   /** Backend ответил, но сказал, что отчёта нет. */
   artifactMissing: boolean
 }
@@ -42,7 +43,7 @@ export default function App() {
   const [health, setHealth] = useState<HealthResponse | null>(null)
   const [analytics, setAnalytics] = useState<AnalyticsOverview | null>(null)
   const [model, setModel] = useState<ModelInfo | null>(null)
-  const [modelError, setModelError] = useState<string>('')
+  const [modelFailure, setModelFailure] = useState<{ cause: unknown } | null>(null)
   const [analyticsError, setAnalyticsError] = useState<AnalyticsFailure | null>(null)
   // Пока аналитика не пришла и не упала — мы ждём. Затянувшееся ожидание
   // объясняем сами, иначе оно неотличимо от зависшего интерфейса.
@@ -77,9 +78,7 @@ export default function App() {
         setModel(modelResult.value)
       } else {
         const cause = modelResult.reason
-        setModelError(
-          cause instanceof ApiError ? cause.message : 'Сведения о модели недоступны',
-        )
+        setModelFailure({ cause })
       }
 
       if (analyticsResult.status === 'fulfilled') {
@@ -87,7 +86,7 @@ export default function App() {
       } else {
         const cause = analyticsResult.reason
         setAnalyticsError({
-          message: cause instanceof ApiError ? cause.message : 'Analytics unavailable',
+          cause,
           // 503 отдаёт сам backend, когда артефакта нет. Всё остальное —
           // сеть, прокси или внутренняя ошибка, и выгрузка их не вылечит.
           artifactMissing: cause instanceof ApiError && cause.status === 503,
@@ -139,13 +138,25 @@ export default function App() {
 
       {view === 'dashboard' &&
         (analytics ? (
-          <Dashboard data={analytics} model={model} modelError={modelError} />
+          <Dashboard
+            data={analytics}
+            model={model}
+            modelError={
+              modelFailure
+                ? errorText(modelFailure.cause, t) || t('app.modelUnavailable')
+                : ''
+            }
+          />
         ) : (
           <section className="panel alert">
             <h2>{analyticsError ? t('error.analyticsTitle') : t('error.analyticsLoading')}</h2>
-            <p>{analyticsError?.message ?? t('common.loading')}</p>
+            <p>
+              {analyticsError
+                ? errorText(analyticsError.cause, t) || t('error.analyticsTitle')
+                : t('common.loading')}
+            </p>
 
-            {!analyticsError && waking && <p className="hint">{WAKE_UP_HINT}</p>}
+            {!analyticsError && waking && <p className="hint">{t(WAKE_UP_HINT_KEY)}</p>}
 
             {analyticsError?.artifactMissing && (
               <>

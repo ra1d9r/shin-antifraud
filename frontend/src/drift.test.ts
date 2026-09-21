@@ -6,8 +6,9 @@
  */
 
 import { describe, expect, it } from 'vitest'
+import { ru } from './testTranslator'
 
-import { DRIFT_STATUS_LABEL, driftHeadline, driftTone, formatBinShare, formatPsi } from './drift'
+import { DRIFT_STATUS_KEY, driftHeadline, driftTone, formatBinShare, formatPsi } from './drift'
 import type { DriftStatus } from './types'
 
 describe('цвет статуса', () => {
@@ -32,7 +33,7 @@ describe('цвет статуса', () => {
       'COLLECTING',
     ]
     for (const status of all) {
-      expect(DRIFT_STATUS_LABEL[status]).toBeTruthy()
+      expect(ru(DRIFT_STATUS_KEY[status])).toBeTruthy()
     }
   })
 })
@@ -65,11 +66,11 @@ describe('доля корзины', () => {
 
 describe('заголовок панели', () => {
   it('пока наблюдений мало — говорит, сколько ещё нужно', () => {
-    expect(driftHeadline(40, 200, false)).toContain('ещё 160')
+    expect(driftHeadline(40, 200, false, ru)).toContain('ещё 160')
   })
 
   it('когда хватает — просто называет число', () => {
-    const line = driftHeadline(512, 200, true)
+    const line = driftHeadline(512, 200, true, ru)
 
     expect(line).toContain('512')
     expect(line).not.toContain('ещё')

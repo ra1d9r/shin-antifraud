@@ -12,7 +12,7 @@
  */
 
 
-import { fetchAdaptive } from './api'
+import { errorText, fetchAdaptive } from './api'
 import PanelError from './PanelError'
 import { useLanguage } from './LanguageContext'
 import { usePanelData } from './usePanelData'
@@ -33,10 +33,12 @@ function signed(value: number, format: (value: number) => string): string {
 export default function AdaptivePanel() {
   const { t } = useLanguage()
   const { formatCount, formatMoney, formatDateTime } = useFormat()
-  const { data: state, error } = usePanelData(fetchAdaptive)
+  const { data: state, failure } = usePanelData(fetchAdaptive)
 
 
-  if (error !== null) return <PanelError title={t('adaptive.title')} reason={error} />
+  if (failure !== null) {
+    return <PanelError title={t('adaptive.title')} reason={errorText(failure.cause, t)} />
+  }
   if (state === null || !state.available) return null
 
   const check = state.validation
@@ -62,13 +64,15 @@ export default function AdaptivePanel() {
         <Tile
           label={t('adaptive.mode')}
           value={state.enabled ? t('adaptive.on') : t('adaptive.off')}
-          note={state.enabled ? 'пороги применяются к решениям' : 'решения на общем пороге'}
+          note={t(state.enabled ? 'adaptive.appliedNote' : 'adaptive.commonNote')}
           tone={state.enabled ? 'good' : undefined}
         />
         <Tile
           label={t('adaptive.segments')}
           value={String(state.segments.length)}
-          note={`свой порог у ${state.segments.filter((item) => item.fitted).length}`}
+          note={t('adaptive.ownThreshold', {
+            count: state.segments.filter((item) => item.fitted).length,
+          })}
         />
         <Tile
           label={t('adaptive.fallback')}
@@ -89,7 +93,7 @@ export default function AdaptivePanel() {
             <Tile
               label={t('adaptive.gain')}
               value={signed(check.mean_gain, formatMoney)}
-              note={`в среднем; положительных частей ${check.positive_folds} из ${check.folds}`}
+              note={t('adaptive.foldsNote', { positive: check.positive_folds, folds: check.folds })}
               tone={check.mean_gain > 0 ? 'good' : 'bad'}
             />
             <Tile
@@ -101,9 +105,10 @@ export default function AdaptivePanel() {
             <Tile
               label={t('adaptive.frictionVs')}
               value={signed(check.adaptive_friction - check.configured_friction, formatCount)}
-              note={`${formatCount(check.configured_friction)} → ${formatCount(
-                check.adaptive_friction,
-              )} задержанных честных операций`}
+              note={t('adaptive.frictionNote', {
+                before: formatCount(check.configured_friction),
+                after: formatCount(check.adaptive_friction),
+              })}
               tone={check.adaptive_friction < check.configured_friction ? 'good' : 'bad'}
             />
             <Tile
@@ -112,9 +117,10 @@ export default function AdaptivePanel() {
                 check.adaptive_fraud_stopped - check.configured_fraud_stopped,
                 formatCount,
               )}
-              note={`${formatCount(check.configured_fraud_stopped)} → ${formatCount(
-                check.adaptive_fraud_stopped,
-              )} операций`}
+              note={t('adaptive.operationsNote', {
+                before: formatCount(check.configured_fraud_stopped),
+                after: formatCount(check.adaptive_fraud_stopped),
+              })}
               tone={
                 check.adaptive_fraud_stopped < check.configured_fraud_stopped ? 'warn' : 'good'
               }

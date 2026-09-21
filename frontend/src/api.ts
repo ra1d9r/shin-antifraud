@@ -28,19 +28,37 @@ import type {
   TransactionRequest,
   Verdict,
 } from './types'
+import { DEFAULT_LANGUAGE, translate } from './i18n'
+import type { Substitutions, TranslationKey, Translator } from './i18n'
 
 const BASE_URL = (import.meta.env.VITE_API_URL ?? 'http://localhost:8000').replace(/\/$/, '')
 
-/** Ошибка API с разобранным телом ответа. */
+/**
+ * Ошибка API с разобранным телом ответа.
+ *
+ * `messageKey` заполнен, когда текст придумал сам клиент: такой текст
+ * переводится словарём в момент показа. Ответ backend приходит готовой
+ * строкой и кладётся в `message` — его формулировка точнее нашей, и
+ * подменять её своей было бы потерей.
+ */
 export class ApiError extends Error {
   readonly status: number
   readonly body: ApiErrorBody | null
+  readonly messageKey: TranslationKey | null
+  readonly messageValues: Substitutions | null
 
-  constructor(message: string, status: number, body: ApiErrorBody | null) {
+  constructor(
+    message: string,
+    status: number,
+    body: ApiErrorBody | null,
+    localized?: { key: TranslationKey; values?: Substitutions },
+  ) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.body = body
+    this.messageKey = localized?.key ?? null
+    this.messageValues = localized?.values ?? null
   }
 
   /** Подробности валидации в виде «поле: причина». */
@@ -86,12 +104,32 @@ const STREAM_TIMEOUT_MS = 180_000
 const ASSISTANT_TIMEOUT_MS = 45_000
 
 /** Человеческое описание статуса, когда backend не прислал своего. */
-function describeStatus(status: number): string {
-  if (status === 404) return 'Адрес не найден на backend'
-  if (status === 405) return 'Метод не поддерживается'
-  if (status === 408 || status === 504) return 'Backend не успел ответить'
-  if (status >= 500) return 'Backend ответил ошибкой'
-  return 'Запрос отклонён'
+function describeStatus(status: number): TranslationKey {
+  if (status === 404) return 'api.notFound'
+  if (status === 405) return 'api.methodNotAllowed'
+  if (status === 408 || status === 504) return 'api.tooSlow'
+  if (status >= 500) return 'api.serverError'
+  return 'api.rejected'
+}
+
+/**
+ * Текст ошибки на языке интерфейса.
+ *
+ * Порядок предпочтений: свой ключ — словарём, иначе сообщение backend
+ * как есть. Пустая строка означает «пригодного объяснения нет»: она
+ * не то же самое, что отсутствие ошибки, и место для неё в интерфейсе
+ * всё равно отводится. `String(cause)` здесь не годится — строка «null»
+ * человеку не объясняет ничего, а выглядит как недоделка.
+ */
+export function errorText(cause: unknown, t: Translator): string {
+  if (cause instanceof ApiError) {
+    return cause.messageKey
+      ? t(cause.messageKey, cause.messageValues ?? undefined)
+      : cause.message.trim()
+  }
+  if (cause instanceof Error) return cause.message.trim()
+  if (typeof cause === 'string') return cause.trim()
+  return ''
 }
 
 async function request<T>(
@@ -120,13 +158,17 @@ async function request<T>(
             'похоже, он недоступен. Попробуйте обновить страницу.',
           0,
           null,
+          { key: 'api.timedOut', values: { seconds: timeoutMs / 1000 } },
         )
       }
       // Сеть не ответила вовсе: backend не поднят или заблокирован CORS.
       // Исходная ошибка не сохраняется намеренно: TypeError: Failed to fetch
       // ничего не говорит человеку, который открыл тестовый интерфейс,
       // а вот адрес backend и вопрос «поднят ли он» говорят.
-      throw new ApiError(`Backend недоступен по адресу ${BASE_URL}. Поднят ли он?`, 0, null)
+      throw new ApiError(`Backend недоступен по адресу ${BASE_URL}. Поднят ли он?`, 0, null, {
+        key: 'api.unreachable',
+        values: { url: BASE_URL },
+      })
     }
 
     if (!response.ok) {
@@ -138,7 +180,15 @@ async function request<T>(
       }
       // Без `describeStatus` сюда подставлялось «HTTP 500», и заголовок
       // ошибки в интерфейсе читался как «HTTP 500 — HTTP 500».
-      throw new ApiError(body?.message ?? describeStatus(response.status), response.status, body)
+      const fallback = describeStatus(response.status)
+      throw new ApiError(
+        // В `message` — читаемый текст, а не ключ: он уходит в логи
+        // и стектрейсы, где словаря нет.
+        body?.message ?? translate(fallback, DEFAULT_LANGUAGE),
+        response.status,
+        body,
+        body?.message ? undefined : { key: fallback },
+      )
     }
 
     try {
@@ -152,6 +202,7 @@ async function request<T>(
         'Backend ответил не в формате JSON. Между браузером и backend может стоять прокси.',
         response.status,
         null,
+        { key: 'api.notJson' },
       )
     }
   } finally {
@@ -187,9 +238,15 @@ export async function fetchReport(transaction: TransactionRequest): Promise<stri
       })
     } catch (cause) {
       if (cause instanceof DOMException && cause.name === 'AbortError') {
-        throw new ApiError(`Backend не ответил за ${REQUEST_TIMEOUT_MS / 1000} секунд`, 0, null)
+        throw new ApiError(`Backend не ответил за ${REQUEST_TIMEOUT_MS / 1000} секунд`, 0, null, {
+          key: 'api.noAnswerIn',
+          values: { seconds: REQUEST_TIMEOUT_MS / 1000 },
+        })
       }
-      throw new ApiError(`Backend недоступен по адресу ${BASE_URL}. Поднят ли он?`, 0, null)
+      throw new ApiError(`Backend недоступен по адресу ${BASE_URL}. Поднят ли он?`, 0, null, {
+        key: 'api.unreachable',
+        values: { url: BASE_URL },
+      })
     }
 
     if (!response.ok) {
@@ -200,7 +257,15 @@ export async function fetchReport(transaction: TransactionRequest): Promise<stri
       } catch {
         // Тело не JSON — body остаётся null.
       }
-      throw new ApiError(body?.message ?? describeStatus(response.status), response.status, body)
+      const fallback = describeStatus(response.status)
+      throw new ApiError(
+        // В `message` — читаемый текст, а не ключ: он уходит в логи
+        // и стектрейсы, где словаря нет.
+        body?.message ?? translate(fallback, DEFAULT_LANGUAGE),
+        response.status,
+        body,
+        body?.message ? undefined : { key: fallback },
+      )
     }
 
     return await response.text()

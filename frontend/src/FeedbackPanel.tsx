@@ -17,7 +17,7 @@
 
 
 import Tile from './Tile'
-import { fetchFeedbackSummary } from './api'
+import { errorText, fetchFeedbackSummary } from './api'
 import { formatMeasuredShare } from './feedback'
 import PanelError from './PanelError'
 import { useLanguage } from './LanguageContext'
@@ -33,10 +33,12 @@ const DECISION_CLASS: Record<string, string> = {
 export default function FeedbackPanel() {
   const { t } = useLanguage()
   const { formatMoney } = useFormat()
-  const { data: summary, error } = usePanelData(fetchFeedbackSummary)
+  const { data: summary, failure } = usePanelData(fetchFeedbackSummary)
 
 
-  if (error !== null) return <PanelError title={t('feedback.title')} reason={error} />
+  if (failure !== null) {
+    return <PanelError title={t('feedback.title')} reason={errorText(failure.cause, t)} />
+  }
   if (summary === null) return null
 
   return (
@@ -65,16 +67,17 @@ export default function FeedbackPanel() {
             <Tile label={t('feedback.labeled')} value={String(summary.labeled_total)} />
             <Tile
               label={t('feedback.verdictRight')}
-              value={formatMeasuredShare(summary.correct_share)}
-              note={`${summary.correct} из ${summary.labeled_total}`}
+              value={formatMeasuredShare(summary.correct_share, t)}
+              note={t('common.outOf', { shown: summary.correct, total: summary.labeled_total })}
               tone={summary.incorrect === 0 ? 'good' : undefined}
             />
             <Tile
               label={t('feedback.measuredPrecision')}
-              value={formatMeasuredShare(summary.precision)}
-              note={`${summary.true_positive} фрода из ${
-                summary.true_positive + summary.false_positive
-              } помеченных`}
+              value={formatMeasuredShare(summary.precision, t)}
+              note={t('feedback.fraudOfFlagged', {
+                hits: summary.true_positive,
+                flagged: summary.true_positive + summary.false_positive,
+              })}
             />
             <Tile
               label={t('feedback.falsePositives')}
@@ -87,7 +90,7 @@ export default function FeedbackPanel() {
               value={String(summary.false_negative)}
               note={
                 summary.fraud_amount_missed > 0
-                  ? `на ${formatMoney(summary.fraud_amount_missed)}`
+                  ? t('common.noteForAmount', { amount: formatMoney(summary.fraud_amount_missed) })
                   : undefined
               }
               tone={summary.false_negative > 0 ? 'bad' : 'good'}

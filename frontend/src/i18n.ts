@@ -25,10 +25,11 @@
  *
  * ## Почему без библиотеки
  *
- * Словарь плоский, строк три сотни, подстановок почти нет. `i18next`
- * добавил бы к сборке больше, чем весит весь этот файл, а плюрализацией
- * и форматами дат здесь никто не пользуется: числа приходят с backend
- * уже посчитанными (ТЗ §11).
+ * Словарь плоский, строк три сотни, подстановка одна — `{name}` в шесть
+ * строк кода. `i18next` добавил бы к сборке больше, чем весит весь этот
+ * файл, а плюрализацией и форматами дат здесь никто не пользуется: числа
+ * приходят с backend уже посчитанными (ТЗ §11) и форматируются локалью
+ * в `format.ts`.
  */
 
 export type Language = 'ru' | 'kk' | 'en'
@@ -480,16 +481,256 @@ export const DICTIONARY = {
   'shadow.title': entry('Теневая конфигурация', 'Көлеңкелі конфигурация', 'Shadow configuration'),
   'drift.title': entry('Сдвиг распределения', 'Таралымның ығысуы', 'Distribution drift'),
   'model.title': entry('Модель', 'Модель', 'Model'),
+
+  // --- сноски под плитками и подписи на графиках ---
+  //
+  // Эти строки прошлая правка пропустила: она перевела заголовки
+  // и подписи, но не то, что написано под ними мелким шрифтом.
+  // Видно их на каждой вкладке, поэтому непереведёнными они заметнее
+  // многого другого.
+
+  'common.outOf': entry('{shown} из {total}', '{total} ішінен {shown}', '{shown} of {total}'),
+  'common.notMeasured': entry('не измерено', 'өлшенбеген', 'not measured'),
+  'common.noteOperations': entry('операций', 'операция', 'operations'),
+  'common.noteForAmount': entry('на {amount}', '{amount} сомаға', 'for {amount}'),
+
+  'cost.fraudLoss': entry('потери от фрода', 'алаяқтықтан шығын', 'fraud losses'),
+  'cost.checkCost': entry('стоимость проверок', 'тексеру құны', 'cost of checks'),
+  'cost.total': entry('итого', 'барлығы', 'total'),
+  'cost.cheapest': entry('дешевле всего ({score})', 'ең арзаны ({score})', 'cheapest ({score})'),
+  'cost.sameAsNow': entry('как сейчас', 'қазіргідей', 'same as now'),
+  'cost.cheaperBy': entry(
+    'на {amount} дешевле текущего',
+    'қазіргіден {amount} арзан',
+    '{amount} cheaper than now',
+  ),
+  'cost.dearerBy': entry(
+    'на {amount} дороже текущего',
+    'қазіргіден {amount} қымбат',
+    '{amount} dearer than now',
+  ),
+  'cost.markNow': entry('сейчас', 'қазір', 'now'),
+  'cost.markOptimum': entry('оптимум', 'оңтайлы', 'optimum'),
+  'cost.atThreshold': entry('порог {score}', '{score} шегі', 'threshold {score}'),
+
+  'quality.precisionLegend': entry('точность (Precision)', 'дәлдік (Precision)', 'precision'),
+  'quality.recallLegend': entry('полнота (Recall)', 'толықтық (Recall)', 'recall'),
+  'quality.precisionShort': entry('точность {value}', 'дәлдік {value}', 'precision {value}'),
+  'quality.recallShort': entry('полнота {value}', 'толықтық {value}', 'recall {value}'),
+
+  'dashboard.raisedByRules': entry(
+    'оценка поднята политиками у {count} операций',
+    '{count} операцияда бағаны саясат көтерді',
+    'policies raised the score on {count} operations',
+  ),
+
+  'adaptive.appliedNote': entry(
+    'пороги применяются к решениям',
+    'шектер шешімдерге қолданылады',
+    'thresholds are applied to decisions',
+  ),
+  'adaptive.commonNote': entry(
+    'решения на общем пороге',
+    'шешімдер ортақ шекте',
+    'decisions use the common threshold',
+  ),
+  'adaptive.ownThreshold': entry(
+    'свой порог у {count}',
+    '{count} сегментте өз шегі бар',
+    'own threshold for {count}',
+  ),
+  'adaptive.foldsNote': entry(
+    'в среднем; положительных частей {positive} из {folds}',
+    'орташа есеппен; {folds} бөліктің {positive} оң',
+    'on average; {positive} of {folds} folds positive',
+  ),
+  'adaptive.frictionNote': entry(
+    '{before} → {after} задержанных честных операций',
+    '{before} → {after} ұсталған адал операция',
+    '{before} → {after} delayed legitimate operations',
+  ),
+  'adaptive.operationsNote': entry(
+    '{before} → {after} операций',
+    '{before} → {after} операция',
+    '{before} → {after} operations',
+  ),
+
+  'feedback.fraudOfFlagged': entry(
+    '{hits} фрода из {flagged} помеченных',
+    'белгіленген {flagged} ішінен {hits} алаяқтық',
+    '{hits} fraud of {flagged} flagged',
+  ),
+  'feedback.noLabels': entry('Разметки пока нет', 'Әзірге белгілеу жоқ', 'No labels yet'),
+  'feedback.headline': entry(
+    'Размечено операций: {total} — система права в {correct} из {total}',
+    'Белгіленген операция: {total} — жүйе {total} ішінен {correct} рет дұрыс',
+    'Labeled operations: {total} — the system was right {correct} of {total} times',
+  ),
+
+  'drift.statusStable': entry('стабильно', 'тұрақты', 'stable'),
+  'drift.statusModerate': entry('умеренный сдвиг', 'шамалы ығысу', 'moderate drift'),
+  'drift.statusSignificant': entry('существенный сдвиг', 'елеулі ығысу', 'significant drift'),
+  'drift.statusNotMeasurable': entry('несравним', 'салыстырылмайды', 'not comparable'),
+  'drift.statusCollecting': entry('копим наблюдения', 'бақылау жинақталуда', 'collecting data'),
+  'drift.minObservations': entry('минимум {count}', 'кемінде {count}', 'at least {count}'),
+  'drift.notCountedYet': entry('пока не считаем', 'әзірге есептемейміз', 'not computed yet'),
+
+  'shadow.policiesOn': entry('политики включены', 'саясат қосулы', 'policies on'),
+  'shadow.policiesOff': entry('политики выключены', 'саясат өшірулі', 'policies off'),
+
+  'graph.linkDevice': entry('общее устройство', 'ортақ құрылғы', 'shared device'),
+  'graph.linkSubnet': entry('только подсеть', 'тек ішкі желі', 'subnet only'),
+
+  'sim.formInvalid': entry(
+    'Форма заполнена неверно — запрос не отправлен',
+    'Форма дұрыс толтырылмаған — сұрау жіберілмеді',
+    'The form is invalid — the request was not sent',
+  ),
+  'sim.network': entry('Сеть', 'Желі', 'Network'),
+  'sim.labelNotSaved': entry(
+    'Метку не удалось сохранить',
+    'Белгіні сақтау мүмкін болмады',
+    'The label could not be saved',
+  ),
+  'sim.confirmedFraud': entry(
+    'операция подтверждена как мошенническая',
+    'операция алаяқтық деп расталды',
+    'the operation was confirmed as fraud',
+  ),
+  'sim.confirmedLegit': entry(
+    'операция подтверждена как добросовестная',
+    'операция адал деп расталды',
+    'the operation was confirmed as legitimate',
+  ),
+  'sim.raises': entry('повышает', 'арттырады', 'raises'),
+  'sim.lowers': entry('понижает', 'төмендетеді', 'lowers'),
+
+  // Имена полей — технические и одинаковы на всех языках (ТЗ §3).
+  // Переводится только уточнение в скобках.
+  'form.commaSeparated': entry('через запятую', 'үтір арқылы', 'comma-separated'),
+
+  'app.modelUnavailable': entry(
+    'Сведения о модели недоступны',
+    'Модель туралы мәлімет қолжетімсіз',
+    'Model details are unavailable',
+  ),
+
+  // Сообщения об отказах, которые придумывает сам клиент. То, что
+  // прислал backend, всегда предпочтительнее: он знает точнее.
+  'api.notFound': entry(
+    'Адрес не найден на backend',
+    'Мекенжай backend-те табылмады',
+    'The address was not found on the backend',
+  ),
+  'api.methodNotAllowed': entry(
+    'Метод не поддерживается',
+    'Әдіс қолдалмайды',
+    'The method is not supported',
+  ),
+  'api.tooSlow': entry(
+    'Backend не успел ответить',
+    'Backend жауап беріп үлгермеді',
+    'The backend did not answer in time',
+  ),
+  'api.serverError': entry(
+    'Backend ответил ошибкой',
+    'Backend қатемен жауап берді',
+    'The backend returned an error',
+  ),
+  'api.rejected': entry('Запрос отклонён', 'Сұрау қабылданбады', 'The request was rejected'),
+  'api.timedOut': entry(
+    'Backend не ответил за {seconds} секунд. Столько не занимает даже пробуждение уснувшего сервиса — похоже, он недоступен. Попробуйте обновить страницу.',
+    'Backend {seconds} секундта жауап бермеді. Ұйқыдағы сервисті ояту да сонша уақыт алмайды — қолжетімсіз сияқты. Бетті жаңартып көріңіз.',
+    'The backend did not answer within {seconds} seconds. Even waking a sleeping service takes less — it appears to be unavailable. Try reloading the page.',
+  ),
+  'api.notJson': entry(
+    'Backend ответил не в формате JSON. Между браузером и backend может стоять прокси.',
+    'Backend JSON форматында жауап бермеді. Браузер мен backend арасында прокси тұруы мүмкін.',
+    'The backend did not answer with JSON. There may be a proxy between the browser and the backend.',
+  ),
+  'drift.observations': entry(
+    'Наблюдений: {count}',
+    'Бақылау саны: {count}',
+    'Observations: {count}',
+  ),
+  'drift.observationsShort': entry(
+    'Наблюдений: {observed} из {minimum} — нужно ещё {left}, чтобы называть числа',
+    'Бақылау саны: {minimum} ішінен {observed} — сандарды атау үшін тағы {left} керек',
+    'Observations: {observed} of {minimum} — {left} more are needed before quoting numbers',
+  ),
+  'drift.binTraining': entry('обучающее: {share}', 'оқыту: {share}', 'training: {share}'),
+  'drift.binNow': entry('сейчас: {share}', 'қазір: {share}', 'now: {share}'),
+
+  'stream.ofProcessed': entry(
+    'из {total} операций',
+    '{total} операциядан',
+    'of {total} operations',
+  ),
+  'stream.raisedByPolicies': entry(
+    'оценку подняли политики у {count}',
+    '{count} операцияда бағаны саясат көтерді',
+    'policies raised the score on {count}',
+  ),
+
+  'form.expectedNumber': entry(
+    '{field}: ожидалось число, введено «{value}»',
+    '{field}: сан күтілді, енгізілгені «{value}»',
+    '{field}: a number was expected, got “{value}”',
+  ),
+
+  'api.unreachable': entry(
+    'Backend недоступен по адресу {url}. Поднят ли он?',
+    '{url} мекенжайында backend қолжетімсіз. Ол іске қосылған ба?',
+    'The backend is unreachable at {url}. Is it running?',
+  ),
+  'api.noAnswerIn': entry(
+    'Backend не ответил за {seconds} секунд',
+    'Backend {seconds} секундта жауап бермеді',
+    'The backend did not answer within {seconds} seconds',
+  ),
+
+  'api.wakeUp': entry(
+    'Сервис мог уснуть после простоя — первый запрос его будит. Это занимает до минуты, страницу перезагружать не нужно.',
+    'Сервис тоқтап тұрып ұйықтап қалуы мүмкін — алғашқы сұрау оны оятады. Бұл бір минутқа дейін уақыт алады, бетті жаңартудың қажеті жоқ.',
+    'The service may have gone to sleep after idling — the first request wakes it. This takes up to a minute; there is no need to reload the page.',
+  ),
 } as const
 
 export type TranslationKey = keyof typeof DICTIONARY
 
-/** Перевод по ключу. Неизвестный ключ возвращается как есть — это видно. */
-export function translate(key: TranslationKey, language: Language): string {
+/** Что подставляется в строку вида «свой порог у {count}». */
+export type Substitutions = Record<string, string | number>
+
+/**
+ * Перевод по ключу.
+ *
+ * Неизвестный ключ возвращается как есть — это видно. Незаполненная
+ * подстановка тоже остаётся на месте текстом `{count}`: показать её
+ * заметнее, чем тихо подставить пустоту и оставить в интерфейсе
+ * фразу с дырой посередине.
+ *
+ * Подстановки нужны там, где в строке есть число. Склеивать такие
+ * фразы из кусков нельзя: «свой порог у 13» по-английски «own
+ * threshold for 13», а по-казахски число уходит в начало — порядок
+ * слов разный, и конкатенация даёт ломаный язык хотя бы в одном
+ * из трёх.
+ */
+export function translate(
+  key: TranslationKey,
+  language: Language,
+  values?: Substitutions,
+): string {
   const found = DICTIONARY[key]
   if (!found) return key
-  return found[language] ?? found[DEFAULT_LANGUAGE]
+  const text = found[language] ?? found[DEFAULT_LANGUAGE]
+  if (values === undefined) return text
+  return text.replace(/\{(\w+)\}/g, (whole, name: string) =>
+    name in values ? String(values[name]) : whole,
+  )
 }
+
+/** Переводчик, связанный с выбранным языком. */
+export type Translator = (key: TranslationKey, values?: Substitutions) => string
 
 /**
  * Язык, выбранный раньше.

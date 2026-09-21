@@ -11,16 +11,16 @@
  *
  * Тесты не поднимают jsdom: `renderToStaticMarkup` отрисовывает
  * PanelError в чистом Node, а хук `usePanelData` проверяется через
- * вынесенную из него чистую `describeFailure`.
+ * вынесенную из него чистую `errorText`.
  */
 
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 
-import { ApiError } from './api'
+import { ApiError, errorText } from './api'
 import { LanguageProvider } from './LanguageContext'
 import PanelError from './PanelError'
-import { describeFailure } from './usePanelData'
+import { ru, translatorFor } from './testTranslator'
 
 /**
  * Исходники всех панелей — читает Vite, а не node:fs.
@@ -47,30 +47,50 @@ const CONVERTED = [
 
 const named = (path: string) => path.replace('./', '')
 
-describe('describeFailure', () => {
+describe('errorText', () => {
   it('передаёт формулировку backend дословно', () => {
     const cause = new ApiError('Буфер операций пуст: граф строить не на чем.', 503, null)
-    expect(describeFailure(cause)).toBe('Буфер операций пуст: граф строить не на чем.')
+    expect(errorText(cause, ru)).toBe('Буфер операций пуст: граф строить не на чем.')
   })
 
   it('передаёт дословно и сетевую ошибку — она называет адрес', () => {
     const cause = new Error('Backend недоступен по адресу http://localhost:8000. Поднят ли он?')
-    expect(describeFailure(cause)).toContain('http://localhost:8000')
+    expect(errorText(cause, ru)).toContain('http://localhost:8000')
   })
 
   it('не теряет причину, даже если бросили голую строку', () => {
-    expect(describeFailure('таймаут')).toBe('таймаут')
+    expect(errorText('таймаут', ru)).toBe('таймаут')
   })
 
   it('молчит вместо «null» и «[object Object]» — это не объяснения', () => {
     for (const cause of [null, undefined, {}, 404]) {
-      expect(describeFailure(cause)).toBe('')
+      expect(errorText(cause, ru)).toBe('')
     }
   })
 
   it('пустое сообщение остаётся пустым, а не превращается в «Error»', () => {
-    expect(describeFailure(new Error('   '))).toBe('')
-    expect(describeFailure(new ApiError('', 500, null))).toBe('')
+    expect(errorText(new Error('   '), ru)).toBe('')
+    expect(errorText(new ApiError('', 500, null), ru)).toBe('')
+  })
+
+  it('свой текст клиента переводится, а не остаётся русским', () => {
+    const cause = new ApiError('Backend недоступен по адресу http://x. Поднят ли он?', 0, null, {
+      key: 'api.unreachable',
+      values: { url: 'http://x' },
+    })
+
+    expect(errorText(cause, translatorFor('en'))).toBe(
+      'The backend is unreachable at http://x. Is it running?',
+    )
+    expect(errorText(cause, translatorFor('kk'))).toContain('http://x')
+    expect(errorText(cause, translatorFor('kk'))).not.toContain('Поднят ли он')
+  })
+
+  it('текст backend не переводится: его формулировка точнее нашей', () => {
+    // messageKey не задан — значит строку прислал сервер, и подменять
+    // её словарём было бы потерей смысла, а не переводом.
+    const cause = new ApiError('Буфер операций пуст.', 503, null)
+    expect(errorText(cause, translatorFor('en'))).toBe('Буфер операций пуст.')
   })
 })
 

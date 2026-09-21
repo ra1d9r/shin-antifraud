@@ -9,6 +9,7 @@
  * разошлась бы с backend и начала бы показывать не то, что система решила.
  */
 
+import type { TranslationKey, Translator } from './i18n'
 import type { ClientContext, Scenario, TransactionFields, TransactionRequest } from './types'
 
 /**
@@ -23,6 +24,8 @@ export interface FieldSpec {
   name: string
   label: string
   kind: FieldKind
+  /** Уточнение в скобках после имени поля, если оно нужно. */
+  hintKey?: TranslationKey
 }
 
 /** Поля формы из ТЗ §3. */
@@ -48,7 +51,12 @@ export const CONTEXT_FIELDS: (FieldSpec & { name: keyof ClientContext })[] = [
   { name: 'user_amount_std', label: 'user_amount_std', kind: 'number' },
   { name: 'user_home_country', label: 'user_home_country', kind: 'text' },
   { name: 'user_typical_frequency', label: 'user_typical_frequency', kind: 'number' },
-  { name: 'known_device_ids', label: 'known_device_ids (через запятую)', kind: 'list' },
+  {
+    name: 'known_device_ids',
+    label: 'known_device_ids',
+    kind: 'list',
+    hintKey: 'form.commaSeparated',
+  },
   { name: 'previous_ip_address', label: 'previous_ip_address', kind: 'text' },
   { name: 'previous_timestamp', label: 'previous_timestamp', kind: 'datetime' },
   { name: 'previous_latitude', label: 'previous_latitude', kind: 'number' },
@@ -110,7 +118,7 @@ export interface ParsedForm {
   invalid: string[]
 }
 
-export function formToRequest(form: FormState): ParsedForm {
+export function formToRequest(form: FormState, t: Translator): ParsedForm {
   const body: Record<string, unknown> = {}
   const invalid: string[] = []
 
@@ -132,7 +140,7 @@ export function formToRequest(form: FormState): ParsedForm {
     if (Number.isFinite(parsed)) {
       body[field.name] = parsed
     } else {
-      invalid.push(`${field.name}: ожидалось число, введено «${raw}»`)
+      invalid.push(t('form.expectedNumber', { field: field.name, value: raw }))
     }
   }
 
