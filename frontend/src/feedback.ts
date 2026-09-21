@@ -6,13 +6,8 @@
  * на клиенте разошлась бы с той, по которой система себя оценивает.
  */
 
-import type { FeedbackSummary, Verdict } from './types'
+import type { FeedbackSummary } from './types'
 
-/** Подписи кнопок. Аналитик отвечает про вердикт, а не про транзакцию. */
-export const VERDICT_LABEL: Record<Verdict, string> = {
-  CORRECT: 'Вердикт верный',
-  INCORRECT: 'Вердикт ошибочный',
-}
 
 /**
  * Доля, которую могли и не измерить.

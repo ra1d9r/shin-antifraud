@@ -72,26 +72,26 @@ export default function DriftPanel() {
 
       <div className="tiles">
         <Tile
-          label="Общая картина"
+          label={t('drift.overall')}
           value={DRIFT_STATUS_LABEL[report.status]}
-          note="по самому разошедшемуся признаку"
+          note={t('drift.worstFeature')}
           tone={driftTone(report.status)}
         />
         <Tile
-          label="Наблюдений с запуска"
+          label={t('drift.observed')}
           value={formatCount(report.observed_rows)}
           note={report.enough_data ? undefined : `минимум ${report.min_observations}`}
         />
         <Tile
-          label="Признаков за границей"
+          label={t('drift.overLimit')}
           value={report.enough_data ? `${report.drifted} из ${measurable.length}` : '—'}
           note={report.enough_data ? 'PSI ≥ 0.1' : 'пока не считаем'}
           tone={report.enough_data && report.drifted > 0 ? 'warn' : undefined}
         />
         <Tile
-          label="Эталон снят по"
+          label={t('drift.baselineRows')}
           value={formatCount(report.baseline_rows)}
-          note="строкам датасета"
+          note={t('drift.datasetRows')}
         />
       </div>
 
@@ -115,10 +115,10 @@ export default function DriftPanel() {
         <table className="table">
           <thead>
             <tr>
-              <th>Признак</th>
-              <th>Что означает</th>
+              <th>{t('sim.feature')}</th>
+              <th>{t('sim.meaning')}</th>
               <th>PSI</th>
-              <th>Состояние</th>
+              <th>{t('drift.state')}</th>
             </tr>
           </thead>
           <tbody>
@@ -158,12 +158,13 @@ export default function DriftPanel() {
  * устройства. Без этого по одному числу нечего решать.
  */
 function Comparison({ feature }: { feature: FeatureDrift }) {
+  const { t } = useLanguage()
   const peak = Math.max(...feature.expected, ...feature.observed, 0.0001)
 
   return (
     <>
       <h3>
-        <code>{feature.name}</code> — как разложился поток
+        <code>{feature.name}</code> — {t('drift.howSplit')}
       </h3>
       <p className="hint">{feature.description}. Нажмите строку выше, чтобы посмотреть другой признак.</p>
 

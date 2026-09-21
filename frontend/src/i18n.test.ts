@@ -52,6 +52,8 @@ describe('словарь', () => {
       'app.simulator', // «Симулятор»
       'sim.transaction', // «Транзакция»
       'model.title', // «Модель»
+      'model.algorithm', // «Алгоритм»
+      'common.transaction', // «Операция»
     ])
 
     const untranslated: string[] = []

@@ -68,11 +68,11 @@ export default function ShadowPanel() {
 
       <div className="configs">
         <div className="config">
-          <span className="tile-label">Основная — работает</span>
+          <span className="tile-label">{t('shadow.primaryLive')}</span>
           <strong>{describeConfiguration(report.primary)}</strong>
         </div>
         <div className="config shadow">
-          <span className="tile-label">Теневая — только считает</span>
+          <span className="tile-label">{t('shadow.shadowOnlyCounts')}</span>
           <strong>{describeConfiguration(report.shadow)}</strong>
         </div>
       </div>
@@ -80,7 +80,7 @@ export default function ShadowPanel() {
       {!report.differs && (
         <p className="hint">
           <strong className="warn-text">
-            Теневая конфигурация совпадает с основной — сравнивать нечего.
+            {t('shadow.identical')}
           </strong>{' '}
           Полное согласие ниже означает только это. Задайте отличие
           переменными <code>SHADOW_APPROVE_MAX</code>, <code>SHADOW_CHALLENGE_MAX</code>{' '}
@@ -89,20 +89,20 @@ export default function ShadowPanel() {
       )}
 
       <div className="tiles">
-        <Tile label="Операций сравнено" value={formatCount(report.observed)} />
+        <Tile label={t('shadow.compared')} value={formatCount(report.observed)} />
         <Tile
-          label="Решения совпали"
+          label={t('shadow.agreed')}
           value={formatMeasuredShare(report.agreement_share)}
           note={report.observed > 0 ? `${report.agreed} из ${report.observed}` : undefined}
         />
         <Tile
-          label="Трение снялось бы"
+          label={t('shadow.frictionRemoved')}
           value={String(report.freed_count)}
           note={report.freed_amount > 0 ? `на ${formatMoney(report.freed_amount)}` : 'операций'}
           tone={report.freed_count > 0 ? 'good' : undefined}
         />
         <Tile
-          label="Трение добавилось бы"
+          label={t('shadow.frictionAdded')}
           value={String(report.tightened_count)}
           note={
             report.tightened_amount > 0
@@ -122,15 +122,15 @@ export default function ShadowPanel() {
 
       {report.matrix.length > 0 && (
         <>
-          <h3>Кто что решил</h3>
+          <h3>{t('shadow.whoDecided')}</h3>
           <div className="table-scroll">
             <table className="table">
               <thead>
                 <tr>
-                  <th>Основная</th>
-                  <th>Теневая</th>
-                  <th>Операций</th>
-                  <th>На сумму</th>
+                  <th>{t('shadow.primary')}</th>
+                  <th>{t('shadow.shadow')}</th>
+                  <th>{t('common.operations')}</th>
+                  <th>{t('common.forAmount')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -161,7 +161,7 @@ export default function ShadowPanel() {
 
       {report.recent.length > 0 && (
         <>
-          <h3>Последние расхождения</h3>
+          <h3>{t('shadow.lastDisagreements')}</h3>
           <p className="hint">
             Конкретные операции — с них начинают разбор, когда решают, переключать или нет.
           </p>
@@ -169,10 +169,10 @@ export default function ShadowPanel() {
             <table className="table">
               <thead>
                 <tr>
-                  <th>Операция</th>
-                  <th>Сумма</th>
-                  <th>Основная</th>
-                  <th>Теневая</th>
+                  <th>{t('common.transaction')}</th>
+                  <th>{t('common.amount')}</th>
+                  <th>{t('shadow.primary')}</th>
+                  <th>{t('shadow.shadow')}</th>
                 </tr>
               </thead>
               <tbody>

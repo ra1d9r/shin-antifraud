@@ -87,7 +87,7 @@ export default function App() {
       } else {
         const cause = analyticsResult.reason
         setAnalyticsError({
-          message: cause instanceof ApiError ? cause.message : 'Аналитика недоступна',
+          message: cause instanceof ApiError ? cause.message : 'Analytics unavailable',
           // 503 отдаёт сам backend, когда артефакта нет. Всё остальное —
           // сеть, прокси или внутренняя ошибка, и выгрузка их не вылечит.
           artifactMissing: cause instanceof ApiError && cause.status === 503,
@@ -142,8 +142,8 @@ export default function App() {
           <Dashboard data={analytics} model={model} modelError={modelError} />
         ) : (
           <section className="panel alert">
-            <h2>{analyticsError ? 'Аналитика недоступна' : 'Загружаю аналитику'}</h2>
-            <p>{analyticsError?.message ?? 'Загружаю…'}</p>
+            <h2>{analyticsError ? t('error.analyticsTitle') : t('error.analyticsLoading')}</h2>
+            <p>{analyticsError?.message ?? t('common.loading')}</p>
 
             {!analyticsError && waking && <p className="hint">{WAKE_UP_HINT}</p>}
 
@@ -169,7 +169,7 @@ export default function App() {
 
             {analyticsError && (
               <p className="hint">
-                Адрес backend: <code>{apiBaseUrl}</code>
+                {t('error.backendAddress')}: <code>{apiBaseUrl}</code>
               </p>
             )}
           </section>

@@ -86,7 +86,7 @@ export default function AdaptivePanel() {
         <Tile
           label={t('adaptive.fallback')}
           value={String(state.fallback_approve_max ?? '—')}
-          note="для категорий без своего"
+          note={t('adaptive.forOthers')}
         />
       </div>
 

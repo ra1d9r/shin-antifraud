@@ -105,7 +105,7 @@ export default function StreamPanel({ onFinished }: { onFinished: () => void }) 
             <Tile
               label={t('stream.falsePositives')}
               value={formatCount(summary.false_positives)}
-              note="честные операции, которые система задержала"
+              note={t('feedback.botheredInVain')}
               tone={summary.false_positives > 0 ? 'warn' : 'good'}
             />
             <Tile

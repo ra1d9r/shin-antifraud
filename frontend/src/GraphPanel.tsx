@@ -59,18 +59,18 @@ export default function GraphPanel() {
       </p>
 
       <div className="tiles">
-        <Tile label="Просмотрено операций" value={formatCount(report.scanned_transactions)} />
-        <Tile label="Клиентов в них" value={formatCount(report.known_users)} />
+        <Tile label={t('graph.scanned')} value={formatCount(report.scanned_transactions)} />
+        <Tile label={t('graph.users')} value={formatCount(report.known_users)} />
         <Tile
-          label="Групп с общим устройством"
+          label={t('graph.deviceGroups')}
           value={String(strong)}
-          note="связь объясняется плохо"
+          note={t('graph.badLink')}
           tone={strong > 0 ? 'bad' : undefined}
         />
         <Tile
-          label="Групп только по подсети"
+          label={t('graph.subnetGroups')}
           value={String(report.weak_clusters)}
-          note="связь слабая"
+          note={t('graph.weakLink')}
           tone={report.weak_clusters > 0 ? 'warn' : undefined}
         />
       </div>
@@ -100,13 +100,13 @@ export default function GraphPanel() {
           <table className="table">
             <thead>
               <tr>
-                <th>Клиенты</th>
-                <th>Связь</th>
-                <th>Через что</th>
-                <th>Операций</th>
-                <th>Помечено</th>
-                <th>Сумма</th>
-                <th>Макс. риск</th>
+                <th>{t('graph.clients')}</th>
+                <th>{t('graph.link')}</th>
+                <th>{t('graph.through')}</th>
+                <th>{t('common.operations')}</th>
+                <th>{t('graph.flagged')}</th>
+                <th>{t('common.amount')}</th>
+                <th>{t('graph.maxRisk')}</th>
               </tr>
             </thead>
             <tbody>
