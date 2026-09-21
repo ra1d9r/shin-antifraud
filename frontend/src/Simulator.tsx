@@ -29,6 +29,7 @@ import {
   scenarioToForm,
 } from './form'
 import { VERDICT_LABEL, feedbackHeadline } from './feedback'
+import { useLanguage } from './LanguageContext'
 import { WAKE_UP_HINT, useSlowHint } from './useSlowHint'
 import type { FieldSpec, FormState } from './form'
 import type {
@@ -73,6 +74,7 @@ const DECISION_CLASS: Record<Decision, string> = {
 }
 
 export default function Simulator() {
+  const { t } = useLanguage()
   const [scenarios, setScenarios] = useState<Scenario[]>([])
   const [activeScenario, setActiveScenario] = useState<string>('')
   const [form, setForm] = useState<FormState>({})
@@ -182,7 +184,7 @@ export default function Simulator() {
   return (
     <>
       <section className="panel">
-        <h2>Сценарии</h2>
+        <h2>{t('sim.scenarios')}</h2>
         <div className="scenario-buttons">
           {scenarios.map((scenario) => (
             <button
@@ -205,7 +207,7 @@ export default function Simulator() {
       </section>
 
       <section className="panel">
-        <h2>Transaction</h2>
+        <h2>{t('sim.transaction')}</h2>
         <div className="grid">
           {FORM_FIELDS.map((field) => (
             <Field
@@ -299,6 +301,7 @@ export default function Simulator() {
  * ту, которой в этот момент нет.
  */
 function ClientExplanation({ analysis }: { analysis: Analysis }) {
+  const { language, t } = useLanguage()
   const [message, setMessage] = useState<ClientMessage | null>(null)
   const [loading, setLoading] = useState(false)
   const [failure, setFailure] = useState('')
@@ -309,13 +312,13 @@ function ClientExplanation({ analysis }: { analysis: Analysis }) {
     setFailure('')
     setCopied(false)
     try {
-      setMessage(await explainForClient(analysis.body))
+      setMessage(await explainForClient(analysis.body, language))
     } catch (cause) {
-      setFailure(cause instanceof ApiError ? cause.message : 'Объяснение не получено')
+      setFailure(cause instanceof ApiError ? cause.message : t('assistant.failed'))
     } finally {
       setLoading(false)
     }
-  }, [analysis.body])
+  }, [analysis.body, language, t])
 
   const copy = useCallback(async () => {
     if (!message) return
@@ -323,13 +326,13 @@ function ClientExplanation({ analysis }: { analysis: Analysis }) {
       await navigator.clipboard.writeText(message.text)
       setCopied(true)
     } catch {
-      setFailure('Скопировать не вышло — выделите текст и скопируйте вручную')
+      setFailure(t('report.copyFailed'))
     }
-  }, [message])
+  }, [message, t])
 
   return (
     <section className="panel">
-      <h2>Что сказать клиенту</h2>
+      <h2>{t('assistant.title')}</h2>
       <p className="hint">
         Готовый текст для клиента: почему у него попросили подтверждение и что
         делать дальше. Решение принимает модель — языковая модель только
@@ -338,11 +341,11 @@ function ClientExplanation({ analysis }: { analysis: Analysis }) {
 
       <div className="scenario-buttons">
         <button type="button" className="chip" disabled={loading} onClick={() => void load()}>
-          {loading ? 'Пишу…' : message ? 'Переписать' : 'Объяснить клиенту'}
+          {loading ? t('assistant.writing') : message ? t('assistant.rewrite') : t('assistant.explain')}
         </button>
         {message && (
           <button type="button" className="chip" onClick={() => void copy()}>
-            {copied ? 'Скопировано' : 'Скопировать'}
+            {copied ? t('report.copied') : t('report.copy')}
           </button>
         )}
       </div>
@@ -365,19 +368,21 @@ function ClientExplanation({ analysis }: { analysis: Analysis }) {
           <p className="hint">
             {message.source === 'llm' ? (
               <>
-                Написала языковая модель <code>{message.model}</code> за{' '}
+                {t('assistant.writtenBy')} <code>{message.model}</code> —{' '}
                 {(message.elapsed_ms / 1000).toFixed(1)} с.
               </>
             ) : (
               <>
-                <strong>Текст собран без языковой модели.</strong>{' '}
+                <strong>{t('assistant.noModel')}</strong>{' '}
                 {message.fallback_reason} Он полноценный — собран из тех же фактов,
                 — но выдавать его за работу ассистента было бы нечестно.
               </>
             )}
           </p>
           <details className="context">
-            <summary>Что именно уходит языковой модели — {message.facts.length} строк</summary>
+            <summary>
+              {t('assistant.whatGoesOut')} — {message.facts.length}
+            </summary>
             <p className="hint">
               Только факты уже принятого решения. Ни идентификатора клиента,
               ни номера операции, ни IP здесь нет: языковой модели они не нужны,
@@ -404,6 +409,7 @@ function ClientExplanation({ analysis }: { analysis: Analysis }) {
  * оплачивается ожиданием.
  */
 function TextReport({ analysis }: { analysis: Analysis }) {
+  const { t } = useLanguage()
   const [text, setText] = useState('')
   const [loading, setLoading] = useState(false)
   const [failure, setFailure] = useState('')
@@ -415,11 +421,11 @@ function TextReport({ analysis }: { analysis: Analysis }) {
     try {
       setText(await fetchReport(analysis.body))
     } catch (cause) {
-      setFailure(cause instanceof ApiError ? cause.message : 'Отчёт не получен')
+      setFailure(cause instanceof ApiError ? cause.message : t('report.failed'))
     } finally {
       setLoading(false)
     }
-  }, [analysis.body])
+  }, [analysis.body, t])
 
   const copy = useCallback(async () => {
     try {
@@ -430,13 +436,13 @@ function TextReport({ analysis }: { analysis: Analysis }) {
       // разрешения. Молча ничего не делать нельзя — человек нажал
       // кнопку и ждёт ответа, — поэтому говорим, что выделить можно
       // руками.
-      setFailure('Скопировать не вышло — выделите текст и скопируйте вручную')
+      setFailure(t('report.copyFailed'))
     }
-  }, [text])
+  }, [text, t])
 
   return (
     <section className="panel">
-      <h2>Отчёт по операции</h2>
+      <h2>{t('report.title')}</h2>
       <p className="hint">
         Одна страница, которую можно скопировать целиком: в тикет, в письмо клиентской
         службе, в обоснование решения по обращению. Отчёт ничего не меняет — операция
@@ -445,11 +451,11 @@ function TextReport({ analysis }: { analysis: Analysis }) {
 
       <div className="scenario-buttons">
         <button type="button" className="chip" disabled={loading} onClick={() => void load()}>
-          {loading ? 'Собираю…' : text ? 'Пересобрать' : 'Показать отчёт'}
+          {loading ? t('report.building') : text ? t('report.rebuild') : t('report.show')}
         </button>
         {text && (
           <button type="button" className="chip" onClick={() => void copy()}>
-            {copied ? 'Скопировано' : 'Скопировать'}
+            {copied ? t('report.copied') : t('report.copy')}
           </button>
         )}
       </div>
@@ -594,6 +600,7 @@ function Field({
 }
 
 function Result({ result }: { result: PredictionResponse }) {
+  const { t } = useLanguage()
   const increasing = result.explanation.factors.filter(
     (factor) => factor.direction === 'INCREASES_RISK',
   )
@@ -607,32 +614,34 @@ function Result({ result }: { result: PredictionResponse }) {
       <section className={`panel verdict ${DECISION_CLASS[result.decision]}`}>
         <div className="score">
           <span className="score-value">{result.risk_score}</span>
-          <span className="score-caption">Risk Score / 100</span>
+          <span className="score-caption">{t('sim.scoreCaption')}</span>
         </div>
         <div className="verdict-meta">
           <div className="decision">{result.decision}</div>
           <div className="decision-meaning">{result.decision_meaning}</div>
-          <div className="level">Risk Level: {result.risk_level}</div>
+          <div className="level">
+            {t('sim.riskLevel')}: {t(`level.${result.risk_level}`)}
+          </div>
           <div className="muted">
-            модель дала {result.model_score}
-            {result.raised_by_rules && ' → политики подняли до ' + result.risk_score}
-            {' · '}вероятность {result.probability.toFixed(4)}
+            {t('sim.modelGave')} {result.model_score}
+            {result.raised_by_rules && ` → ${t('sim.raisedTo')} ${result.risk_score}`}
+            {' · '}{t('sim.probability')} {result.probability.toFixed(4)}
             {' · '}{result.processing_ms} мс
           </div>
           <div className="muted">
-            пороги: APPROVE ≤ {result.thresholds.approve_max} &lt; CHALLENGE ≤{' '}
+            {t('sim.thresholds')}: APPROVE ≤ {result.thresholds.approve_max} &lt; CHALLENGE ≤{' '}
             {result.thresholds.challenge_max} &lt; BLOCK
           </div>
         </div>
       </section>
 
       <section className="panel">
-        <h2>Причины</h2>
+        <h2>{t('sim.reasons')}</h2>
         <p className="hint">{result.explanation.summary}</p>
 
         {result.triggered_rules.length > 0 && (
           <>
-            <h3>Сработавшие политики</h3>
+            <h3>{t('sim.policiesFired')}</h3>
             <ul>
               {result.triggered_rules.map((rule) => (
                 <li key={rule.key}>
@@ -643,7 +652,7 @@ function Result({ result }: { result: PredictionResponse }) {
           </>
         )}
 
-        <h3>Основные факторы риска</h3>
+        <h3>{t('sim.topFactors')}</h3>
         {increasing.length > 0 ? (
           <ul>
             {increasing.map((factor) => (
@@ -651,12 +660,12 @@ function Result({ result }: { result: PredictionResponse }) {
             ))}
           </ul>
         ) : (
-          <p className="hint">Ни один признак заметно не повышает риск.</p>
+          <p className="hint always-visible">{t('sim.noFactors')}</p>
         )}
       </section>
 
       <section className="panel">
-        <h2>Feature Contributions</h2>
+        <h2>{t('sim.contributions')}</h2>
         <p className="hint">
           Метод: <code>{result.explanation.method}</code>, единицы вклада:{' '}
           <code>{result.explanation.units}</code>

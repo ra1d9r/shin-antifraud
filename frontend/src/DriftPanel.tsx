@@ -26,8 +26,10 @@ import {
   formatPsi,
 } from './drift'
 import type { DriftReport, FeatureDrift } from './types'
+import { useLanguage } from './LanguageContext'
 
 export default function DriftPanel() {
+  const { t } = useLanguage()
   const [report, setReport] = useState<DriftReport | null>(null)
   const [selected, setSelected] = useState<string>('')
 
@@ -60,7 +62,7 @@ export default function DriftPanel() {
 
   return (
     <section className="panel">
-      <h2>Сдвиг распределения</h2>
+      <h2>{t('drift.title')}</h2>
       <p className="hint">
         Модель обучена на датасете и с тех пор не менялась. Когда входные данные
         перестают походить на обучающие, её оценки становятся недостоверными —

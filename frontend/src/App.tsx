@@ -14,7 +14,9 @@
 import { useEffect, useState } from 'react'
 
 import Dashboard from './Dashboard'
+import LanguageSwitch, { CommentaryNote } from './LanguageSwitch'
 import Simulator from './Simulator'
+import { useLanguage } from './LanguageContext'
 import { WAKE_UP_HINT, useSlowHint } from './useSlowHint'
 import { ApiError, apiBaseUrl, fetchAnalytics, fetchHealth, fetchModel } from './api'
 import type { AnalyticsOverview, HealthResponse, ModelInfo } from './types'
@@ -35,6 +37,7 @@ interface AnalyticsFailure {
 }
 
 export default function App() {
+  const { t } = useLanguage()
   const [view, setView] = useState<View>('dashboard')
   const [health, setHealth] = useState<HealthResponse | null>(null)
   const [analytics, setAnalytics] = useState<AnalyticsOverview | null>(null)
@@ -102,10 +105,11 @@ export default function App() {
     <main className="page">
       <header className="header">
         <div>
-          <h1>Shin — Anti-Fraud System</h1>
+          <h1>{t('app.title')}</h1>
           {health && (
             <span className={`status ${health.model_loaded ? 'ok' : 'bad'}`}>
-              {health.status} · модель {health.model_loaded ? 'загружена' : 'не загружена'} · XAI{' '}
+              {health.status} ·{' '}
+              {t(health.model_loaded ? 'app.modelLoaded' : 'app.modelMissing')} · XAI{' '}
               {health.explainer_method ?? '—'}
             </span>
           )}
@@ -116,17 +120,20 @@ export default function App() {
             className={view === 'dashboard' ? 'tab active' : 'tab'}
             onClick={() => setView('dashboard')}
           >
-            Дашборд
+            {t('app.dashboard')}
           </button>
           <button
             type="button"
             className={view === 'simulator' ? 'tab active' : 'tab'}
             onClick={() => setView('simulator')}
           >
-            Симулятор
+            {t('app.simulator')}
           </button>
         </nav>
+        <LanguageSwitch />
       </header>
+
+      <CommentaryNote />
 
       {view === 'simulator' && <Simulator />}
 

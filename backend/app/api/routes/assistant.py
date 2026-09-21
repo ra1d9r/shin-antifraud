@@ -18,6 +18,7 @@ from fastapi import APIRouter, status
 
 from app.api.deps import ServiceDep, SettingsDep
 from app.assistant import (
+    DEFAULT_LANGUAGE,
     LlmClient,
     LlmConfig,
     LlmUnavailableError,
@@ -25,8 +26,9 @@ from app.assistant import (
     contradicts,
     fallback_text,
     needs_assistant,
+    system_prompt,
 )
-from app.assistant.message import SYSTEM_PROMPT
+from app.assistant.phrases import Language
 from app.core.logging import get_logger
 from app.schemas.assistant import ClientMessage
 from app.schemas.system import ErrorResponse
@@ -69,6 +71,7 @@ def explain_for_client(
     request: TransactionRequest,
     service: ServiceDep,
     settings: SettingsDep,
+    language: Language = DEFAULT_LANGUAGE,
 ) -> ClientMessage:
     started = time.perf_counter()
 
@@ -77,7 +80,7 @@ def explain_for_client(
     response = service.predict(read_only)
     facts = build_facts(read_only, response)
 
-    text = fallback_text(facts)
+    text = fallback_text(facts, language)
     source: str = "fallback"
     model: str | None = None
     reason: str | None = None
@@ -89,7 +92,7 @@ def explain_for_client(
     else:
         client = LlmClient(LlmConfig.from_settings(settings))
         try:
-            generated = client.complete(SYSTEM_PROMPT, facts.as_prompt_block())
+            generated = client.complete(system_prompt(language), facts.as_prompt_block())
         except LlmUnavailableError as exc:
             reason = exc.message
             logger.info("Ассистент недоступен, показан запасной текст: %s", exc.message)
@@ -114,6 +117,7 @@ def explain_for_client(
         source=source,  # type: ignore[arg-type]
         model=model,
         fallback_reason=reason,
+        language=language,
         risk_score=response.risk_score,
         facts=facts.as_prompt_block().splitlines(),
         elapsed_ms=round((time.perf_counter() - started) * 1000.0, 1),

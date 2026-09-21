@@ -15,6 +15,7 @@ import { useEffect, useState } from 'react'
 
 import { fetchAdaptive } from './api'
 import { formatCount, formatMoney } from './format'
+import { useLanguage } from './LanguageContext'
 import Tile from './Tile'
 import type { AdaptiveThresholdsState } from './types'
 
@@ -30,6 +31,7 @@ function signed(value: number, format: (value: number) => string = formatMoney):
 }
 
 export default function AdaptivePanel() {
+  const { t } = useLanguage()
   const [state, setState] = useState<AdaptiveThresholdsState | null>(null)
 
   useEffect(() => {
@@ -54,7 +56,7 @@ export default function AdaptivePanel() {
 
   return (
     <section className="panel">
-      <h2>Адаптивный порог по категории мерчанта</h2>
+      <h2>{t('adaptive.title')}</h2>
       <p className="hint">
         Чувствительность подстраивается под категорию: граница «пропустить или
         проверить» у каждой своя. Ни один порог не назначен руками — каждый
@@ -71,18 +73,18 @@ export default function AdaptivePanel() {
 
       <div className="tiles">
         <Tile
-          label="Режим"
-          value={state.enabled ? 'включён' : 'выключен'}
+          label={t('adaptive.mode')}
+          value={state.enabled ? t('adaptive.on') : t('adaptive.off')}
           note={state.enabled ? 'пороги применяются к решениям' : 'решения на общем пороге'}
           tone={state.enabled ? 'good' : undefined}
         />
         <Tile
-          label="Сегментов"
+          label={t('adaptive.segments')}
           value={String(state.segments.length)}
           note={`свой порог у ${state.segments.filter((item) => item.fitted).length}`}
         />
         <Tile
-          label="Общий запасной порог"
+          label={t('adaptive.fallback')}
           value={String(state.fallback_approve_max ?? '—')}
           note="для категорий без своего"
         />
@@ -90,7 +92,7 @@ export default function AdaptivePanel() {
 
       {check && (
         <>
-          <h3>Чего это стоит</h3>
+          <h3>{t('adaptive.worth')}</h3>
           <p className="hint">
             Проверка перекрёстная, на {check.folds} частях: порог сегмента
             подбирается без тех операций, на которых потом считается результат.
@@ -98,19 +100,19 @@ export default function AdaptivePanel() {
           </p>
           <div className="tiles">
             <Tile
-              label="Выигрыш против одного порога"
+              label={t('adaptive.gain')}
               value={signed(check.mean_gain)}
               note={`в среднем; положительных частей ${check.positive_folds} из ${check.folds}`}
               tone={check.mean_gain > 0 ? 'good' : 'bad'}
             />
             <Tile
-              label="Худшая часть проверки"
+              label={t('adaptive.worstFold')}
               value={signed(check.worst_gain)}
-              note={check.worst_gain < 0 ? 'там режим проиграл' : 'выиграл везде'}
+              note={check.worst_gain < 0 ? t('adaptive.lostThere') : t('adaptive.wonEverywhere')}
               tone={check.worst_gain < 0 ? 'warn' : 'good'}
             />
             <Tile
-              label="Трение против настройки"
+              label={t('adaptive.frictionVs')}
               value={signed(check.adaptive_friction - check.configured_friction, formatCount)}
               note={`${formatCount(check.configured_friction)} → ${formatCount(
                 check.adaptive_friction,
@@ -118,7 +120,7 @@ export default function AdaptivePanel() {
               tone={check.adaptive_friction < check.configured_friction ? 'good' : 'bad'}
             />
             <Tile
-              label="Пойманный фрод"
+              label={t('adaptive.fraudCaught')}
               value={signed(
                 check.adaptive_fraud_stopped - check.configured_fraud_stopped,
                 formatCount,
@@ -147,15 +149,15 @@ export default function AdaptivePanel() {
         </>
       )}
 
-      <h3>Подобранные пороги</h3>
+      <h3>{t('adaptive.fitted')}</h3>
       <div className="table-scroll">
         <table className="table">
           <thead>
             <tr>
-              <th>Категория</th>
-              <th>Порог</th>
-              <th>Операций</th>
-              <th>Из них фрод</th>
+              <th>{t('adaptive.category')}</th>
+              <th>{t('adaptive.thresholdColumn')}</th>
+              <th>{t('adaptive.rows')}</th>
+              <th>{t('adaptive.fraudRows')}</th>
             </tr>
           </thead>
           <tbody>
@@ -166,7 +168,7 @@ export default function AdaptivePanel() {
                 </td>
                 <td>
                   <strong>{item.approve_max}</strong>
-                  {!item.fitted && <span className="muted"> — общий</span>}
+                  {!item.fitted && <span className="muted"> — {t('adaptive.shared')}</span>}
                 </td>
                 <td>{formatCount(item.rows)}</td>
                 <td>{formatCount(item.fraud_rows)}</td>
