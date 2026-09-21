@@ -14,8 +14,8 @@
 import { useEffect, useState } from 'react'
 
 import { fetchAdaptive } from './api'
-import { formatCount, formatMoney } from './format'
 import { useLanguage } from './LanguageContext'
+import { useFormat } from './useFormat'
 import Tile from './Tile'
 import type { AdaptiveThresholdsState } from './types'
 
@@ -25,13 +25,14 @@ import type { AdaptiveThresholdsState } from './types'
  * Минус типографский, а не дефис: иначе в соседних плитках «−900»
  * и «-14» выглядели бы разными видами числа.
  */
-function signed(value: number, format: (value: number) => string = formatMoney): string {
+function signed(value: number, format: (value: number) => string): string {
   const sign = value > 0 ? '+' : value < 0 ? '−' : ''
   return `${sign}${format(Math.abs(value))}`
 }
 
 export default function AdaptivePanel() {
   const { t } = useLanguage()
+  const { formatCount, formatMoney, formatDateTime } = useFormat()
   const [state, setState] = useState<AdaptiveThresholdsState | null>(null)
 
   useEffect(() => {
@@ -101,13 +102,13 @@ export default function AdaptivePanel() {
           <div className="tiles">
             <Tile
               label={t('adaptive.gain')}
-              value={signed(check.mean_gain)}
+              value={signed(check.mean_gain, formatMoney)}
               note={`в среднем; положительных частей ${check.positive_folds} из ${check.folds}`}
               tone={check.mean_gain > 0 ? 'good' : 'bad'}
             />
             <Tile
               label={t('adaptive.worstFold')}
-              value={signed(check.worst_gain)}
+              value={signed(check.worst_gain, formatMoney)}
               note={check.worst_gain < 0 ? t('adaptive.lostThere') : t('adaptive.wonEverywhere')}
               tone={check.worst_gain < 0 ? 'warn' : 'good'}
             />
@@ -178,7 +179,7 @@ export default function AdaptivePanel() {
         </table>
       </div>
       <p className="hint">
-        Подобрано {state.generated_at ? new Date(state.generated_at).toLocaleString('ru-RU') : '—'}{' '}
+        Подобрано {state.generated_at ? formatDateTime(state.generated_at) : '—'}{' '}
         по {formatCount(state.rows ?? 0)} операциям. Категории, где мошеннических
         операций меньше {state.min_fraud_per_segment}, своего порога не получают:
         на десятке случаев минимум определяется одной крупной операцией, а не

@@ -18,8 +18,8 @@ import AdaptivePanel from './AdaptivePanel'
 import DriftPanel from './DriftPanel'
 import { readoutX, thresholdAtPointer } from './chart'
 import { formatMeasuredShare } from './feedback'
-import { formatCount as formatNumber, formatMoney } from './format'
 import { useLanguage } from './LanguageContext'
+import { useFormat } from './useFormat'
 import FeedbackPanel from './FeedbackPanel'
 import GraphPanel from './GraphPanel'
 import MapPanel from './MapPanel'
@@ -68,6 +68,7 @@ export default function Dashboard({
   modelError?: string
 }) {
   const { t } = useLanguage()
+  const { formatCount: formatNumber, formatMoney, formatDateTime } = useFormat()
   // Ползунок стартует с текущего порога системы: сравнивать удобнее,
   // когда точка отсчёта — то, что работает прямо сейчас.
   const [threshold, setThreshold] = useState(data.thresholds.approve_max)
@@ -159,7 +160,7 @@ export default function Dashboard({
           ниже, потому что стоимость проверки и стоимость блокировки разные.
         </p>
         <p className="hint">
-          Аналитика выгружена {new Date(data.generated_at).toLocaleString('ru-RU')}. Считается
+          Аналитика выгружена {formatDateTime(data.generated_at)}. Считается
           по датасету с известной разметкой — поэтому здесь, в отличие от `/stats`, виден
           пропущенный фрод.
         </p>
@@ -227,7 +228,7 @@ export default function Dashboard({
           <Tile
             label={t('curve.total')}
             value={formatMoney(point.total_cost)}
-            note={costNote(point, current)}
+            note={costNote(point, current, formatMoney)}
             tone={point.total_cost <= current.total_cost ? 'good' : 'bad'}
           />
           <Tile
@@ -503,7 +504,11 @@ function QualityChart({
   )
 }
 
-function costNote(point: CurvePoint, current: CurvePoint): string {
+function costNote(
+  point: CurvePoint,
+  current: CurvePoint,
+  formatMoney: (value: number) => string,
+): string {
   const delta = point.total_cost - current.total_cost
   if (Math.round(delta) === 0) return 'как сейчас'
   return delta < 0
@@ -535,6 +540,7 @@ function TradeOffChart({
   optimalThreshold: number
 }) {
   const { t } = useLanguage()
+  const { formatMoney } = useFormat()
   const width = 720
   const height = 260
   const padding = { top: 16, right: 16, bottom: 28, left: 56 }
@@ -651,6 +657,7 @@ function Readout({
   y: (cost: number) => number
   width: number
 }) {
+  const { formatMoney } = useFormat()
   const rows: [string, string, string][] = [
     ['потери от фрода', formatMoney(point.fraud_loss), 'fraud'],
     ['стоимость проверок', formatMoney(point.friction_cost), 'friction'],

@@ -17,10 +17,10 @@ import { useEffect, useState } from 'react'
 import Tile from './Tile'
 import { fetchShadow } from './api'
 import { formatMeasuredShare } from './feedback'
-import { formatCount, formatMoney } from './format'
 import { describeConfiguration } from './shadow'
 import type { ShadowComparison } from './types'
 import { useLanguage } from './LanguageContext'
+import { useFormat } from './useFormat'
 
 const DECISION_CLASS: Record<string, string> = {
   APPROVE: 'approve',
@@ -30,6 +30,7 @@ const DECISION_CLASS: Record<string, string> = {
 
 export default function ShadowPanel() {
   const { t } = useLanguage()
+  const { formatCount, formatMoney } = useFormat()
   const [report, setReport] = useState<ShadowComparison | null>(null)
 
   useEffect(() => {

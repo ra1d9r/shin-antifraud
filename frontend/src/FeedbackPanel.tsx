@@ -20,9 +20,9 @@ import { useEffect, useState } from 'react'
 import Tile from './Tile'
 import { fetchFeedbackSummary } from './api'
 import { formatMeasuredShare } from './feedback'
-import { formatMoney } from './format'
 import type { FeedbackSummary } from './types'
 import { useLanguage } from './LanguageContext'
+import { useFormat } from './useFormat'
 
 const DECISION_CLASS: Record<string, string> = {
   APPROVE: 'approve',
@@ -32,6 +32,7 @@ const DECISION_CLASS: Record<string, string> = {
 
 export default function FeedbackPanel() {
   const { t } = useLanguage()
+  const { formatMoney } = useFormat()
   const [summary, setSummary] = useState<FeedbackSummary | null>(null)
 
   useEffect(() => {

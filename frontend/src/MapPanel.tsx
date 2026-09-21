@@ -25,8 +25,8 @@
 
 import { useMemo, useState } from 'react'
 
-import { formatCount } from './format'
 import { useLanguage } from './LanguageContext'
+import { useFormat } from './useFormat'
 import { labelAnchor, project, radius, tone } from './map'
 import type { AnalyticsOverview, CountryStat } from './types'
 
@@ -175,6 +175,7 @@ function mostSuspicious(countries: CountryStat[]): CountryStat | null {
 
 function Readout({ country, hovered }: { country: CountryStat; hovered: boolean }) {
   const { t } = useLanguage()
+  const { formatCount } = useFormat()
   const share = (value: number) => `${(value * 100).toFixed(1)} %`
 
   return (
