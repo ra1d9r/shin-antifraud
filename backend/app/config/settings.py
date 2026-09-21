@@ -12,7 +12,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field, field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # backend/app/config/settings.py -> backend/app/config -> backend/app -> backend -> <root>
@@ -60,6 +60,24 @@ class Settings(BaseSettings):
     # на дашборде. Панель показывает измеренный эффект, а решение
     # включать остаётся за оператором.
     adaptive_thresholds_enabled: bool = False
+
+    # --- LLM-ассистент риск-аналитика (брифинг §6) ---
+    #
+    # Пишет клиенту, почему у него попросили подтверждение. Решение
+    # при этом принимает модель: ассистент только формулирует уже
+    # принятое, и без ключа система работает на детерминированном
+    # тексте из тех же фактов.
+    llm_enabled: bool = True
+    # SecretStr, а не str: так ключ не попадёт ни в repr настроек,
+    # ни в лог, ни в трассировку исключения. Прочитать его можно
+    # только явным `get_secret_value()`.
+    llm_api_key: SecretStr = SecretStr("")
+    llm_base_url: str = "https://api.deepseek.com"
+    llm_model: str = "deepseek-chat"
+    # Ответ идёт человеку и ждёт его в интерфейсе, поэтому ожидание
+    # короткое: лучше показать запасной текст, чем крутить спиннер.
+    llm_timeout_seconds: float = Field(default=12.0, gt=0.0, le=60.0)
+    llm_max_tokens: int = Field(default=220, ge=32, le=2000)
 
     # Пароль на смену порогов в рантайме. Пустая строка — эндпоинт записи
     # выключен, и это умышленно безопасное значение по умолчанию: адрес,

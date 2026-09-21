@@ -525,3 +525,25 @@ export interface AdaptiveThresholdsState {
   segments: SegmentThreshold[]
   validation?: AdaptiveValidation | null
 }
+
+/* --------------------------------- LLM-ассистент (брифинг §6) */
+
+/**
+ * Объяснение решения словами, обращёнными к клиенту.
+ *
+ * `source` обязателен к показу: без него шаблон было бы не отличить
+ * от работы языковой модели, и интерфейс заявлял бы функциональность,
+ * которой в этот момент нет.
+ */
+export interface ClientMessage {
+  transaction_id: string
+  decision: Decision
+  text: string
+  source: 'llm' | 'fallback'
+  model?: string | null
+  fallback_reason?: string | null
+  risk_score: number
+  /** Ровно то, что ушло бы в запрос к языковой модели. */
+  facts: string[]
+  elapsed_ms: number
+}

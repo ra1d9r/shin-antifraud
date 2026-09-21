@@ -51,6 +51,7 @@
 | 29 | Цена слоя политик у обязательных метрик §5.A | `DONE` | [stage-25](stages/stage-25-batch-and-stream.md) |
 | 30 | Партия и поток операций | `DONE` | [stage-25](stages/stage-25-batch-and-stream.md) |
 | 31 | Адаптивный порог по категории мерчанта | `DONE` | [stage-26](stages/stage-26-adaptive-thresholds.md) |
+| 32 | LLM-ассистент: объяснение клиенту | `DONE` | [stage-27](stages/stage-27-llm-assistant.md) |
 
 ---
 

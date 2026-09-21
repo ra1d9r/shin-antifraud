@@ -717,3 +717,13 @@ summary {
 /* Метрики качества — приглушённо: у них своя шкала, и к точкам
    на линиях они не относятся. */
 .readout-row.muted-row { fill: var(--muted); }
+
+/* Текст, который отправят клиенту: читается как письмо, а не как данные. */
+.client-message {
+  background: #1b2130;
+  border-left: 3px solid var(--challenge);
+  border-radius: 4px;
+  padding: 12px 14px;
+  margin: 12px 0 8px;
+  line-height: 1.55;
+}

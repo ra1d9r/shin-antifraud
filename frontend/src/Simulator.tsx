@@ -12,7 +12,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import FeaturePanel from './FeaturePanel'
-import { ApiError, apiBaseUrl, fetchReport, fetchScenarios, predict, sendFeedback } from './api'
+import {
+  ApiError,
+  apiBaseUrl,
+  explainForClient,
+  fetchReport,
+  fetchScenarios,
+  predict,
+  sendFeedback,
+} from './api'
 import {
   CONTEXT_FIELDS,
   FORM_FIELDS,
@@ -24,6 +32,7 @@ import { VERDICT_LABEL, feedbackHeadline } from './feedback'
 import { WAKE_UP_HINT, useSlowHint } from './useSlowHint'
 import type { FieldSpec, FormState } from './form'
 import type {
+  ClientMessage,
   Decision,
   FeedbackAccepted,
   PredictionResponse,
@@ -270,11 +279,115 @@ export default function Simulator() {
       {analysis && (
         <>
           <Result result={analysis.result} />
+          <ClientExplanation key={`client-${analysis.seq}`} analysis={analysis} />
           <TextReport key={`report-${analysis.seq}`} analysis={analysis} />
           <FeedbackControls key={analysis.seq} analysis={analysis} />
         </>
       )}
     </>
+  )
+}
+
+/**
+ * Объяснение решения клиенту (брифинг §6, LLM-ассистент).
+ *
+ * Отдельная кнопка, а не часть ответа на анализ: обращение к языковой
+ * модели занимает секунды, а предсказание — десятки миллисекунд.
+ *
+ * Показывается, кто написал текст. Без этого шаблон было бы не отличить
+ * от работы языковой модели, а заявлять чужую работу нельзя — особенно
+ * ту, которой в этот момент нет.
+ */
+function ClientExplanation({ analysis }: { analysis: Analysis }) {
+  const [message, setMessage] = useState<ClientMessage | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [failure, setFailure] = useState('')
+  const [copied, setCopied] = useState(false)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    setFailure('')
+    setCopied(false)
+    try {
+      setMessage(await explainForClient(analysis.body))
+    } catch (cause) {
+      setFailure(cause instanceof ApiError ? cause.message : 'Объяснение не получено')
+    } finally {
+      setLoading(false)
+    }
+  }, [analysis.body])
+
+  const copy = useCallback(async () => {
+    if (!message) return
+    try {
+      await navigator.clipboard.writeText(message.text)
+      setCopied(true)
+    } catch {
+      setFailure('Скопировать не вышло — выделите текст и скопируйте вручную')
+    }
+  }, [message])
+
+  return (
+    <section className="panel">
+      <h2>Что сказать клиенту</h2>
+      <p className="hint">
+        Готовый текст для клиента: почему у него попросили подтверждение и что
+        делать дальше. Решение принимает модель — языковая модель только
+        превращает уже принятое в человеческую фразу и не может его изменить.
+      </p>
+
+      <div className="scenario-buttons">
+        <button type="button" className="chip" disabled={loading} onClick={() => void load()}>
+          {loading ? 'Пишу…' : message ? 'Переписать' : 'Объяснить клиенту'}
+        </button>
+        {message && (
+          <button type="button" className="chip" onClick={() => void copy()}>
+            {copied ? 'Скопировано' : 'Скопировать'}
+          </button>
+        )}
+      </div>
+
+      {loading && (
+        <p className="hint">
+          Обращение к языковой модели занимает секунды, а не миллисекунды.
+        </p>
+      )}
+
+      {failure && (
+        <p className="hint">
+          <strong className="error-text">{failure}</strong>
+        </p>
+      )}
+
+      {message && (
+        <>
+          <p className="client-message">{message.text}</p>
+          <p className="hint">
+            {message.source === 'llm' ? (
+              <>
+                Написала языковая модель <code>{message.model}</code> за{' '}
+                {(message.elapsed_ms / 1000).toFixed(1)} с.
+              </>
+            ) : (
+              <>
+                <strong>Текст собран без языковой модели.</strong>{' '}
+                {message.fallback_reason} Он полноценный — собран из тех же фактов,
+                — но выдавать его за работу ассистента было бы нечестно.
+              </>
+            )}
+          </p>
+          <details className="context">
+            <summary>Что именно уходит языковой модели — {message.facts.length} строк</summary>
+            <p className="hint">
+              Только факты уже принятого решения. Ни идентификатора клиента,
+              ни номера операции, ни IP здесь нет: языковой модели они не нужны,
+              а уезжают они на чужой сервер.
+            </p>
+            <pre className="json">{message.facts.join('\n')}</pre>
+          </details>
+        </>
+      )}
+    </section>
   )
 }
 

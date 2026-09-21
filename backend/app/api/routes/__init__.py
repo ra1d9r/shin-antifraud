@@ -2,6 +2,7 @@
 
 from app.api.routes import (
     analytics,
+    assistant,
     batch,
     config,
     feature_list,
@@ -18,6 +19,7 @@ from app.api.routes import (
 
 __all__ = [
     "analytics",
+    "assistant",
     "batch",
     "config",
     "feature_list",

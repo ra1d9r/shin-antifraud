@@ -21,6 +21,7 @@ import type {
   Scenario,
   ScenarioList,
   AdaptiveThresholdsState,
+  ClientMessage,
   ShadowComparison,
   StreamSummary,
   TransactionRequest,
@@ -72,6 +73,16 @@ const REQUEST_TIMEOUT_MS = 60_000
  * поверх возможного пробуждения контейнера.
  */
 const STREAM_TIMEOUT_MS = 180_000
+
+/**
+ * Ожидание ответа ассистента.
+ *
+ * Обращение к языковой модели измеряется секундами, а не
+ * миллисекундами, как остальные вызовы. Backend ждёт её
+ * `LLM_TIMEOUT_SECONDS` и после этого сам отдаёт запасной текст,
+ * так что клиенту достаточно запаса поверх этого срока.
+ */
+const ASSISTANT_TIMEOUT_MS = 45_000
 
 /** Человеческое описание статуса, когда backend не прислал своего. */
 function describeStatus(status: number): string {
@@ -333,4 +344,19 @@ export function runStream(count: number): Promise<StreamSummary> {
  */
 export function fetchAdaptive(): Promise<AdaptiveThresholdsState> {
   return request<AdaptiveThresholdsState>('/config/adaptive')
+}
+
+/**
+ * Объяснить решение клиенту человеческим языком.
+ *
+ * Решение принимает модель, языковая модель только формулирует уже
+ * принятое. Таймаут свой: обращение к внешнему провайдеру измеряется
+ * секундами, а не миллисекундами, как остальные вызовы.
+ */
+export function explainForClient(transaction: TransactionRequest): Promise<ClientMessage> {
+  return request<ClientMessage>(
+    '/explain/client',
+    { method: 'POST', body: JSON.stringify(transaction) },
+    ASSISTANT_TIMEOUT_MS,
+  )
 }

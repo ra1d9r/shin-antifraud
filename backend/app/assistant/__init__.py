@@ -1,0 +1,25 @@
+"""Ассистент риск-аналитика: объяснение решения клиенту (брифинг §6).
+
+Языковая модель здесь только формулирует уже принятое решение.
+Обоснование разделения — в `message.py`.
+"""
+
+from app.assistant.llm import LlmClient, LlmConfig, LlmUnavailableError
+from app.assistant.message import (
+    DecisionFacts,
+    build_facts,
+    contradicts,
+    fallback_text,
+    needs_assistant,
+)
+
+__all__ = [
+    "DecisionFacts",
+    "LlmClient",
+    "LlmConfig",
+    "LlmUnavailableError",
+    "build_facts",
+    "contradicts",
+    "fallback_text",
+    "needs_assistant",
+]
