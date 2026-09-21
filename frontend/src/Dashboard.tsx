@@ -14,6 +14,7 @@
 import { useMemo, useState } from 'react'
 import type { MouseEvent } from 'react'
 
+import AdaptivePanel from './AdaptivePanel'
 import DriftPanel from './DriftPanel'
 import { readoutX, thresholdAtPointer } from './chart'
 import { formatMeasuredShare } from './feedback'
@@ -335,6 +336,8 @@ export default function Dashboard({
           </div>
         </section>
       )}
+
+      <AdaptivePanel />
 
       <StreamPanel onFinished={() => setStreamRuns((runs) => runs + 1)} />
 

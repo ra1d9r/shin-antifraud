@@ -38,6 +38,9 @@ from app.api.deps import SettingsDep, StateDep, apply_thresholds
 from app.core.exceptions import ShinError
 from app.risk_engine.engine import RiskThresholds
 from app.schemas.config import (
+    AdaptiveThresholdsState,
+    AdaptiveValidationOut,
+    SegmentThresholdOut,
     ThresholdChangeOut,
     ThresholdsApplied,
     ThresholdsState,
@@ -151,3 +154,49 @@ def update_thresholds(
     )
 
     return ThresholdsApplied(state=_state_out(state, settings), **effects)
+
+
+@router.get(
+    "/config/adaptive",
+    response_model=AdaptiveThresholdsState,
+    summary="Адаптивный порог по категории мерчанта",
+    description=(
+        "Бонус брифинга §6: «автоматическая подстройка чувствительности "
+        "модели в зависимости от времени суток или категории мерчанта».\n\n"
+        "Порог каждой категории подобран по той же функции стоимости, "
+        "по которой строится кривая компромисса, — руками не назначен "
+        "ни один. Интуиция здесь ошибается знаком: кажется, что у "
+        "криптобирж и обменников порог надо опускать, а подобранный "
+        "оказывается выше общего, потому что модель уже учитывает "
+        "категорию признаком.\n\n"
+        "Блок `validation` говорит, чего режим стоит. Проверка "
+        "перекрёстная: порог сегмента подбирается без тех строк, "
+        "на которых потом считается результат.\n\n"
+        "Время суток тоже проверялось и в среднем **проигрывает**, "
+        "поэтому сегментация только по категории. Брифинг говорит "
+        "«времени суток или категории мерчанта», так что этого достаточно."
+    ),
+)
+def adaptive_thresholds(state: StateDep) -> AdaptiveThresholdsState:
+    thresholds = state.adaptive
+    if thresholds is None:
+        return AdaptiveThresholdsState(
+            available=False, enabled=False, error=state.adaptive_error
+        )
+
+    return AdaptiveThresholdsState(
+        available=True,
+        # Применяются ли на самом деле, а не что написано в настройке:
+        # движок мог быть пересобран сменой порогов в рантайме.
+        enabled=state.risk_engine is not None and state.risk_engine.adaptive is not None,
+        generated_at=thresholds.generated_at,
+        rows=thresholds.rows,
+        min_fraud_per_segment=thresholds.min_fraud_per_segment,
+        fallback_approve_max=thresholds.fallback_approve_max,
+        segments=[SegmentThresholdOut(**item.to_dict()) for item in thresholds.segments],
+        validation=(
+            None
+            if thresholds.validation is None
+            else AdaptiveValidationOut(**thresholds.validation.to_dict())
+        ),
+    )

@@ -48,8 +48,11 @@ from app.analytics.source import prepare_inputs  # noqa: E402
 from app.config.settings import get_settings  # noqa: E402
 from app.core.console import enable_utf8_output  # noqa: E402
 from app.core.logging import configure_logging, get_logger  # noqa: E402
+from app.features.merchants import merchant_category  # noqa: E402
 from app.monitoring.drift import build_baseline  # noqa: E402
-from app.risk_engine.engine import RiskThresholds  # noqa: E402
+from app.risk_engine import adaptive  # noqa: E402
+from app.risk_engine.engine import RiskEngine, RiskThresholds  # noqa: E402
+from app.risk_engine.rules import build_rules  # noqa: E402
 
 enable_utf8_output()
 logger = get_logger("shin.analytics.export")
@@ -63,6 +66,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", type=str, default=None, help="куда записать JSON")
     parser.add_argument(
         "--baseline-output", type=str, default=None, help="куда записать эталон распределения"
+    )
+    parser.add_argument(
+        "--adaptive-output", type=str, default=None, help="куда записать адаптивные пороги"
     )
     parser.add_argument("--approve-max", type=int, default=settings.risk_approve_max)
     parser.add_argument("--challenge-max", type=int, default=settings.risk_challenge_max)
@@ -131,6 +137,56 @@ def main() -> int:
     )
     measurable = sum(1 for feature in baseline.features if feature.measurable)
 
+    # ------------------------------------------ адаптивный порог (§6)
+    #
+    # Порог каждой категории мерчанта подбирается по той же функции
+    # стоимости, по которой строится кривая компромисса. Сначала
+    # проверка на пяти частях, потом подбор на всех данных: в артефакт
+    # идут пороги по всему датасету, а честный выигрыш меряется там,
+    # где подбор этих строк не видел.
+    thresholds = RiskThresholds(
+        approve_max=args.approve_max,
+        challenge_max=args.challenge_max,
+        critical_min=settings.risk_critical_min,
+    )
+    engine = RiskEngine(
+        thresholds=thresholds,
+        rules=build_rules(settings),
+        rules_enabled=settings.rules_enabled,
+    )
+    feature_rows = inputs.features.to_dict("records")
+    risk_scores = [
+        engine.assess(float(probability), row).risk_score
+        for probability, row in zip(inputs.probabilities, feature_rows, strict=True)
+    ]
+    labels = [bool(value) for value in inputs.labels]
+    amounts = [float(value) for value in inputs.frame["amount"]]
+    segments = [merchant_category(name) for name in inputs.frame["merchant"]]
+
+    logger.info("Подбираю адаптивные пороги по категориям...")
+    validation = adaptive.validate(
+        risk_scores,
+        labels,
+        amounts,
+        segments,
+        settings=settings,
+        configured_approve_max=thresholds.approve_max,
+    )
+    adaptive_thresholds = adaptive.fit(
+        risk_scores,
+        labels,
+        amounts,
+        segments,
+        settings=settings,
+        validation=validation,
+    )
+    adaptive_output = (
+        Path(args.adaptive_output).resolve()
+        if args.adaptive_output
+        else settings.adaptive_thresholds_file
+    )
+    adaptive.save(adaptive_thresholds, adaptive_output)
+
     elapsed = time.perf_counter() - started
 
     print()
@@ -149,6 +205,19 @@ def main() -> int:
     print(f"  эталон признаков  : {baseline_output}")
     print(f"  признаков в нём   : {len(baseline.features)}"
           f" (сравнимых {measurable})")
+    print()
+    fitted = sum(1 for item in adaptive_thresholds.segments if item.fitted)
+    print(f"  адаптивный порог  : {adaptive_output}")
+    print(f"  сегментов         : {len(adaptive_thresholds.segments)}"
+          f" (свой порог у {fitted}, остальным общий {adaptive_thresholds.fallback_approve_max})")
+    print(f"  выигрыш на проверке: в среднем {validation.mean_gain:+,.0f}".replace(",", " ")
+          + f", худшая часть {validation.worst_gain:+,.0f}".replace(",", " ")
+          + f", положительных {validation.positive_folds}/{validation.folds}")
+    print(f"  против настройки  : стоимость "
+          f"{validation.adaptive_cost - validation.configured_cost:+,.0f}".replace(",", " ")
+          + f", трение {validation.adaptive_friction - validation.configured_friction:+d}"
+          + f", фрода {validation.adaptive_fraud_stopped - validation.configured_fraud_stopped:+d}")
+    print()
     print(f"  заняло            : {elapsed:.1f} с")
     print("=" * 72)
     return 0

@@ -27,6 +27,7 @@ from datetime import UTC, datetime
 from app.core.exceptions import ModelNotLoadedError
 from app.core.logging import get_logger
 from app.features.builder import TransactionInput, build_features, ip_subnet
+from app.features.merchants import merchant_category
 from app.monitoring.drift import DriftMonitor
 from app.monitoring.shadow import ShadowRunner
 from app.risk_engine.engine import RiskEngine
@@ -114,7 +115,11 @@ class PredictionService:
 
         features = build_features(transaction)
         probability = self._model.predict_one(features)
-        assessment = self._risk_engine.assess(probability, features)
+        # Сегмент для адаптивного порога (брифинг §6). Категория берётся
+        # из запроса, если клиент её прислал, иначе по справочнику
+        # мерчантов — тем же, которым пользуется feature engineering.
+        segment = request.merchant_category or merchant_category(request.merchant)
+        assessment = self._risk_engine.assess(probability, features, segment=segment)
         explanation = self._explainer.explain(features, assessment)
 
         # Состояние меняем только после того, как ответ полностью посчитан.
@@ -203,7 +208,10 @@ class PredictionService:
                     for factor in explanation.factors
                 ],
             ),
-            thresholds=ThresholdsOut(**assessment.thresholds.to_dict()),
+            thresholds=ThresholdsOut(
+                **assessment.thresholds.to_dict(),
+                segment=assessment.segment,
+            ),
             features={name: round(value, 6) for name, value in features.items()},
             processing_ms=round(elapsed_ms, 2),
         )

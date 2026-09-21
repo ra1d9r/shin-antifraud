@@ -1,0 +1,120 @@
+{
+  "format_version": "1",
+  "generated_at": "2026-09-21T11:58:05+00:00",
+  "rows": 99360,
+  "min_fraud_per_segment": 30,
+  "fallback_approve_max": 4,
+  "segments": [
+    {
+      "segment": "atm",
+      "approve_max": 55,
+      "rows": 7329,
+      "fraud_rows": 105,
+      "fitted": true
+    },
+    {
+      "segment": "crypto",
+      "approve_max": 24,
+      "rows": 3063,
+      "fraud_rows": 141,
+      "fitted": true
+    },
+    {
+      "segment": "electronics",
+      "approve_max": 61,
+      "rows": 11380,
+      "fraud_rows": 115,
+      "fitted": true
+    },
+    {
+      "segment": "fashion",
+      "approve_max": 13,
+      "rows": 6901,
+      "fraud_rows": 75,
+      "fitted": true
+    },
+    {
+      "segment": "gambling",
+      "approve_max": 12,
+      "rows": 3151,
+      "fraud_rows": 139,
+      "fitted": true
+    },
+    {
+      "segment": "gaming",
+      "approve_max": 9,
+      "rows": 6798,
+      "fraud_rows": 345,
+      "fitted": true
+    },
+    {
+      "segment": "grocery",
+      "approve_max": 11,
+      "rows": 11115,
+      "fraud_rows": 117,
+      "fitted": true
+    },
+    {
+      "segment": "money_transfer",
+      "approve_max": 40,
+      "rows": 3150,
+      "fraud_rows": 151,
+      "fitted": true
+    },
+    {
+      "segment": "pharmacy",
+      "approve_max": 40,
+      "rows": 3244,
+      "fraud_rows": 35,
+      "fitted": true
+    },
+    {
+      "segment": "restaurant",
+      "approve_max": 55,
+      "rows": 13669,
+      "fraud_rows": 94,
+      "fitted": true
+    },
+    {
+      "segment": "streaming",
+      "approve_max": 6,
+      "rows": 9690,
+      "fraud_rows": 299,
+      "fitted": true
+    },
+    {
+      "segment": "transport",
+      "approve_max": 3,
+      "rows": 9181,
+      "fraud_rows": 72,
+      "fitted": true
+    },
+    {
+      "segment": "travel",
+      "approve_max": 41,
+      "rows": 10689,
+      "fraud_rows": 248,
+      "fitted": true
+    }
+  ],
+  "validation": {
+    "folds": 5,
+    "gain_per_fold": [
+      -900.08,
+      1938.65,
+      268.53,
+      379.77,
+      1385.23
+    ],
+    "mean_gain": 614.42,
+    "worst_gain": -900.08,
+    "positive_folds": 4,
+    "configured_approve_max": 30,
+    "configured_cost": 53412.39,
+    "adaptive_cost": 52334.22,
+    "configured_friction": 2011,
+    "adaptive_friction": 1295,
+    "configured_fraud_stopped": 1849,
+    "adaptive_fraud_stopped": 1835
+  }
+}

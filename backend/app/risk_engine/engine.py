@@ -15,11 +15,17 @@ from __future__ import annotations
 import math
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from app.config.settings import Settings
 from app.core.exceptions import InvalidConfigurationError
 from app.risk_engine.rules import Rule, TriggeredRule, build_rules, evaluate_rules, minimum_score
 from app.schemas.enums import Decision, RiskLevel
+
+if TYPE_CHECKING:
+    # Только для аннотации: `adaptive` берёт отсюда границы шкалы,
+    # и настоящий импорт замкнул бы модули друг на друга.
+    from app.risk_engine.adaptive import AdaptiveThresholds
 
 FeatureMap = Mapping[str, float]
 
@@ -55,6 +61,22 @@ class RiskThresholds:
             critical_min=settings.risk_critical_min,
         )
 
+    def with_approve_max(self, approve_max: int) -> RiskThresholds:
+        """Те же границы с другой чувствительностью.
+
+        Нужно адаптивному порогу (брифинг §6): подстраивается граница
+        между «пропустить» и «проверить», а уровни риска остаются теми
+        же. Возвращается новый объект — прежний неизменяем, и запрос,
+        считающий прямо сейчас, продолжит на своих порогах.
+        """
+        if approve_max == self.approve_max:
+            return self
+        return RiskThresholds(
+            approve_max=approve_max,
+            challenge_max=self.challenge_max,
+            critical_min=self.critical_min,
+        )
+
     def to_dict(self) -> dict:
         return {
             "approve_max": self.approve_max,
@@ -79,6 +101,9 @@ class RiskAssessment:
     risk_level: RiskLevel
     thresholds: RiskThresholds
     triggered_rules: tuple[TriggeredRule, ...] = field(default_factory=tuple)
+    #: Сегмент, порог которого применён. None — решение принято общим
+    #: порогом: либо адаптивный режим выключен, либо сегмент незнаком.
+    segment: str | None = None
 
     @property
     def raised_by_rules(self) -> bool:
@@ -95,6 +120,7 @@ class RiskAssessment:
             "raised_by_rules": self.raised_by_rules,
             "triggered_rules": [rule.to_dict() for rule in self.triggered_rules],
             "thresholds": self.thresholds.to_dict(),
+            "segment": self.segment,
         }
 
 
@@ -120,10 +146,14 @@ class RiskEngine:
         thresholds: RiskThresholds,
         rules: tuple[Rule, ...] = (),
         rules_enabled: bool = True,
+        adaptive: AdaptiveThresholds | None = None,
     ) -> None:
         self.thresholds = thresholds
         self.rules = rules
         self.rules_enabled = rules_enabled
+        # Необязательная зависимость: без подобранных порогов движок
+        # работает ровно как прежде, на одной границе для всех операций.
+        self.adaptive = adaptive
 
     @classmethod
     def from_settings(cls, settings: Settings) -> RiskEngine:
@@ -139,36 +169,74 @@ class RiskEngine:
             thresholds=thresholds,
             rules=self.rules,
             rules_enabled=self.rules_enabled,
+            adaptive=self.adaptive,
         )
 
     # ------------------------------------------------------------- решения
 
-    def decide(self, risk_score: int) -> Decision:
-        """Решение по итоговой оценке (ТЗ §6)."""
-        if risk_score <= self.thresholds.approve_max:
+    def decide(self, risk_score: int, thresholds: RiskThresholds | None = None) -> Decision:
+        """Решение по итоговой оценке (ТЗ §6).
+
+        Пороги можно передать явно: адаптивный режим подставляет границу
+        того сегмента, к которому отнесена операция.
+        """
+        limits = thresholds or self.thresholds
+        if risk_score <= limits.approve_max:
             return Decision.APPROVE
-        if risk_score <= self.thresholds.challenge_max:
+        if risk_score <= limits.challenge_max:
             return Decision.CHALLENGE
         return Decision.BLOCK
 
-    def level(self, risk_score: int) -> RiskLevel:
+    def level(self, risk_score: int, thresholds: RiskThresholds | None = None) -> RiskLevel:
         """Уровень риска — человекочитаемая шкала поверх оценки."""
-        if risk_score >= self.thresholds.critical_min:
+        limits = thresholds or self.thresholds
+        if risk_score >= limits.critical_min:
             return RiskLevel.CRITICAL
-        if risk_score > self.thresholds.challenge_max:
+        if risk_score > limits.challenge_max:
             return RiskLevel.HIGH
-        if risk_score > self.thresholds.approve_max:
+        if risk_score > limits.approve_max:
             return RiskLevel.MEDIUM
         return RiskLevel.LOW
 
+    def thresholds_for(self, segment: str | None) -> tuple[RiskThresholds, str | None]:
+        """Границы для этой операции и название применённого сегмента.
+
+        Возвращается и сегмент: без него в ответе нельзя показать, по
+        какому порогу принято решение, а адаптивный режим, который
+        невозможно объяснить, ничем не лучше случайного.
+
+        Порог сегмента прижимается к `challenge_max`: подобранное
+        значение может оказаться выше действующей границы проверки —
+        особенно если оператор опустил её в рантайме, — и тогда
+        `RiskThresholds` не собрался бы вовсе, а запрос упал бы
+        пятисоткой из-за настройки чувствительности.
+        """
+        if self.adaptive is None:
+            return self.thresholds, None
+
+        approve_max = self.adaptive.approve_max_for(segment)
+        approve_max = min(approve_max, self.thresholds.challenge_max - 1)
+        approve_max = max(approve_max, MIN_SCORE)
+
+        applied = segment if segment in self.adaptive.segment_names() else None
+        return self.thresholds.with_approve_max(approve_max), applied
+
     # ------------------------------------------------------------- оценка
 
-    def assess(self, probability: float, features: FeatureMap | None = None) -> RiskAssessment:
+    def assess(
+        self,
+        probability: float,
+        features: FeatureMap | None = None,
+        segment: str | None = None,
+    ) -> RiskAssessment:
         """Полная оценка транзакции.
 
         Args:
             probability: вероятность фрода от модели, 0..1.
             features: вектор признаков — нужен только правилам.
+            segment: к какому сегменту отнесена операция (категория
+                мерчанта). Используется адаптивным порогом; без него
+                и без подобранных порогов всё работает как прежде.
         """
         model_score = probability_to_score(probability)
 
@@ -179,12 +247,15 @@ class RiskEngine:
         # Правила только поднимают оценку и никогда не снижают.
         risk_score = min(MAX_SCORE, max(model_score, minimum_score(triggered)))
 
+        thresholds, applied_segment = self.thresholds_for(segment)
+
         return RiskAssessment(
             probability=float(min(max(probability, 0.0), 1.0)),
             model_score=model_score,
             risk_score=risk_score,
-            decision=self.decide(risk_score),
-            risk_level=self.level(risk_score),
-            thresholds=self.thresholds,
+            decision=self.decide(risk_score, thresholds),
+            risk_level=self.level(risk_score, thresholds),
+            thresholds=thresholds,
             triggered_rules=triggered,
+            segment=applied_segment,
         )

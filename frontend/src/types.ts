@@ -481,3 +481,47 @@ export interface StreamSummary {
   false_positives: number
   processing_ms: number
 }
+
+/* ------------------------------------- адаптивный порог (брифинг §6) */
+
+export interface SegmentThreshold {
+  segment: string
+  approve_max: number
+  rows: number
+  fraud_rows: number
+  /** false — мошеннических операций не хватило, взят общий порог. */
+  fitted: boolean
+}
+
+/**
+ * Чего стоит режим на данных, которых он не видел при подборе.
+ *
+ * Без этих чисел таблица порогов ничего не утверждает.
+ */
+export interface AdaptiveValidation {
+  folds: number
+  gain_per_fold: number[]
+  mean_gain: number
+  /** Худшая часть. Отрицательная — режим там проиграл. */
+  worst_gain: number
+  positive_folds: number
+  configured_approve_max: number
+  configured_cost: number
+  adaptive_cost: number
+  configured_friction: number
+  adaptive_friction: number
+  configured_fraud_stopped: number
+  adaptive_fraud_stopped: number
+}
+
+export interface AdaptiveThresholdsState {
+  available: boolean
+  enabled: boolean
+  error?: string | null
+  generated_at?: string | null
+  rows?: number | null
+  min_fraud_per_segment?: number | null
+  fallback_approve_max?: number | null
+  segments: SegmentThreshold[]
+  validation?: AdaptiveValidation | null
+}

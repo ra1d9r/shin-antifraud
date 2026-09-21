@@ -123,3 +123,61 @@ class ThresholdsApplied(BaseModel):
             "распределение входных признаков, а пороги на признаки не влияют."
         ),
     )
+
+
+# ------------------------------------------ адаптивный порог (§6)
+
+
+class SegmentThresholdOut(BaseModel):
+    """Порог одного сегмента и данные, на которых он подобран."""
+
+    segment: str = Field(description="Категория мерчанта")
+    approve_max: int = Field(description="Граница «пропустить / проверить» для этого сегмента")
+    rows: int
+    fraud_rows: int
+    fitted: bool = Field(
+        description="false — мошеннических операций не хватило, взят общий порог"
+    )
+
+
+class AdaptiveValidationOut(BaseModel):
+    """Что даёт режим на данных, которых не видел при подборе.
+
+    Без этих чисел таблица порогов ничего не утверждает. Проверка
+    перекрёстная: порог сегмента подбирается без тех строк, на которых
+    потом считается результат.
+    """
+
+    folds: int
+    gain_per_fold: list[float] = Field(
+        description="Выигрыш против одного подобранного порога, по частям"
+    )
+    mean_gain: float
+    worst_gain: float = Field(description="Худшая часть. Отрицательная — режим там проиграл")
+    positive_folds: int
+
+    configured_approve_max: int = Field(description="Действующая настройка, с которой сравниваем")
+    configured_cost: float
+    adaptive_cost: float
+    configured_friction: int
+    adaptive_friction: int
+    configured_fraud_stopped: int
+    adaptive_fraud_stopped: int
+
+
+class AdaptiveThresholdsState(BaseModel):
+    """Подобранные пороги, их проверка и признак применения."""
+
+    available: bool = Field(description="Подобраны ли пороги вообще")
+    enabled: bool = Field(description="Применяются ли они к решениям прямо сейчас")
+    error: str | None = Field(
+        default=None, description="Почему артефакт не прочитался"
+    )
+    generated_at: str | None = None
+    rows: int | None = None
+    min_fraud_per_segment: int | None = None
+    fallback_approve_max: int | None = Field(
+        default=None, description="Порог для сегментов без своего"
+    )
+    segments: list[SegmentThresholdOut] = Field(default_factory=list)
+    validation: AdaptiveValidationOut | None = None

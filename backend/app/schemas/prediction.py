@@ -58,6 +58,14 @@ class ThresholdsOut(BaseModel):
     approve_max: int
     challenge_max: int
     critical_min: int
+    segment: str | None = Field(
+        default=None,
+        description=(
+            "Сегмент, порог которого применён (брифинг §6, адаптивный порог). "
+            "null — решение принято общим порогом: режим выключен либо "
+            "категория мерчанта системе незнакома."
+        ),
+    )
 
 
 class PredictionResponse(BaseModel):
