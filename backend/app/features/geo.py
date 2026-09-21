@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import math
 
+from app.i18n import Language, Text
+
 EARTH_RADIUS_KM: float = 6371.0
 
 # Максимальная правдоподобная скорость перемещения человека (самолёт + трансфер).
@@ -55,6 +57,66 @@ COUNTRY_COORDINATES: dict[str, tuple[float, float]] = {
     "BR": (-23.5505, -46.6333),  # Сан-Паулу
     "VE": (10.4806, -66.9036),   # Каракас
 }
+
+# Названия стран на трёх языках (брифинг §6).
+#
+# Нужны сообщению клиенту: «операция в NG» — это код из платёжного
+# протокола, а не то, как банк пишет человеку. Раньше код уходил
+# в текст как есть, и языковая модель выдавала «This transfer ... in NG».
+#
+# Разворачивать код силами самой модели было бы проще, но неправильно:
+# её же инструкция запрещает сообщать факты, которых нет во входных
+# данных, и название страны — ровно такой факт. Вдобавок модель,
+# пишущая по-казахски, могла бы вставить английское «Nigeria»
+# в казахскую фразу.
+#
+# Набор закрыт и совпадает с `COUNTRY_COORDINATES`: это проверяется
+# тестом, поэтому новая страна не может появиться без названия.
+COUNTRY_NAMES: dict[str, Text] = {
+    "KZ": Text(ru="Казахстан", kk="Қазақстан", en="Kazakhstan"),
+    "RU": Text(ru="Россия", kk="Ресей", en="Russia"),
+    "UZ": Text(ru="Узбекистан", kk="Өзбекстан", en="Uzbekistan"),
+    "KG": Text(ru="Киргизия", kk="Қырғызстан", en="Kyrgyzstan"),
+    "AZ": Text(ru="Азербайджан", kk="Әзірбайжан", en="Azerbaijan"),
+    "AM": Text(ru="Армения", kk="Армения", en="Armenia"),
+    "GE": Text(ru="Грузия", kk="Грузия", en="Georgia"),
+    "BY": Text(ru="Беларусь", kk="Беларусь", en="Belarus"),
+    "UA": Text(ru="Украина", kk="Украина", en="Ukraine"),
+    "TR": Text(ru="Турция", kk="Түркия", en="Turkey"),
+    "AE": Text(ru="ОАЭ", kk="БАӘ", en="the UAE"),
+    "DE": Text(ru="Германия", kk="Германия", en="Germany"),
+    "GB": Text(ru="Великобритания", kk="Ұлыбритания", en="the United Kingdom"),
+    "NL": Text(ru="Нидерланды", kk="Нидерланды", en="the Netherlands"),
+    "PL": Text(ru="Польша", kk="Польша", en="Poland"),
+    "US": Text(ru="США", kk="АҚШ", en="the United States"),
+    "BR": Text(ru="Бразилия", kk="Бразилия", en="Brazil"),
+    "CN": Text(ru="Китай", kk="Қытай", en="China"),
+    "IN": Text(ru="Индия", kk="Үндістан", en="India"),
+    "ID": Text(ru="Индонезия", kk="Индонезия", en="Indonesia"),
+    "MY": Text(ru="Малайзия", kk="Малайзия", en="Malaysia"),
+    "TH": Text(ru="Таиланд", kk="Тайланд", en="Thailand"),
+    "PH": Text(ru="Филиппины", kk="Филиппин", en="the Philippines"),
+    "VN": Text(ru="Вьетнам", kk="Вьетнам", en="Vietnam"),
+    "BD": Text(ru="Бангладеш", kk="Бангладеш", en="Bangladesh"),
+    "PK": Text(ru="Пакистан", kk="Пәкістан", en="Pakistan"),
+    "IR": Text(ru="Иран", kk="Иран", en="Iran"),
+    "NG": Text(ru="Нигерия", kk="Нигерия", en="Nigeria"),
+    "GH": Text(ru="Гана", kk="Гана", en="Ghana"),
+    "KE": Text(ru="Кения", kk="Кения", en="Kenya"),
+    "VE": Text(ru="Венесуэла", kk="Венесуэла", en="Venezuela"),
+}
+
+
+def country_name(code: str, language: Language) -> str:
+    """Название страны на запрошенном языке.
+
+    Неизвестный код возвращается как есть: показать «XX» честнее, чем
+    промолчать, а придумывать название за пределами закрытого набора
+    здесь нечем.
+    """
+    entry = COUNTRY_NAMES.get(code.upper())
+    return entry.get(language) if entry else code.upper()
+
 
 # Демонстрационный список стран повышенного риска для карточного фрода.
 # Это эвристика прототипа, а не санкционный или регуляторный перечень:

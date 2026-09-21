@@ -20,6 +20,7 @@ from fastapi.testclient import TestClient
 from app.api.routes.predict import REPLAY_HEADER
 from app.assistant import phrases
 from app.assistant.message import DecisionFacts, contradicts, fallback_text, written_in
+from app.features.geo import COUNTRY_COORDINATES, COUNTRY_NAMES, country_name
 from app.i18n import LANGUAGES
 from app.main import create_app
 from app.schemas.enums import Decision
@@ -400,3 +401,55 @@ def test_prompt_bounds_the_length(language) -> None:
 def test_prompt_example_is_itself_in_the_right_language(language) -> None:
     """Пример на чужом языке учил бы модель ровно тому, что запрещает."""
     assert written_in(phrases.LANGUAGE_EXAMPLES[language], language)
+
+
+# ------------------------------------- названия стран вместо кодов ISO
+
+
+def test_every_country_in_the_data_has_a_name() -> None:
+    """Новая страна не может появиться без названия.
+
+    Координаты и названия — один и тот же закрытый набор. Разойдись они,
+    и клиент получил бы письмо с кодом из платёжного протокола вместо
+    названия страны.
+    """
+    assert set(COUNTRY_NAMES) == set(COUNTRY_COORDINATES)
+
+
+@pytest.mark.parametrize("code", sorted(COUNTRY_COORDINATES))
+def test_country_names_are_filled_in_all_three_languages(code) -> None:
+    for language in LANGUAGES:
+        name = country_name(code, language)
+        assert name.strip(), f"{code}/{language}: пустое название"
+        assert name != code, f"{code}/{language}: название совпало с кодом"
+
+
+def test_unknown_country_falls_back_to_its_code() -> None:
+    """Показать «XX» честнее, чем промолчать или выдумать страну."""
+    assert country_name("XX", "ru") == "XX"
+    assert country_name("xx", "en") == "XX"
+
+
+@pytest.mark.parametrize("language", LANGUAGES)
+def test_facts_carry_the_country_name_not_the_code(client, language) -> None:
+    """Сквозная проверка: в запрос к модели уходит название, а не код.
+
+    Поручить разворачивание кода самой модели было нельзя: её же
+    инструкция запрещает сообщать факты, которых нет во входных данных.
+    """
+    payload = client.post(f"/explain/client?language={language}", json=transaction()).json()
+    line = next(item for item in payload["facts"] if "страна операции" in item)
+
+    assert "NG" not in line, "код страны дошёл до запроса"
+    assert country_name("NG", language) in line
+
+
+def test_kazakh_country_name_is_not_the_english_one() -> None:
+    """Казахский ответ с английским «Nigeria» внутри выглядел бы поломкой.
+
+    Проверка по стране, у которой названия на трёх языках различаются:
+    у Нигерии русское и казахское совпадают, поэтому берём Британию.
+    """
+    assert country_name("GB", "kk") != country_name("GB", "en")
+    assert country_name("GB", "kk") != country_name("GB", "ru")
+    assert written_in(country_name("GB", "kk"), "kk")

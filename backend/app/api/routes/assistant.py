@@ -79,7 +79,7 @@ def explain_for_client(
     # Копия без сохранения: объяснение — чтение, а не обработка.
     read_only = request.model_copy(update={"persist": False})
     response = service.predict(read_only, language)
-    facts = build_facts(read_only, response)
+    facts = build_facts(read_only, response, language)
 
     text = fallback_text(facts, language)
     source: str = "fallback"
