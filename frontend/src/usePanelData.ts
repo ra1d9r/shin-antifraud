@@ -26,12 +26,31 @@
 
 import { useEffect, useState } from 'react'
 
-import { ApiError } from './api'
-
 export interface PanelData<T> {
   data: T | null
   error: string | null
   loading: boolean
+}
+
+/**
+ * Превратить причину отказа в объяснение для человека.
+ *
+ * Сообщение backend точнее нашего: он знает, артефакт ли не выгружен,
+ * модель ли не загружена или дело в сети. Своего текста здесь нет
+ * намеренно — подменять объяснение сервера общим «что-то пошло не так»
+ * значит терять единственное, что может помочь.
+ *
+ * Пустая строка означает «пригодного объяснения нет». Это не то же
+ * самое, что отсутствие ошибки: панель всё равно скажет, что недоступна,
+ * просто без второй половины фразы. `String(cause)` для такого случая
+ * не годится — строка «null» человеку не объясняет ничего, а выглядит
+ * как недоделка.
+ */
+export function describeFailure(cause: unknown): string {
+  // ApiError наследует Error, так что одной проверки хватает на оба.
+  if (cause instanceof Error) return cause.message.trim()
+  if (typeof cause === 'string') return cause.trim()
+  return ''
 }
 
 /**
@@ -55,9 +74,7 @@ export function usePanelData<T>(load: () => Promise<T>): PanelData<T> {
       })
       .catch((cause: unknown) => {
         if (cancelled) return
-        // Сообщение backend точнее нашего: он знает, артефакт ли
-        // не выгружен, модель ли не загружена или дело в сети.
-        setError(cause instanceof ApiError ? cause.message : String(cause))
+        setError(describeFailure(cause))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)

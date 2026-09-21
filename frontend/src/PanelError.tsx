@@ -19,7 +19,9 @@ export default function PanelError({ title, reason }: { title: string; reason: s
     <section className="panel panel-unavailable">
       <h2>{title}</h2>
       <p className="hint always-visible">
-        <strong className="warn-text">{t('error.panelUnavailable')}.</strong> {reason}
+        <strong className="warn-text">{t('error.panelUnavailable')}.</strong>
+        {/* Причины может не быть: тогда обрываем фразу, а не вешаем пустоту. */}
+        {reason === '' ? null : ` ${reason}`}
       </p>
     </section>
   )
