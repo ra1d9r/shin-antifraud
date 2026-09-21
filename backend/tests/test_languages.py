@@ -381,6 +381,22 @@ def test_prompt_demands_the_language_more_than_once(language) -> None:
 
 
 @pytest.mark.parametrize("language", LANGUAGES)
+def test_prompt_bounds_the_length(language) -> None:
+    """Краткость требуется числом, а не пожеланием.
+
+    «Три-четыре предложения» модель на казахском игнорировала: писала
+    вдвое больше и упиралась в любой потолок токенов. Ответ при этом
+    обрывался и заменялся запасным — то есть языковая модель была
+    как бы и включена, а клиент её текста не видел.
+    """
+    prompt = phrases.system_prompt(language)
+
+    assert "60 слов" in prompt, "нет предела в словах"
+    assert "четырёх предложений" in prompt, "нет предела в предложениях"
+    assert "жёсткий" in prompt, "предел подан как пожелание"
+
+
+@pytest.mark.parametrize("language", LANGUAGES)
 def test_prompt_example_is_itself_in_the_right_language(language) -> None:
     """Пример на чужом языке учил бы модель ровно тому, что запрещает."""
     assert written_in(phrases.LANGUAGE_EXAMPLES[language], language)
