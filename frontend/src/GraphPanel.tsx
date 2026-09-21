@@ -12,25 +12,28 @@
 
 
 import Tile from './Tile'
-import { fetchClusters } from './api'
+import { errorText, fetchClusters } from './api'
 import type { LinkStrength } from './types'
 import PanelError from './PanelError'
 import { useLanguage } from './LanguageContext'
+import type { TranslationKey } from './i18n'
 import { usePanelData } from './usePanelData'
 import { useFormat } from './useFormat'
 
-const STRENGTH_LABEL: Record<LinkStrength, string> = {
-  DEVICE: 'общее устройство',
-  SUBNET_ONLY: 'только подсеть',
+const STRENGTH_KEY: Record<LinkStrength, TranslationKey> = {
+  DEVICE: 'graph.linkDevice',
+  SUBNET_ONLY: 'graph.linkSubnet',
 }
 
 export default function GraphPanel() {
   const { t } = useLanguage()
   const { formatCount, formatMoney } = useFormat()
-  const { data: report, error } = usePanelData(fetchClusters)
+  const { data: report, failure } = usePanelData(fetchClusters)
 
 
-  if (error !== null) return <PanelError title={t('graph.title')} reason={error} />
+  if (failure !== null) {
+    return <PanelError title={t('graph.title')} reason={errorText(failure.cause, t)} />
+  }
   if (report === null) return null
 
   const strong = report.clusters.length - report.weak_clusters
@@ -105,7 +108,7 @@ export default function GraphPanel() {
                     <span className="muted">{cluster.users.join(', ')}</span>
                   </td>
                   <td className={cluster.strength === 'DEVICE' ? 'error-text' : 'warn-text'}>
-                    {STRENGTH_LABEL[cluster.strength]}
+                    {t(STRENGTH_KEY[cluster.strength])}
                   </td>
                   <td>
                     {cluster.shared_devices.map((device) => (

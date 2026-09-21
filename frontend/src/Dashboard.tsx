@@ -19,6 +19,7 @@ import DriftPanel from './DriftPanel'
 import { readoutX, thresholdAtPointer } from './chart'
 import { formatMeasuredShare } from './feedback'
 import { useLanguage } from './LanguageContext'
+import type { Translator } from './i18n'
 import { useFormat } from './useFormat'
 import FeedbackPanel from './FeedbackPanel'
 import GraphPanel from './GraphPanel'
@@ -207,7 +208,7 @@ export default function Dashboard({
               {t('dash.current')} ({data.thresholds.approve_max})
             </button>
             <button type="button" className="chip" onClick={() => setThreshold(data.optimal_threshold)}>
-              дешевле всего ({data.optimal_threshold})
+              {t('cost.cheapest', { score: data.optimal_threshold })}
             </button>
           </div>
         </div>
@@ -228,17 +229,17 @@ export default function Dashboard({
           <Tile
             label={t('curve.total')}
             value={formatMoney(point.total_cost)}
-            note={costNote(point, current, formatMoney)}
+            note={costNote(point, current, formatMoney, t)}
             tone={point.total_cost <= current.total_cost ? 'good' : 'bad'}
           />
           <Tile
             label={t('curve.precision')}
-            value={formatMeasuredShare(point.precision)}
+            value={formatMeasuredShare(point.precision, t)}
             note={t('curve.precisionNote')}
           />
           <Tile
             label={t('curve.recall')}
-            value={formatMeasuredShare(point.recall)}
+            value={formatMeasuredShare(point.recall, t)}
             note={t('curve.recallNote')}
           />
         </div>
@@ -345,7 +346,7 @@ export default function Dashboard({
               label={data.rules_cost_delta < 0 ? t('rules.payOff') : t('rules.costMore')}
               value={`${data.rules_cost_delta > 0 ? '+' : ''}${formatMoney(data.rules_cost_delta)}`}
               tone={data.rules_cost_delta < 0 ? 'good' : 'bad'}
-              note={`оценка поднята политиками у ${formatNumber(data.raised_by_rules)} операций`}
+              note={t('dashboard.raisedByRules', { count: formatNumber(data.raised_by_rules) })}
             />
           </div>
         </section>
@@ -494,10 +495,10 @@ function QualityChart({
 
       <g className="chart-legend">
         <text x={padding.left + 8} y={padding.top + 12} className="legend precision">
-          — точность (Precision)
+          — {t('quality.precisionLegend')}
         </text>
         <text x={padding.left + 190} y={padding.top + 12} className="legend recall">
-          — полнота (Recall)
+          — {t('quality.recallLegend')}
         </text>
       </g>
     </svg>
@@ -508,12 +509,13 @@ function costNote(
   point: CurvePoint,
   current: CurvePoint,
   formatMoney: (value: number) => string,
+  t: Translator,
 ): string {
   const delta = point.total_cost - current.total_cost
-  if (Math.round(delta) === 0) return 'как сейчас'
+  if (Math.round(delta) === 0) return t('cost.sameAsNow')
   return delta < 0
-    ? `на ${formatMoney(-delta)} дешевле текущего`
-    : `на ${formatMoney(delta)} дороже текущего`
+    ? t('cost.cheaperBy', { amount: formatMoney(-delta) })
+    : t('cost.dearerBy', { amount: formatMoney(delta) })
 }
 
 /**
@@ -556,8 +558,8 @@ function TradeOffChart({
     curve.map((point) => `${x(point.threshold).toFixed(1)},${y(pick(point)).toFixed(1)}`).join(' ')
 
   const marks = [
-    { at: currentThreshold, color: 'var(--accent)', label: 'сейчас' },
-    { at: optimalThreshold, color: 'var(--approve)', label: 'оптимум' },
+    { at: currentThreshold, color: 'var(--accent)', label: t('cost.markNow') },
+    { at: optimalThreshold, color: 'var(--approve)', label: t('cost.markOptimum') },
     { at: selected, color: 'var(--text)', label: '' },
   ]
 
@@ -613,13 +615,13 @@ function TradeOffChart({
 
       <g className="chart-legend">
         <text x={padding.left + 8} y={padding.top + 12} className="legend fraud">
-          — потери от фрода
+          — {t('cost.fraudLoss')}
         </text>
         <text x={padding.left + 160} y={padding.top + 12} className="legend friction">
-          — стоимость проверок
+          — {t('cost.checkCost')}
         </text>
         <text x={padding.left + 330} y={padding.top + 12} className="legend total">
-          — итого
+          — {t('cost.total')}
         </text>
       </g>
 
@@ -657,18 +659,19 @@ function Readout({
   y: (cost: number) => number
   width: number
 }) {
+  const { t } = useLanguage()
   const { formatMoney } = useFormat()
   const rows: [string, string, string][] = [
-    ['потери от фрода', formatMoney(point.fraud_loss), 'fraud'],
-    ['стоимость проверок', formatMoney(point.friction_cost), 'friction'],
-    ['итого', formatMoney(point.total_cost), 'total'],
+    [t('cost.fraudLoss'), formatMoney(point.fraud_loss), 'fraud'],
+    [t('cost.checkCost'), formatMoney(point.friction_cost), 'friction'],
+    [t('cost.total'), formatMoney(point.total_cost), 'total'],
   ]
 
   // Метрики идут отдельным блоком под деньгами: у них своя шкала,
   // и точки на линиях к ним не относятся.
   const metrics = [
-    `точность ${formatMeasuredShare(point.precision)}`,
-    `полнота ${formatMeasuredShare(point.recall)}`,
+    t('quality.precisionShort', { value: formatMeasuredShare(point.precision, t) }),
+    t('quality.recallShort', { value: formatMeasuredShare(point.recall, t) }),
   ]
 
   const boxWidth = 186
@@ -686,7 +689,7 @@ function Readout({
 
       <rect x={boxX} y={20} width={boxWidth} height={boxHeight} rx={5} className="readout-box" />
       <text x={boxX + 10} y={36} className="readout-title">
-        порог {point.threshold}
+        {t('cost.atThreshold', { score: point.threshold })}
       </text>
       {rows.map(([label, value, tone], index) => (
         <text key={label} x={boxX + 10} y={51 + index * 14} className={`readout-row ${tone}`}>

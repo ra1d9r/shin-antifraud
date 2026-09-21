@@ -18,7 +18,7 @@
 
 import { useState } from 'react'
 
-import { ApiError, runStream } from './api'
+import { errorText, runStream } from './api'
 import { useLanguage } from './LanguageContext'
 import { useFormat } from './useFormat'
 import Tile from './Tile'
@@ -44,9 +44,7 @@ export default function StreamPanel({ onFinished }: { onFinished: () => void }) 
       setSummary(payload)
       onFinished()
     } catch (cause) {
-      setError(
-        cause instanceof ApiError ? cause.message : t('stream.failed'),
-      )
+      setError(errorText(cause, t) || t('stream.failed'))
     } finally {
       setRunning(null)
     }
@@ -95,7 +93,7 @@ export default function StreamPanel({ onFinished }: { onFinished: () => void }) 
             <Tile
               label={t('stream.fraudIn')}
               value={formatCount(summary.fraud_in_stream)}
-              note={`из ${formatCount(summary.processed)} операций`}
+              note={t('stream.ofProcessed', { total: formatCount(summary.processed) })}
             />
             <Tile
               label={t('stream.stopped')}
@@ -112,7 +110,7 @@ export default function StreamPanel({ onFinished }: { onFinished: () => void }) 
             <Tile
               label={t('stream.averageScore')}
               value={String(summary.average_risk_score)}
-              note={`оценку подняли политики у ${formatCount(summary.raised_by_rules)}`}
+              note={t('stream.raisedByPolicies', { count: formatCount(summary.raised_by_rules) })}
             />
           </div>
 

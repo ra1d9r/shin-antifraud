@@ -16,7 +16,7 @@
  */
 
 
-import { fetchFeatureRegistry } from './api'
+import { errorText, fetchFeatureRegistry } from './api'
 import PanelError from './PanelError'
 import { useLanguage } from './LanguageContext'
 import { usePanelData } from './usePanelData'
@@ -50,10 +50,12 @@ function formatValue(
 
 export default function FeaturePanel({ features }: { features: Record<string, number> }) {
   const { t } = useLanguage()
-  const { data: registry, error } = usePanelData(fetchFeatureRegistry)
+  const { data: registry, failure } = usePanelData(fetchFeatureRegistry)
 
 
-  if (error !== null) return <PanelError title={t('sim.features')} reason={error} />
+  if (failure !== null) {
+    return <PanelError title={t('sim.features')} reason={errorText(failure.cause, t)} />
+  }
   if (registry === null) return null
 
   return (

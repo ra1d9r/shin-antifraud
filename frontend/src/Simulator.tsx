@@ -15,6 +15,7 @@ import FeaturePanel from './FeaturePanel'
 import {
   ApiError,
   apiBaseUrl,
+  errorText,
   explainForClient,
   fetchReport,
   fetchScenarios,
@@ -30,7 +31,7 @@ import {
 } from './form'
 import { feedbackHeadline } from './feedback'
 import { useLanguage } from './LanguageContext'
-import { WAKE_UP_HINT, useSlowHint } from './useSlowHint'
+import { WAKE_UP_HINT_KEY, useSlowHint } from './useSlowHint'
 import type { FieldSpec, FormState } from './form'
 import type {
   ClientMessage,
@@ -130,11 +131,11 @@ export default function Simulator() {
   }, [])
 
   const analyze = useCallback(async () => {
-    const { body, invalid } = formToRequest(form)
+    const { body, invalid } = formToRequest(form, t)
     if (invalid.length > 0) {
       // Заведомо испорченный запрос не отправляем: иначе backend ответит 200
       // по другим данным, и пользователь не узнает, что его ввод потерян.
-      setError({ title: 'Форма заполнена неверно — запрос не отправлен', details: invalid })
+      setError({ title: t('sim.formInvalid'), details: invalid })
       setAnalysis(null)
       return
     }
@@ -157,15 +158,16 @@ export default function Simulator() {
       setForm((previous) => ({ ...previous, transaction_id: newTransactionId() }))
     } catch (cause) {
       const failure = cause instanceof ApiError ? cause : new ApiError(String(cause), 0, null)
+      const where = failure.status > 0 ? `HTTP ${failure.status}` : t('sim.network')
       setError({
-        title: `${failure.status > 0 ? `HTTP ${failure.status}` : 'Сеть'} — ${failure.message}`,
+        title: `${where} — ${errorText(failure, t)}`,
         details: failure.fieldErrors,
       })
       setAnalysis(null)
     } finally {
       setLoading(false)
     }
-  }, [form, persist])
+  }, [form, persist, t])
 
   const currentScenario = useMemo(
     () => scenarios.find((item) => item.key === activeScenario),
@@ -253,7 +255,7 @@ export default function Simulator() {
               checked={persist}
               onChange={(event) => setPersist(event.target.checked)}
             />
-            <span>сохранять в историю (persist)</span>
+            <span>{t('sim.persist')}</span>
           </label>
         </div>
 
@@ -263,7 +265,7 @@ export default function Simulator() {
           отклонит, а с теми же — вернёт прежний ответ, ничего не меняя.
         </p>
 
-        {waking && <p className="hint">{WAKE_UP_HINT}</p>}
+        {waking && <p className="hint always-visible">{t(WAKE_UP_HINT_KEY)}</p>}
       </section>
 
       {error && (
@@ -318,7 +320,7 @@ function ClientExplanation({ analysis }: { analysis: Analysis }) {
     try {
       setMessage(await explainForClient(analysis.body, language))
     } catch (cause) {
-      setFailure(cause instanceof ApiError ? cause.message : t('assistant.failed'))
+      setFailure(errorText(cause, t) || t('assistant.failed'))
     } finally {
       setLoading(false)
     }
@@ -425,7 +427,7 @@ function TextReport({ analysis }: { analysis: Analysis }) {
     try {
       setText(await fetchReport(analysis.body))
     } catch (cause) {
-      setFailure(cause instanceof ApiError ? cause.message : t('report.failed'))
+      setFailure(errorText(cause, t) || t('report.failed'))
     } finally {
       setLoading(false)
     }
@@ -496,12 +498,12 @@ function FeedbackControls({ analysis }: { analysis: Analysis }) {
       try {
         setAccepted(await sendFeedback(analysis.result.transaction_id, verdict))
       } catch (cause) {
-        setFailure(cause instanceof ApiError ? cause.message : 'Метку не удалось сохранить')
+        setFailure(errorText(cause, t) || t('sim.labelNotSaved'))
       } finally {
         setSending(null)
       }
     },
-    [analysis.result.transaction_id],
+    [analysis.result.transaction_id, t],
   )
 
   if (!analysis.persisted) {
@@ -554,14 +556,11 @@ function FeedbackControls({ analysis }: { analysis: Analysis }) {
       )}
 
       {accepted && (
-        <p className="hint">
-          Записано:{' '}
+        <p className="hint always-visible">
           <strong>
-            {accepted.record.actual_fraud
-              ? 'операция подтверждена как мошенническая'
-              : 'операция подтверждена как добросовестная'}
+            {t(accepted.record.actual_fraud ? 'sim.confirmedFraud' : 'sim.confirmedLegit')}
           </strong>
-          . {feedbackHeadline(accepted.summary)}.
+          . {feedbackHeadline(accepted.summary, t)}.
           {accepted.summary.storage_error && (
             <>
               {' '}
@@ -591,9 +590,14 @@ function Field({
   value: string
   onChange: (name: string, value: string) => void
 }) {
+  const { t } = useLanguage()
+
   return (
     <label className="field">
-      <span>{spec.label}</span>
+      <span>
+        {spec.label}
+        {spec.hintKey !== undefined && ` (${t(spec.hintKey)})`}
+      </span>
       <input
         type={spec.kind === 'datetime' ? 'datetime-local' : 'text'}
         inputMode={spec.kind === 'number' ? 'decimal' : undefined}
@@ -709,7 +713,7 @@ function Result({ result }: { result: PredictionResponse }) {
                     </span>
                   </td>
                   <td className={positive ? 'up-text' : 'down-text'}>
-                    {positive ? 'повышает' : 'понижает'}
+                    {t(positive ? 'sim.raises' : 'sim.lowers')}
                   </td>
                 </tr>
               )

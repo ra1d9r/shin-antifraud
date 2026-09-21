@@ -6,14 +6,21 @@
  * на клиенте однажды разошлась бы с той, по которой система себя судит.
  */
 
+import type { TranslationKey, Translator } from './i18n'
 import type { DriftStatus } from './types'
 
-export const DRIFT_STATUS_LABEL: Record<DriftStatus, string> = {
-  STABLE: 'стабильно',
-  MODERATE: 'умеренный сдвиг',
-  SIGNIFICANT: 'существенный сдвиг',
-  NOT_MEASURABLE: 'несравним',
-  COLLECTING: 'копим наблюдения',
+/**
+ * Статус — ключом, а не готовой строкой.
+ *
+ * Модуль остаётся чистым: он не знает выбранного языка и не лезет
+ * за ним в глобальное состояние. Переводит тот, кто рисует.
+ */
+export const DRIFT_STATUS_KEY: Record<DriftStatus, TranslationKey> = {
+  STABLE: 'drift.statusStable',
+  MODERATE: 'drift.statusModerate',
+  SIGNIFICANT: 'drift.statusSignificant',
+  NOT_MEASURABLE: 'drift.statusNotMeasurable',
+  COLLECTING: 'drift.statusCollecting',
 }
 
 /**
@@ -44,8 +51,13 @@ export function formatBinShare(share: number): string {
 }
 
 /** Строка-заголовок панели: что происходит прямо сейчас. */
-export function driftHeadline(observed: number, minimum: number, enough: boolean): string {
-  if (enough) return `Наблюдений: ${observed}`
+export function driftHeadline(
+  observed: number,
+  minimum: number,
+  enough: boolean,
+  t: Translator,
+): string {
+  if (enough) return t('drift.observations', { count: observed })
   const left = Math.max(0, minimum - observed)
-  return `Наблюдений: ${observed} из ${minimum} — нужно ещё ${left}, чтобы называть числа`
+  return t('drift.observationsShort', { observed, minimum, left })
 }

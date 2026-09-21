@@ -7,6 +7,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
+import { ru } from './testTranslator'
 
 import { CURRENCY, formatCount, formatDateTime, formatMoney, localeOf } from './format'
 import { describeConfiguration } from './shadow'
@@ -96,7 +97,7 @@ describe('описание конфигурации', () => {
       challenge_max: 70,
       critical_min: 90,
       rules_enabled: false,
-    })
+    }, ru)
 
     expect(line).toContain('30')
     expect(line).toContain('70')
@@ -109,7 +110,7 @@ describe('описание конфигурации', () => {
       challenge_max: 70,
       critical_min: 90,
       rules_enabled: true,
-    })
+    }, ru)
 
     expect(line).toContain('политики включены')
   })

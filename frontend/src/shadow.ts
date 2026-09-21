@@ -6,10 +6,16 @@
  * с настоящим (ТЗ §11).
  */
 
+import type { Translator } from './i18n'
 import type { Configuration } from './types'
 
-/** Конфигурация одной строкой — как её читает человек. */
-export function describeConfiguration(config: Configuration): string {
-  const policies = config.rules_enabled ? 'политики включены' : 'политики выключены'
+/**
+ * Конфигурация одной строкой — как её читает человек.
+ *
+ * Переводчик приходит параметром: модуль остаётся чистым и не тянет
+ * за собой React, а язык остаётся видимой зависимостью, а не глобалом.
+ */
+export function describeConfiguration(config: Configuration, t: Translator): string {
+  const policies = t(config.rules_enabled ? 'shadow.policiesOn' : 'shadow.policiesOff')
   return `APPROVE ≤ ${config.approve_max} < CHALLENGE ≤ ${config.challenge_max} · ${policies}`
 }

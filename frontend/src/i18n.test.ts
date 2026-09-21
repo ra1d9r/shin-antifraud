@@ -100,3 +100,52 @@ describe('словарь', () => {
     expect(language).toBe('ru')
   })
 })
+
+/**
+ * Страж против возврата русского текста в компоненты.
+ *
+ * Прошлая правка перевела заголовки и подписи, но пропустила сноски
+ * под плитками и подписи на графиках — 24 строки, видимые на каждой
+ * вкладке. Поймать это можно было только глазами и только на
+ * английском, поэтому теперь проверяет тест.
+ *
+ * Проверяются значения свойств: `note={...}`, `label={...}` и прочие,
+ * которые попадают на экран. Комментарии под правило не подходят
+ * по форме — они остаются русскими намеренно (см. шапку i18n.ts).
+ */
+const COMPONENTS = import.meta.glob('./*.{ts,tsx}', {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>
+
+/** `note="русский"`, `label={'русский'}`, `title={`русский ${x}`}`. */
+const VISIBLE_PROP = /\b(note|label|title|value|placeholder|summary)=\{?\s*(['"`])((?:(?!\2)[\s\S])*?)\2/g
+
+describe('русский текст не возвращается в компоненты', () => {
+  const skip = new Set(['./i18n.ts', './testTranslator.ts'])
+
+  it('подписи и сноски берутся из словаря, а не пишутся в коде', () => {
+    const guilty: string[] = []
+
+    for (const [path, source] of Object.entries(COMPONENTS)) {
+      if (skip.has(path) || path.includes('.test.')) continue
+      for (const match of source.matchAll(VISIBLE_PROP)) {
+        const text = match[3]
+        if (/[А-Яа-яЁё]/.test(text)) {
+          guilty.push(`${path.replace('./', '')}: ${match[1]}=«${text.slice(0, 50)}»`)
+        }
+      }
+    }
+
+    expect(guilty).toEqual([])
+  })
+
+  it('сам страж работает: подложенная строка была бы поймана', () => {
+    // Иначе регулярное выражение могло бы тихо перестать совпадать,
+    // и проверка выше проходила бы на пустом множестве всегда.
+    const planted = `<Tile note={'оценка поднята политиками'} />`
+    const found = [...planted.matchAll(VISIBLE_PROP)].filter((m) => /[А-Яа-яЁё]/.test(m[3]))
+    expect(found).toHaveLength(1)
+  })
+})

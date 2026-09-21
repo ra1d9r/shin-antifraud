@@ -17,40 +17,32 @@
  * ## Три состояния вместо двух
  *
  * `loading` — ещё не ответили, показывать нечего и рано.
- * `error` — ответили плохо, и об этом надо сказать.
+ * `failure` — ответили плохо, и об этом надо сказать.
  * `data` — всё пришло.
  *
  * Различать первые два обязательно: пустота в начале загрузки нормальна,
  * пустота после ошибки — нет.
+ *
+ * ## Почему причина, а не текст
+ *
+ * Хранится сам объект ошибки, а не готовая строка. Строка сложилась бы
+ * один раз — в момент отказа — и осталась бы на языке, выбранном тогда.
+ * Переключение языка её бы не тронуло, и панель говорила бы по-русски
+ * посреди английского интерфейса. Текст собирается при отрисовке
+ * (`errorText`), то есть каждый раз на текущем языке.
  */
 
 import { useEffect, useState } from 'react'
 
-export interface PanelData<T> {
-  data: T | null
-  error: string | null
-  loading: boolean
+/** Обёртка вокруг причины: `null` значит «отказа не было». */
+export interface PanelFailure {
+  cause: unknown
 }
 
-/**
- * Превратить причину отказа в объяснение для человека.
- *
- * Сообщение backend точнее нашего: он знает, артефакт ли не выгружен,
- * модель ли не загружена или дело в сети. Своего текста здесь нет
- * намеренно — подменять объяснение сервера общим «что-то пошло не так»
- * значит терять единственное, что может помочь.
- *
- * Пустая строка означает «пригодного объяснения нет». Это не то же
- * самое, что отсутствие ошибки: панель всё равно скажет, что недоступна,
- * просто без второй половины фразы. `String(cause)` для такого случая
- * не годится — строка «null» человеку не объясняет ничего, а выглядит
- * как недоделка.
- */
-export function describeFailure(cause: unknown): string {
-  // ApiError наследует Error, так что одной проверки хватает на оба.
-  if (cause instanceof Error) return cause.message.trim()
-  if (typeof cause === 'string') return cause.trim()
-  return ''
+export interface PanelData<T> {
+  data: T | null
+  failure: PanelFailure | null
+  loading: boolean
 }
 
 /**
@@ -62,7 +54,7 @@ export function describeFailure(cause: unknown): string {
  */
 export function usePanelData<T>(load: () => Promise<T>): PanelData<T> {
   const [data, setData] = useState<T | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [failure, setFailure] = useState<PanelFailure | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -74,7 +66,7 @@ export function usePanelData<T>(load: () => Promise<T>): PanelData<T> {
       })
       .catch((cause: unknown) => {
         if (cancelled) return
-        setError(describeFailure(cause))
+        setFailure({ cause })
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -85,5 +77,5 @@ export function usePanelData<T>(load: () => Promise<T>): PanelData<T> {
     }
   }, [load])
 
-  return { data, error, loading }
+  return { data, failure, loading }
 }

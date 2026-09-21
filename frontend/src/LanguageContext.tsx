@@ -14,18 +14,18 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { ReactNode } from 'react'
 
 import { DEFAULT_LANGUAGE, rememberLanguage, storedLanguage, translate } from './i18n'
-import type { Language, TranslationKey } from './i18n'
+import type { Language, Translator } from './i18n'
 
 interface LanguageValue {
   language: Language
   setLanguage: (language: Language) => void
-  t: (key: TranslationKey) => string
+  t: Translator
 }
 
 const LanguageContext = createContext<LanguageValue>({
   language: DEFAULT_LANGUAGE,
   setLanguage: () => {},
-  t: (key) => translate(key, DEFAULT_LANGUAGE),
+  t: (key, values) => translate(key, DEFAULT_LANGUAGE, values),
 })
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
@@ -47,7 +47,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     () => ({
       language,
       setLanguage,
-      t: (key: TranslationKey) => translate(key, language),
+      t: (key, values) => translate(key, language, values),
     }),
     [language, setLanguage],
   )

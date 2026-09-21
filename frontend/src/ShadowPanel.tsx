@@ -14,7 +14,7 @@
 
 
 import Tile from './Tile'
-import { fetchShadow } from './api'
+import { errorText, fetchShadow } from './api'
 import { formatMeasuredShare } from './feedback'
 import { describeConfiguration } from './shadow'
 import PanelError from './PanelError'
@@ -31,10 +31,12 @@ const DECISION_CLASS: Record<string, string> = {
 export default function ShadowPanel() {
   const { t } = useLanguage()
   const { formatCount, formatMoney } = useFormat()
-  const { data: report, error } = usePanelData(fetchShadow)
+  const { data: report, failure } = usePanelData(fetchShadow)
 
 
-  if (error !== null) return <PanelError title={t('shadow.title')} reason={error} />
+  if (failure !== null) {
+    return <PanelError title={t('shadow.title')} reason={errorText(failure.cause, t)} />
+  }
   if (report === null) return null
 
   return (
@@ -56,11 +58,11 @@ export default function ShadowPanel() {
       <div className="configs">
         <div className="config">
           <span className="tile-label">{t('shadow.primaryLive')}</span>
-          <strong>{describeConfiguration(report.primary)}</strong>
+          <strong>{describeConfiguration(report.primary, t)}</strong>
         </div>
         <div className="config shadow">
           <span className="tile-label">{t('shadow.shadowOnlyCounts')}</span>
-          <strong>{describeConfiguration(report.shadow)}</strong>
+          <strong>{describeConfiguration(report.shadow, t)}</strong>
         </div>
       </div>
 
@@ -79,13 +81,21 @@ export default function ShadowPanel() {
         <Tile label={t('shadow.compared')} value={formatCount(report.observed)} />
         <Tile
           label={t('shadow.agreed')}
-          value={formatMeasuredShare(report.agreement_share)}
-          note={report.observed > 0 ? `${report.agreed} из ${report.observed}` : undefined}
+          value={formatMeasuredShare(report.agreement_share, t)}
+          note={
+            report.observed > 0
+              ? t('common.outOf', { shown: report.agreed, total: report.observed })
+              : undefined
+          }
         />
         <Tile
           label={t('shadow.frictionRemoved')}
           value={String(report.freed_count)}
-          note={report.freed_amount > 0 ? `на ${formatMoney(report.freed_amount)}` : 'операций'}
+          note={
+            report.freed_amount > 0
+              ? t('common.noteForAmount', { amount: formatMoney(report.freed_amount) })
+              : t('common.noteOperations')
+          }
           tone={report.freed_count > 0 ? 'good' : undefined}
         />
         <Tile
@@ -93,8 +103,8 @@ export default function ShadowPanel() {
           value={String(report.tightened_count)}
           note={
             report.tightened_amount > 0
-              ? `на ${formatMoney(report.tightened_amount)}`
-              : 'операций'
+              ? t('common.noteForAmount', { amount: formatMoney(report.tightened_amount) })
+              : t('common.noteOperations')
           }
           tone={report.tightened_count > 0 ? 'warn' : undefined}
         />
