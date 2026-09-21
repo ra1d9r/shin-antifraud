@@ -19,7 +19,7 @@ from fastapi.testclient import TestClient
 
 from app.api.routes.predict import REPLAY_HEADER
 from app.assistant import phrases
-from app.assistant.message import DecisionFacts, contradicts, fallback_text
+from app.assistant.message import DecisionFacts, contradicts, fallback_text, written_in
 from app.i18n import LANGUAGES
 from app.main import create_app
 from app.schemas.enums import Decision
@@ -297,3 +297,90 @@ def test_repeat_in_another_language_translates_without_reprocessing(client) -> N
     assert second.json()["risk_score"] == first.json()["risk_score"]
     assert second.json()["language"] == "en"
     assert second.json()["decision_meaning"] != first.json()["decision_meaning"]
+
+
+# ------------------------------- ответ модели на запрошенном языке
+
+
+#: Настоящие ответы не на том языке. Китайский — не выдумка: модели,
+#: которых просят писать по-казахски, иногда отвечают на языке,
+#: которого в их обучающих данных было больше всего.
+WRONG_LANGUAGE = [
+    ("kk", "我们已暂停该笔交易，请您确认操作。", "китайский вместо казахского"),
+    ("kk", "We have put the payment on hold until you confirm it.", "английский"),
+    ("kk", "Мы приостановили операцию до вашего подтверждения.", "русский"),
+    ("ru", "操作已被阻止，请联系银行。", "китайский вместо русского"),
+    ("ru", "We have put the payment on hold.", "английский вместо русского"),
+    ("en", "操作已被阻止。", "китайский вместо английского"),
+    ("en", "Мы приостановили операцию до вашего подтверждения.", "русский"),
+]
+
+
+@pytest.mark.parametrize("language", LANGUAGES)
+def test_our_own_text_passes_the_language_check(language) -> None:
+    """Защита обязана пропускать правильные ответы.
+
+    Проверка, отвергающая наш собственный текст, заменила бы работающий
+    ассистент запасным навсегда — и заметить это было бы нечем.
+    """
+    for decision in (Decision.CHALLENGE, Decision.BLOCK):
+        text = fallback_text(facts(decision), language)
+        assert written_in(text, language), f"{language}/{decision}: свой же текст не прошёл"
+
+
+@pytest.mark.parametrize(("language", "text", "note"), WRONG_LANGUAGE)
+def test_wrong_language_is_caught(language, text, note) -> None:
+    assert not written_in(text, language), note
+
+
+def test_kazakh_is_told_apart_from_russian() -> None:
+    """Самая вероятная подмена — русский вместо казахского.
+
+    Обе письменности кириллические, и проверкой по алфавиту их
+    не различить. Различают буквы, которых в русском нет.
+    """
+    kazakh = "Операцияны сіз растағанша тоқтата тұрдық. Ақша есептен шығарылған жоқ."
+    russian = "Операцию приостановили до вашего подтверждения. Деньги не списаны."
+
+    assert written_in(kazakh, "kk")
+    assert not written_in(russian, "kk")
+    # А как русский тот же текст проходит — язык проверяется, а не запрещается.
+    assert written_in(russian, "ru")
+
+
+def test_merchant_name_in_latin_does_not_break_a_kazakh_answer() -> None:
+    """Название мерчанта приходит латиницей и остаётся в тексте.
+
+    Требовать чистой кириллицы значило бы отвергать правильные ответы:
+    «CryptoExchange» на казахский не переводится.
+    """
+    text = "«CryptoExchange» атына сомасындағы операцияны сіз растағанша тоқтата тұрдық."
+
+    assert written_in(text, "kk")
+
+
+@pytest.mark.parametrize("text", ["", "   ", "\n\n", "12345 67890", "!!! ???"])
+def test_text_without_words_is_refused(text) -> None:
+    """Показывать клиенту нечего — значит показываем запасной текст."""
+    assert not written_in(text, "ru")
+
+
+@pytest.mark.parametrize("language", LANGUAGES)
+def test_prompt_demands_the_language_more_than_once(language) -> None:
+    """Одной строки в конце списка правил модели мало.
+
+    Требование стоит первым, повторено в конце и подкреплено примером —
+    иначе казахский сползает на русский чаще, чем хотелось бы.
+    """
+    prompt = phrases.system_prompt(language)
+    name = phrases.LANGUAGE_NAMES[language]
+
+    assert prompt.count(name) >= 3, "язык упомянут меньше трёх раз"
+    assert prompt.startswith("Отвечай ТОЛЬКО"), "требование языка не первое"
+    assert phrases.LANGUAGE_EXAMPLES[language] in prompt, "нет примера правильного ответа"
+
+
+@pytest.mark.parametrize("language", LANGUAGES)
+def test_prompt_example_is_itself_in_the_right_language(language) -> None:
+    """Пример на чужом языке учил бы модель ровно тому, что запрещает."""
+    assert written_in(phrases.LANGUAGE_EXAMPLES[language], language)

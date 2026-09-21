@@ -27,6 +27,7 @@ from app.assistant import (
     fallback_text,
     needs_assistant,
     system_prompt,
+    written_in,
 )
 from app.core.logging import get_logger
 from app.i18n import Language
@@ -105,6 +106,16 @@ def explain_for_client(
                     f"({response.decision.value}), показан запасной текст."
                 )
                 logger.warning("Ответ ассистента разошёлся с вердиктом %s", response.decision)
+            elif not written_in(generated, language):
+                # Модель, которую просят писать по-казахски, иногда отвечает
+                # по-русски, по-английски или иероглифами — казахского в её
+                # обучающих данных меньше всего. Текст не на том языке
+                # клиенту бесполезен, а запасной хотя бы читается.
+                reason = (
+                    "Ответ языковой модели был не на запрошенном языке "
+                    f"({language}), показан запасной текст."
+                )
+                logger.warning("Ответ ассистента пришёл не на языке %s", language)
             else:
                 text = generated
                 source = "llm"

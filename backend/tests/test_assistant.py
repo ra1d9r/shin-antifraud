@@ -389,3 +389,67 @@ def test_build_facts_keeps_at_most_three_reasons(client) -> None:
     built = build_facts(TransactionRequest(**body), PredictionResponse(**prediction))
 
     assert len(built.reasons) <= 3
+
+
+@pytest.mark.parametrize(
+    ("language", "generated", "note"),
+    [
+        ("kk", "我们已暂停该笔交易，请您确认操作。", "иероглифы"),
+        ("kk", "We have put the payment on hold until you confirm it.", "английский"),
+        ("kk", "Мы приостановили операцию до вашего подтверждения.", "русский"),
+        ("ru", "We have put the payment on hold until you confirm it.", "английский"),
+    ],
+)
+def test_answer_in_the_wrong_language_falls_back(
+    client, monkeypatch, language, generated, note
+) -> None:
+    """Сквозная проверка: ответ не на том языке клиенту не показывается.
+
+    Текст, которого клиент не прочтёт, бесполезен ровно так же, как
+    текст, спорящий с вердиктом. Запасной хотя бы читается.
+    """
+    def fake_post(url, *, json, headers, timeout):
+        return httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": generated}}]},
+            request=httpx.Request("POST", url),
+        )
+
+    monkeypatch.setattr(llm_module.httpx, "post", fake_post)
+    monkeypatch.setattr(
+        client.app.state.shin.settings, "llm_api_key", Settings(llm_api_key=SECRET).llm_api_key
+    )
+
+    payload = client.post(f"/explain/client?language={language}", json=transaction()).json()
+
+    assert payload["source"] == "fallback", note
+    assert "не на запрошенном языке" in payload["fallback_reason"]
+    assert payload["text"] != generated, "чужой язык всё-таки показан клиенту"
+    assert payload["language"] == language
+
+
+def test_answer_in_the_right_language_is_shown(client, monkeypatch) -> None:
+    """Обратная сторона: правильный ответ обязан доходить до клиента.
+
+    Без этой проверки защита, отвергающая всё подряд, выглядела бы
+    работающей — ассистент молча заменился бы запасным текстом навсегда.
+    """
+    generated = "Операцияны сіз растағанша тоқтата тұрдық. Ақша есептен шығарылған жоқ."
+
+    def fake_post(url, *, json, headers, timeout):
+        return httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": generated}}]},
+            request=httpx.Request("POST", url),
+        )
+
+    monkeypatch.setattr(llm_module.httpx, "post", fake_post)
+    monkeypatch.setattr(
+        client.app.state.shin.settings, "llm_api_key", Settings(llm_api_key=SECRET).llm_api_key
+    )
+
+    payload = client.post("/explain/client?language=kk", json=transaction()).json()
+
+    assert payload["source"] == "llm"
+    assert payload["text"] == generated
+    assert payload["fallback_reason"] is None

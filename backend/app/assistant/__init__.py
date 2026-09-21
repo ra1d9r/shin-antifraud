@@ -11,6 +11,7 @@ from app.assistant.message import (
     contradicts,
     fallback_text,
     needs_assistant,
+    written_in,
 )
 from app.assistant.phrases import system_prompt
 from app.i18n import DEFAULT_LANGUAGE, LANGUAGES, Language
@@ -28,4 +29,5 @@ __all__ = [
     "fallback_text",
     "needs_assistant",
     "system_prompt",
+    "written_in",
 ]
