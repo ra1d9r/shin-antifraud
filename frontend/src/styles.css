@@ -863,3 +863,10 @@ summary {
 .map-legend i.high-risk {
   border: 2px dashed var(--text);
 }
+
+/* Панель, которая не смогла загрузиться, занимает одну строку:
+   место обозначено, работе не мешает, причина названа. */
+.panel-unavailable {
+  border-left: 3px solid var(--challenge);
+  opacity: 0.85;
+}

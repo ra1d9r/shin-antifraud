@@ -12,14 +12,14 @@
  * `FeedbackPanel` и `DriftPanel`.
  */
 
-import { useEffect, useState } from 'react'
 
 import Tile from './Tile'
 import { fetchShadow } from './api'
 import { formatMeasuredShare } from './feedback'
 import { describeConfiguration } from './shadow'
-import type { ShadowComparison } from './types'
+import PanelError from './PanelError'
 import { useLanguage } from './LanguageContext'
+import { usePanelData } from './usePanelData'
 import { useFormat } from './useFormat'
 
 const DECISION_CLASS: Record<string, string> = {
@@ -31,24 +31,10 @@ const DECISION_CLASS: Record<string, string> = {
 export default function ShadowPanel() {
   const { t } = useLanguage()
   const { formatCount, formatMoney } = useFormat()
-  const [report, setReport] = useState<ShadowComparison | null>(null)
+  const { data: report, error } = usePanelData(fetchShadow)
 
-  useEffect(() => {
-    let cancelled = false
 
-    fetchShadow()
-      .then((payload) => {
-        if (!cancelled) setReport(payload)
-      })
-      .catch(() => {
-        // Намеренно молча: см. комментарий к модулю.
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
+  if (error !== null) return <PanelError title={t('shadow.title')} reason={error} />
   if (report === null) return null
 
   return (

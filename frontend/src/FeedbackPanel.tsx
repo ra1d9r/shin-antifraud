@@ -15,13 +15,13 @@
  * выглядело бы так, будто сломалось всё.
  */
 
-import { useEffect, useState } from 'react'
 
 import Tile from './Tile'
 import { fetchFeedbackSummary } from './api'
 import { formatMeasuredShare } from './feedback'
-import type { FeedbackSummary } from './types'
+import PanelError from './PanelError'
 import { useLanguage } from './LanguageContext'
+import { usePanelData } from './usePanelData'
 import { useFormat } from './useFormat'
 
 const DECISION_CLASS: Record<string, string> = {
@@ -33,24 +33,10 @@ const DECISION_CLASS: Record<string, string> = {
 export default function FeedbackPanel() {
   const { t } = useLanguage()
   const { formatMoney } = useFormat()
-  const [summary, setSummary] = useState<FeedbackSummary | null>(null)
+  const { data: summary, error } = usePanelData(fetchFeedbackSummary)
 
-  useEffect(() => {
-    let cancelled = false
 
-    fetchFeedbackSummary()
-      .then((payload) => {
-        if (!cancelled) setSummary(payload)
-      })
-      .catch(() => {
-        // Намеренно молча: см. комментарий к модулю.
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
+  if (error !== null) return <PanelError title={t('feedback.title')} reason={error} />
   if (summary === null) return null
 
   return (
