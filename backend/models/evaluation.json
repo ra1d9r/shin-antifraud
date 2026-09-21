@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-20T20:29:24+00:00",
+  "generated_at": "2026-09-21T03:30:01+00:00",
   "model_trained_at": "2026-09-17T14:03:39",
   "model_algorithm": "lightgbm",
   "rows": 99360,
@@ -40,6 +40,12 @@
   "friction": 2011,
   "friction_share": 0.0206,
   "raised_by_rules": 1965,
+  "fraud_stopped_without_rules": 1819,
+  "fraud_stopped_share_without_rules": 0.9396,
+  "friction_without_rules": 110,
+  "friction_share_without_rules": 0.0011,
+  "rules_gained_fraud": 30,
+  "rules_added_friction": 1901,
   "rules": [
     {
       "key": "impossible_travel",

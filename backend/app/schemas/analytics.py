@@ -116,6 +116,30 @@ class AnalyticsOverview(BaseModel):
     )
     raised_by_rules: int
 
+    # Те же обязательные метрики брифинга §5.A, посчитанные по решениям
+    # одной модели. Без них видно, сколько фрода остановлено и сколько
+    # клиентов задето, но не видно, чья это заслуга и чья цена.
+    fraud_stopped_without_rules: int = Field(
+        description="Сколько фрода остановила бы одна модель, без политик"
+    )
+    fraud_stopped_share_without_rules: float
+    friction_without_rules: int = Field(
+        description="Каким было бы число задетых честных клиентов без политик"
+    )
+    friction_share_without_rules: float = Field(
+        description="False Positive Rate чистой модели"
+    )
+    rules_gained_fraud: int = Field(
+        description=(
+            "Фрод, пойманный политиками сверх модели. Считается по решениям "
+            "целиком: сумма по строкам таблицы ниже была бы больше, потому "
+            "что на одной операции срабатывает несколько политик сразу."
+        )
+    )
+    rules_added_friction: int = Field(
+        description="Добросовестные клиенты, задетые политиками сверх модели"
+    )
+
     rules: list[RuleStatOut]
     cost_with_rules: float
     cost_without_rules: float

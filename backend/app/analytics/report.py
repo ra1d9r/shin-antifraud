@@ -206,6 +206,13 @@ class DatasetReport:
     friction: int
     raised_by_rules: int
 
+    #: Те же две величины, посчитанные по решениям одной модели, без политик.
+    #: Нужны, чтобы обязательные метрики брифинга §5.A — «спасённый бюджет»
+    #: и «процент ложных срабатываний» — было с чем сравнить: сами по себе
+    #: они не показывают, чья это заслуга и чья вина.
+    fraud_stopped_without_rules: int
+    friction_without_rules: int
+
     rules: tuple[RuleStat, ...]
     cost_with_rules: float
     cost_without_rules: float
@@ -240,6 +247,32 @@ class DatasetReport:
         return self.friction / max(1, self.legit_rows)
 
     @property
+    def fraud_stopped_share_without_rules(self) -> float:
+        """Какую долю фрода остановила бы одна модель."""
+        return self.fraud_stopped_without_rules / max(1, self.fraud_rows)
+
+    @property
+    def friction_share_without_rules(self) -> float:
+        """Каким был бы False Positive Rate без политик."""
+        return self.friction_without_rules / max(1, self.legit_rows)
+
+    @property
+    def rules_gained_fraud(self) -> int:
+        """Фрод, пойманный политиками сверх модели.
+
+        Считается по решениям целиком, а не суммированием по строкам
+        таблицы политик: правила пересекаются, и сумма предельных вкладов
+        посчитала бы одну операцию столько раз, сколько политик на ней
+        сработало.
+        """
+        return self.fraud_stopped - self.fraud_stopped_without_rules
+
+    @property
+    def rules_added_friction(self) -> int:
+        """Добросовестные клиенты, задетые политиками сверх модели."""
+        return self.friction - self.friction_without_rules
+
+    @property
     def rules_cost_delta(self) -> float:
         """Во что обходятся политики сверх чистой модели. Меньше нуля — окупаются."""
         return self.cost_with_rules - self.cost_without_rules
@@ -267,6 +300,12 @@ class DatasetReport:
             "friction": self.friction,
             "friction_share": round(self.friction_share, 4),
             "raised_by_rules": self.raised_by_rules,
+            "fraud_stopped_without_rules": self.fraud_stopped_without_rules,
+            "fraud_stopped_share_without_rules": round(self.fraud_stopped_share_without_rules, 4),
+            "friction_without_rules": self.friction_without_rules,
+            "friction_share_without_rules": round(self.friction_share_without_rules, 4),
+            "rules_gained_fraud": self.rules_gained_fraud,
+            "rules_added_friction": self.rules_added_friction,
             "rules": [rule.to_dict() for rule in self.rules],
             "cost_with_rules": round(self.cost_with_rules, 2),
             "cost_without_rules": round(self.cost_without_rules, 2),
@@ -378,6 +417,24 @@ def _fraud_money(
         else:
             prevented += loss
     return prevented, incurred
+
+
+def _count_stopped(decisions: list[Decision], is_fraud: list[bool], *, fraud: bool) -> int:
+    """Сколько операций система не пропустила: BLOCK или CHALLENGE.
+
+    Один счётчик на два смысла: по мошенническим операциям это пойманный
+    фрод, по легальным — трение. Считаются они одинаково, и держать две
+    копии одного выражения значило бы однажды поправить только одну —
+    тем более что теперь каждое из них вызывается дважды, для решений
+    с политиками и без.
+    """
+    return sum(
+        1
+        for decision, is_fraud_row in zip(decisions, is_fraud, strict=True)
+        # Сравнение, а не `is`: numpy-шный bool тождеством не совпал бы
+        # с питоновским, и счётчик молча вернул бы ноль.
+        if bool(is_fraud_row) == fraud and decision is not Decision.APPROVE
+    )
 
 
 def _total_cost(
@@ -492,14 +549,8 @@ def build_report(
         1 for decision, fraud in zip(decisions, is_fraud, strict=True)
         if fraud and decision is Decision.BLOCK
     )
-    fraud_stopped = sum(
-        1 for decision, fraud in zip(decisions, is_fraud, strict=True)
-        if fraud and decision is not Decision.APPROVE
-    )
-    friction = sum(
-        1 for decision, fraud in zip(decisions, is_fraud, strict=True)
-        if not fraud and decision is not Decision.APPROVE
-    )
+    fraud_stopped = _count_stopped(decisions, is_fraud, fraud=True)
+    friction = _count_stopped(decisions, is_fraud, fraud=False)
 
     bare = RiskEngine(thresholds=thresholds, rules=(), rules_enabled=False)
     bare_decisions = [
@@ -530,6 +581,8 @@ def build_report(
         fraud_loss_incurred=incurred,
         friction=friction,
         raised_by_rules=sum(1 for item in assessments if item.raised_by_rules),
+        fraud_stopped_without_rules=_count_stopped(bare_decisions, is_fraud, fraud=True),
+        friction_without_rules=_count_stopped(bare_decisions, is_fraud, fraud=False),
         rules=(
             _rule_stats(settings, records, is_fraud, probabilities, thresholds)
             if rules_enabled
