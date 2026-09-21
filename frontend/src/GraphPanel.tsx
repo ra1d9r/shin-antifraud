@@ -10,12 +10,13 @@
  * `FeedbackPanel`, `DriftPanel` и `ShadowPanel`.
  */
 
-import { useEffect, useState } from 'react'
 
 import Tile from './Tile'
 import { fetchClusters } from './api'
-import type { ClusterReport, LinkStrength } from './types'
+import type { LinkStrength } from './types'
+import PanelError from './PanelError'
 import { useLanguage } from './LanguageContext'
+import { usePanelData } from './usePanelData'
 import { useFormat } from './useFormat'
 
 const STRENGTH_LABEL: Record<LinkStrength, string> = {
@@ -26,24 +27,10 @@ const STRENGTH_LABEL: Record<LinkStrength, string> = {
 export default function GraphPanel() {
   const { t } = useLanguage()
   const { formatCount, formatMoney } = useFormat()
-  const [report, setReport] = useState<ClusterReport | null>(null)
+  const { data: report, error } = usePanelData(fetchClusters)
 
-  useEffect(() => {
-    let cancelled = false
 
-    fetchClusters()
-      .then((payload) => {
-        if (!cancelled) setReport(payload)
-      })
-      .catch(() => {
-        // Намеренно молча: см. комментарий к модулю.
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
+  if (error !== null) return <PanelError title={t('graph.title')} reason={error} />
   if (report === null) return null
 
   const strong = report.clusters.length - report.weak_clusters

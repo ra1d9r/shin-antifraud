@@ -11,13 +11,13 @@
  * заявить работу, которой не было.
  */
 
-import { useEffect, useState } from 'react'
 
 import { fetchAdaptive } from './api'
+import PanelError from './PanelError'
 import { useLanguage } from './LanguageContext'
+import { usePanelData } from './usePanelData'
 import { useFormat } from './useFormat'
 import Tile from './Tile'
-import type { AdaptiveThresholdsState } from './types'
 
 /**
  * Разница со знаком.
@@ -33,24 +33,10 @@ function signed(value: number, format: (value: number) => string): string {
 export default function AdaptivePanel() {
   const { t } = useLanguage()
   const { formatCount, formatMoney, formatDateTime } = useFormat()
-  const [state, setState] = useState<AdaptiveThresholdsState | null>(null)
+  const { data: state, error } = usePanelData(fetchAdaptive)
 
-  useEffect(() => {
-    let cancelled = false
 
-    fetchAdaptive()
-      .then((payload) => {
-        if (!cancelled) setState(payload)
-      })
-      .catch(() => {
-        // Молча: без панели остальной дашборд работает как прежде.
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
+  if (error !== null) return <PanelError title={t('adaptive.title')} reason={error} />
   if (state === null || !state.available) return null
 
   const check = state.validation

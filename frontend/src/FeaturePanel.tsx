@@ -15,11 +15,11 @@
  * однажды разойдётся с реестром модели.
  */
 
-import { useEffect, useState } from 'react'
 
 import { fetchFeatureRegistry } from './api'
-import type { FeatureRegistry } from './types'
+import PanelError from './PanelError'
 import { useLanguage } from './LanguageContext'
+import { usePanelData } from './usePanelData'
 
 /** Величины, названные в брифинге §5.B поимённо. */
 const NAMED_IN_BRIEF = new Set([
@@ -50,25 +50,10 @@ function formatValue(
 
 export default function FeaturePanel({ features }: { features: Record<string, number> }) {
   const { t } = useLanguage()
-  const [registry, setRegistry] = useState<FeatureRegistry | null>(null)
+  const { data: registry, error } = usePanelData(fetchFeatureRegistry)
 
-  useEffect(() => {
-    let cancelled = false
 
-    fetchFeatureRegistry()
-      .then((payload) => {
-        if (!cancelled) setRegistry(payload)
-      })
-      .catch(() => {
-        // Молча: без справочника панель просто не появится, а вердикт
-        // и объяснение выше от него не зависят.
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
+  if (error !== null) return <PanelError title={t('sim.features')} reason={error} />
   if (registry === null) return null
 
   return (

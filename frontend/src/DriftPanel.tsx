@@ -13,7 +13,7 @@
  * загрузившейся аналитики выглядело бы как общая поломка.
  */
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 
 import Tile from './Tile'
 import { fetchDrift } from './api'
@@ -24,31 +24,18 @@ import {
   formatBinShare,
   formatPsi,
 } from './drift'
-import type { DriftReport, FeatureDrift } from './types'
+import type { FeatureDrift } from './types'
+import PanelError from './PanelError'
 import { useLanguage } from './LanguageContext'
+import { usePanelData } from './usePanelData'
 import { useFormat } from './useFormat'
 
 export default function DriftPanel() {
   const { t } = useLanguage()
   const { formatCount } = useFormat()
-  const [report, setReport] = useState<DriftReport | null>(null)
+  const { data: report, error } = usePanelData(fetchDrift)
   const [selected, setSelected] = useState<string>('')
 
-  useEffect(() => {
-    let cancelled = false
-
-    fetchDrift()
-      .then((payload) => {
-        if (!cancelled) setReport(payload)
-      })
-      .catch(() => {
-        // Намеренно молча: см. комментарий к модулю.
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   // По умолчанию раскрыт самый разошедшийся: он уже первый в списке,
   // и именно ради него панель открывают.
@@ -57,6 +44,7 @@ export default function DriftPanel() {
     return report.features.find((item) => item.name === selected) ?? report.features[0]
   }, [report, selected])
 
+  if (error !== null) return <PanelError title={t('drift.title')} reason={error} />
   if (report === null) return null
 
   const measurable = report.features.filter((item) => item.status !== 'NOT_MEASURABLE')
