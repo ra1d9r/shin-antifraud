@@ -65,6 +65,14 @@ export default function FeaturePanel({ features }: { features: Record<string, nu
         весь вектор, включая те признаки, которые на этой операции ничего не изменили.
         Выделены величины, названные в кейсе поимённо.
       </p>
+      <p className="hint">
+        Отдельного признака «клиент под VPN» здесь нет — его нет и в данных.
+        Подмена IP видна по следствию: адрес из другой подсети (
+        <code>ip_subnet_changed</code>) и требуемая скорость перемещения выше
+        авиационной (<code>travel_speed_kmh</code>,{' '}
+        <code>is_impossible_travel</code>). Прокси, выдающий себя за другую
+        страну, поднимает именно их.
+      </p>
 
       {registry.sections.map((section) => (
         <details key={section.section} className="context">
