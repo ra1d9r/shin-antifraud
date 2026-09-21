@@ -59,6 +59,7 @@
 | брифинг §4.1 | Батч-обработка операций | `POST /predict/batch`, `backend/app/api/routes/batch.py` | DONE |
 | брифинг §5.B | Симуляция потока транзакций | `POST /predict/stream`, `frontend/src/StreamPanel.tsx` | DONE |
 | брифинг §6 | Адаптивный порог риска (Dynamic Thresholds) | `backend/app/risk_engine/adaptive.py`, `GET /config/adaptive`, `frontend/src/AdaptivePanel.tsx` | DONE |
+| брифинг §6 | LLM-Ассистент: ответ клиенту про 2FA | `backend/app/assistant/`, `POST /explain/client`, `frontend/src/Simulator.tsx` | DONE |
 | §12 | `.env.example` | `.env.example` | DONE |
 | §12 | CORS | `backend/app/main.py` | DONE |
 | §12 | `requirements.txt` | `backend/requirements.txt` | DONE |

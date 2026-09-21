@@ -24,6 +24,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.api.deps import build_state
 from app.api.routes import (
     analytics,
+    assistant,
     batch,
     config,
     feature_list,
@@ -113,6 +114,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         health,
         predict,
         batch,
+        assistant,
         scenarios,
         stats,
         transactions,
