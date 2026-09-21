@@ -26,14 +26,8 @@
 
 from __future__ import annotations
 
-from typing import Literal
-
+from app.i18n import Language
 from app.schemas.enums import Decision
-
-Language = Literal["ru", "kk", "en"]
-
-LANGUAGES: tuple[Language, ...] = ("ru", "kk", "en")
-DEFAULT_LANGUAGE: Language = "ru"
 
 #: Как называется язык в промпте. Модели проще следовать названию
 #: языка, чем коду вроде `kk`.

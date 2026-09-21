@@ -75,7 +75,7 @@ const DECISION_CLASS: Record<Decision, string> = {
 }
 
 export default function Simulator() {
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
   const [scenarios, setScenarios] = useState<Scenario[]>([])
   const [activeScenario, setActiveScenario] = useState<string>('')
   const [form, setForm] = useState<FormState>({})
@@ -100,7 +100,7 @@ export default function Simulator() {
 
     async function load() {
       try {
-        const items = await fetchScenarios()
+        const items = await fetchScenarios(language)
         if (cancelled) return
         setScenarios(items)
         if (items.length > 0) {
@@ -117,7 +117,8 @@ export default function Simulator() {
     return () => {
       cancelled = true
     }
-  }, [])
+    // Описания сценариев приходят с backend: смена языка их перезапрашивает.
+  }, [language])
 
   const applyScenario = useCallback((scenario: Scenario) => {
     setActiveScenario(scenario.key)
@@ -144,7 +145,7 @@ export default function Simulator() {
     setError(null)
     try {
       const sent = { ...body, persist }
-      const result = await predict(sent)
+      const result = await predict(sent, language)
       setAnalysis((previous) => ({
         seq: (previous?.seq ?? 0) + 1,
         result,
@@ -167,7 +168,7 @@ export default function Simulator() {
     } finally {
       setLoading(false)
     }
-  }, [form, persist, t])
+  }, [form, persist, t, language])
 
   const currentScenario = useMemo(
     () => scenarios.find((item) => item.key === activeScenario),
@@ -205,7 +206,11 @@ export default function Simulator() {
           ))}
         </div>
         {currentScenario && (
-          <p className="hint">
+          // Описание сценария — не инженерный комментарий, а подпись
+          // к кнопке: без неё непонятно, чем пресеты отличаются.
+          // Скрывать его на казахском и английском было нечем оправдать
+          // с тех пор, как backend отдаёт его переведённым.
+          <p className="hint always-visible">
             {currentScenario.description} <br />
             <strong>{t('sim.expectation')}:</strong> {currentScenario.expectation}
           </p>

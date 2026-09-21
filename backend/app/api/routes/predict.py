@@ -15,10 +15,11 @@ from __future__ import annotations
 from fastapi import APIRouter, Response, status
 
 from app.api.deps import IdempotencyDep, ServiceDep
+from app.i18n import DEFAULT_LANGUAGE, Language
 from app.schemas.prediction import PredictionResponse
 from app.schemas.system import ErrorResponse
 from app.schemas.transaction import TransactionRequest
-from app.services.prediction_service import PredictionService
+from app.services.prediction_service import PredictionService, retranslate
 from app.store.idempotency import IdempotencyStore, fingerprint
 
 #: Заголовок, которым ответ признаётся повтором. Имя как у платёжных
@@ -69,8 +70,9 @@ def predict(
     service: ServiceDep,
     idempotency: IdempotencyDep,
     response: Response,
+    language: Language = DEFAULT_LANGUAGE,
 ) -> PredictionResponse:
-    result, replayed = predict_once(request, service, idempotency)
+    result, replayed = predict_once(request, service, idempotency, language)
     if replayed:
         response.headers[REPLAY_HEADER] = "true"
     return result
@@ -80,6 +82,7 @@ def predict_once(
     request: TransactionRequest,
     service: PredictionService,
     idempotency: IdempotencyStore | None,
+    language: Language = DEFAULT_LANGUAGE,
 ) -> tuple[PredictionResponse, bool]:
     """Одна операция с учётом идемпотентности.
 
@@ -98,13 +101,14 @@ def predict_once(
     # Режим «что если» последствий не оставляет, значит и повторять
     # ему нечего.
     if idempotency is None or not request.persist:
-        return service.predict(request), False
+        return service.predict(request, language), False
 
     digest = fingerprint(request.model_dump(mode="json"))
     replayed = idempotency.lookup(request.transaction_id, digest)
     if replayed is not None:
-        return replayed, True  # type: ignore[return-value]
+        # Язык в отпечаток не входит намеренно, см. `retranslate`.
+        return retranslate(replayed, language), True  # type: ignore[arg-type]
 
-    result = service.predict(request)
+    result = service.predict(request, language)
     idempotency.remember(request.transaction_id, digest, result)
     return result, False

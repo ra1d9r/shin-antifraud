@@ -11,6 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.features.definitions import FEATURE_NAMES, FEATURE_SPECS
+from app.i18n import LANGUAGES
 from app.main import create_app
 
 
@@ -57,7 +58,12 @@ def test_every_feature_has_a_section() -> None:
     """
     for spec in FEATURE_SPECS:
         assert spec.section, f"{spec.name} без раздела ТЗ"
-        assert spec.section.startswith("§4"), f"{spec.name}: раздел «{spec.section}»"
+        # Номер пункта ТЗ одинаков на всех трёх языках: это ссылка
+        # на документ, а не текст. Перевод, потерявший номер, оставил бы
+        # читателя без способа найти первоисточник.
+        for language in LANGUAGES:
+            section = spec.section.get(language)
+            assert section.startswith("§4"), f"{spec.name}/{language}: раздел «{section}»"
 
 
 def test_registry_covers_the_whole_vector(registry) -> None:

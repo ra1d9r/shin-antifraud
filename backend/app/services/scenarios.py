@@ -23,6 +23,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
+from app.i18n import Text
 from app.schemas.enums import ScenarioKey
 from app.schemas.transaction import TransactionRequest
 
@@ -80,8 +81,8 @@ class Scenario:
 
     key: ScenarioKey
     title: str
-    description: str
-    expectation: str
+    description: Text
+    expectation: Text
     changed_from_normal: tuple[str, ...]
     request: dict
 
@@ -93,36 +94,83 @@ SCENARIOS: tuple[Scenario, ...] = (
     Scenario(
         key=ScenarioKey.NORMAL,
         title="Normal transaction",
-        description=(
-            "Обычная покупка в продуктовом: привычная сумма, знакомое устройство, "
-            "домашняя страна, нормальная частота операций."
+        description=Text(
+            ru=(
+                "Обычная покупка в продуктовом: привычная сумма, знакомое устройство, "
+                "домашняя страна, нормальная частота операций."
+            ),
+            kk=(
+                "Азық-түлік дүкеніндегі әдеттегі сатып алу: таныс сома, таныс құрылғы, үй "
+                "елі, қалыпты операция жиілігі."
+            ),
+            en=(
+                "An ordinary grocery purchase: a familiar amount, a known device, the home "
+                "country and a normal transaction rate."
+            ),
         ),
-        expectation="низкий Risk Score, решение APPROVE",
+        expectation=Text(
+            ru="низкий Risk Score, решение APPROVE",
+            kk="төмен Risk Score, APPROVE шешімі",
+            en="a low Risk Score, decision APPROVE",
+        ),
         changed_from_normal=(),
         request=_base(),
     ),
     Scenario(
         key=ScenarioKey.NEW_DEVICE,
         title="New device",
-        description=(
-            "Та же покупка, но с незнакомого устройства и из незнакомой сети. "
-            "Именно такая пара сигналов — сигнатура входа злоумышленника; "
-            "новый телефон в домашней сети система намеренно не считает "
-            "поводом для проверки."
+        description=Text(
+            ru=(
+                "Та же покупка, но с незнакомого устройства и из незнакомой сети. Именно "
+                "такая пара сигналов — сигнатура входа злоумышленника; новый телефон в "
+                "домашней сети система намеренно не считает поводом для проверки."
+            ),
+            kk=(
+                "Сол сатып алу, бірақ бейтаныс құрылғыдан және бейтаныс желіден. Дәл "
+                "осындай екі белгі қатар келгені — шабуылдаушы кірген сәттің қолтаңбасы; үй "
+                "желісіндегі жаңа телефонды жүйе тексеру себебі деп әдейі санамайды."
+            ),
+            en=(
+                "The same purchase, but from an unfamiliar device and an unfamiliar "
+                "network. That pair of signals together is the signature of an intruder "
+                "signing in; a new phone on the home network is deliberately not treated as "
+                "a reason to check."
+            ),
         ),
-        expectation="Risk Score заметно выше, чем в сценарии 1",
+        expectation=Text(
+            ru="Risk Score заметно выше, чем в сценарии 1",
+            kk="Risk Score 1-сценарийдегіден айтарлықтай жоғары",
+            en="a Risk Score noticeably higher than in scenario 1",
+        ),
         changed_from_normal=("device_id", "ip_address"),
         request=_base(device_id="dev_unknown_77", ip_address="203.0.113.7"),
     ),
     Scenario(
         key=ScenarioKey.UNUSUAL_COUNTRY,
         title="Unusual country",
-        description=(
-            "Клиент обычно платит из Казахстана, а операция идёт из Нигерии. "
-            "Прошло 20 часов — долететь можно, так что невозможного перемещения "
-            "здесь нет. IP местный: человек физически находится в другой стране."
+        description=Text(
+            ru=(
+                "Клиент обычно платит из Казахстана, а операция идёт из Нигерии. Прошло 20 "
+                "часов — долететь можно, так что невозможного перемещения здесь нет. IP "
+                "местный: человек физически находится в другой стране."
+            ),
+            kk=(
+                "Клиент әдетте Қазақстаннан төлейді, ал операция Нигериядан келіп тұр. 20 "
+                "сағат өткен — ұшып жетуге болады, сондықтан мұнда мүмкін емес орын "
+                "ауыстыру жоқ. IP жергілікті: адам шын мәнінде басқа елде."
+            ),
+            en=(
+                "The client usually pays from Kazakhstan, but this transaction comes from "
+                "Nigeria. Twenty hours have passed — the flight is possible, so there is no "
+                "impossible travel here. The IP is local: the person is physically in "
+                "another country."
+            ),
         ),
-        expectation="повышенный риск",
+        expectation=Text(
+            ru="повышенный риск",
+            kk="жоғарылаған тәуекел",
+            en="elevated risk",
+        ),
         changed_from_normal=("country", "latitude", "longitude", "ip_address", "previous_timestamp"),
         request=_base(
             country="NG",
@@ -135,24 +183,56 @@ SCENARIOS: tuple[Scenario, ...] = (
     Scenario(
         key=ScenarioKey.LARGE_AMOUNT,
         title="Large amount",
-        description=(
-            "Сумма в 25 раз выше обычной для клиента. Всё остальное привычно: "
-            "своё устройство, домашняя страна, своя сеть."
+        description=Text(
+            ru=(
+                "Сумма в 25 раз выше обычной для клиента. Всё остальное привычно: своё "
+                "устройство, домашняя страна, своя сеть."
+            ),
+            kk=(
+                "Сома клиенттің әдеттегісінен 25 есе жоғары. Қалғанының бәрі таныс: өз "
+                "құрылғысы, үй елі, өз желісі."
+            ),
+            en=(
+                "The amount is 25 times the client's usual. Everything else is familiar: "
+                "their own device, the home country, their own network."
+            ),
         ),
-        expectation="повышенный риск",
+        expectation=Text(
+            ru="повышенный риск",
+            kk="жоғарылаған тәуекел",
+            en="elevated risk",
+        ),
         changed_from_normal=("amount",),
         request=_base(amount=2500.0),
     ),
     Scenario(
         key=ScenarioKey.MULTIPLE_ANOMALIES,
         title="Multiple anomalies",
-        description=(
-            "Захват аккаунта ночью: крупная сумма, незнакомое устройство и сеть, "
-            "чужая страна повышенного риска, всплеск частоты операций и "
-            "физически невозможное перемещение — операция в Нигерии через "
-            "22 минуты после операции в Казахстане."
+        description=Text(
+            ru=(
+                "Захват аккаунта ночью: крупная сумма, незнакомое устройство и сеть, чужая "
+                "страна повышенного риска, всплеск частоты операций и физически невозможное "
+                "перемещение — операция в Нигерии через 22 минуты после операции в "
+                "Казахстане."
+            ),
+            kk=(
+                "Түнгі аккаунт басып алу: ірі сома, бейтаныс құрылғы мен желі, жоғары "
+                "тәуекелді бөтен ел, операция жиілігінің күрт өсуі және физикалық мүмкін "
+                "емес орын ауыстыру — Қазақстандағы операциядан кейін 22 минут өткенде "
+                "Нигериядағы операция."
+            ),
+            en=(
+                "A night-time account takeover: a large amount, an unfamiliar device and "
+                "network, a foreign high-risk country, a spike in transaction rate and "
+                "physically impossible travel — a transaction in Nigeria 22 minutes after "
+                "one in Kazakhstan."
+            ),
         ),
-        expectation="высокий Risk Score, решение BLOCK",
+        expectation=Text(
+            ru="высокий Risk Score, решение BLOCK",
+            kk="жоғары Risk Score, BLOCK шешімі",
+            en="a high Risk Score, decision BLOCK",
+        ),
         changed_from_normal=(
             "amount", "device_id", "ip_address", "country", "latitude", "longitude",
             "transaction_frequency", "txn_count_last_hour", "merchant",
@@ -176,13 +256,30 @@ SCENARIOS: tuple[Scenario, ...] = (
     Scenario(
         key=ScenarioKey.HIGH_FREQUENCY,
         title="High frequency",
-        description=(
-            "Всплеск числа операций при прочих привычных параметрах: та же "
-            "сумма, своё устройство, домашняя страна, своя сеть. Изолирует "
-            "признак частоты — так выглядит начало автоматизированного "
-            "перебора, когда сумма ещё не выросла."
+        description=Text(
+            ru=(
+                "Всплеск числа операций при прочих привычных параметрах: та же сумма, своё "
+                "устройство, домашняя страна, своя сеть. Изолирует признак частоты — так "
+                "выглядит начало автоматизированного перебора, когда сумма ещё не выросла."
+            ),
+            kk=(
+                "Басқа параметрлері әдеттегідей болса да операция санының күрт өсуі: сол "
+                "сома, өз құрылғысы, үй елі, өз желісі. Жиілік белгісін бөліп көрсетеді — "
+                "автоматтандырылған іріктеудің басы осылай көрінеді, сома әлі өспеген "
+                "кезде."
+            ),
+            en=(
+                "A spike in the number of transactions while everything else stays usual: "
+                "the same amount, their own device, the home country, their own network. It "
+                "isolates the frequency signal — this is what the start of an automated "
+                "sweep looks like, before the amounts grow."
+            ),
         ),
-        expectation="повышенный риск",
+        expectation=Text(
+            ru="повышенный риск",
+            kk="жоғарылаған тәуекел",
+            en="elevated risk",
+        ),
         changed_from_normal=("transaction_frequency", "txn_count_last_hour", "previous_timestamp"),
         request=_base(
             transaction_frequency=22,

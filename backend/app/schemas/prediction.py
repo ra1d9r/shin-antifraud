@@ -12,6 +12,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
+from app.i18n import DEFAULT_LANGUAGE, Language
 from app.schemas.enums import Decision, ImpactDirection, RiskLevel
 
 
@@ -105,6 +106,15 @@ class PredictionResponse(BaseModel):
 
     processing_ms: float = Field(description="Время обработки на стороне сервера, мс")
 
+    language: Language = Field(
+        default=DEFAULT_LANGUAGE,
+        description=(
+            "Язык, на котором написаны пояснения в этом ответе "
+            "(брифинг §6). Задаётся параметром `?language=` запроса; "
+            "по умолчанию русский."
+        ),
+    )
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def decision_meaning(self) -> str:
@@ -117,7 +127,7 @@ class PredictionResponse(BaseModel):
         интерфейс ничего не вычисляет сам).
 
         Вычисляемое поле, а не обычное: значение однозначно следует
-        из `decision`, и отдельное поле можно было бы заполнить
-        несогласованно.
+        из `decision` и `language`, и отдельное поле можно было бы
+        заполнить несогласованно.
         """
-        return self.decision.meaning
+        return self.decision.meaning_in(self.language)

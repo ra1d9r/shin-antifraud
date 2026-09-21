@@ -45,7 +45,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.assistant import phrases
-from app.assistant.phrases import DEFAULT_LANGUAGE, Language
+from app.i18n import DEFAULT_LANGUAGE, Language
 from app.schemas.enums import Decision
 from app.schemas.prediction import PredictionResponse
 from app.schemas.transaction import TransactionRequest

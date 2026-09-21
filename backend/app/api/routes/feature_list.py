@@ -16,6 +16,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from app.features.definitions import FEATURE_SPECS
+from app.i18n import DEFAULT_LANGUAGE, Language
 from app.schemas.features import FeatureInfo, FeatureRegistry, FeatureSection
 
 router = APIRouter(tags=["features"])
@@ -32,20 +33,24 @@ router = APIRouter(tags=["features"])
         "по ним число из вектора соединяется со своим описанием.\n\n"
         "Справочник статичен и отдаётся отдельно: описания не меняются "
         "от транзакции к транзакции, и возить их в каждом ответе "
-        "было бы расточительством."
+        "было бы расточительством.\n\n"
+        "Названия разделов и описания переводятся параметром "
+        "`?language=` (брифинг §6). Технические имена признаков "
+        "не переводятся: по ним число из вектора соединяется "
+        "с описанием, и они одинаковы на всех языках."
     ),
 )
-def feature_registry() -> FeatureRegistry:
+def feature_registry(language: Language = DEFAULT_LANGUAGE) -> FeatureRegistry:
     # Порядок разделов — порядок первого появления в реестре, то есть
     # порядок вектора. Сортировать по названию значило бы разорвать
     # группы признаков, которые считаются вместе.
     sections: dict[str, list[FeatureInfo]] = {}
     for index, spec in enumerate(FEATURE_SPECS):
-        sections.setdefault(spec.section, []).append(
+        sections.setdefault(spec.section.get(language), []).append(
             FeatureInfo(
                 index=index,
                 name=spec.name,
-                description=spec.description,
+                description=spec.description.get(language),
                 is_flag=spec.is_flag,
                 decimals=spec.decimals,
                 reason_high=spec.reason_high,

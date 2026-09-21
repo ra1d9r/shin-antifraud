@@ -12,7 +12,8 @@ from app.assistant.message import (
     fallback_text,
     needs_assistant,
 )
-from app.assistant.phrases import DEFAULT_LANGUAGE, LANGUAGES, Language, system_prompt
+from app.assistant.phrases import system_prompt
+from app.i18n import DEFAULT_LANGUAGE, LANGUAGES, Language
 
 __all__ = [
     "DEFAULT_LANGUAGE",
