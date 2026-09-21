@@ -453,3 +453,95 @@ def test_answer_in_the_right_language_is_shown(client, monkeypatch) -> None:
     assert payload["source"] == "llm"
     assert payload["text"] == generated
     assert payload["fallback_reason"] is None
+
+
+# ------------------------------------------- обрыв ответа по лимиту
+
+
+def test_truncated_answer_falls_back(client, monkeypatch) -> None:
+    """Ответ, оборванный лимитом токенов, клиенту не показывается.
+
+    Провайдер отдаёт такой ответ кодом 200 и с виду целым — обрыв виден
+    только по `finish_reason`. Режется при этом конец, то есть указание,
+    что делать дальше: сообщение объяснило задержку и не сказало, как
+    её снять. Запасное говорит.
+
+    Случай найден на живом ответе: на казахском текст обрывался при
+    лимите, которого русскому и английскому хватало.
+    """
+    def fake_post(url, *, json, headers, timeout):
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "message": {"content": "Операцияны сіз растағанша тоқтата тұрдық. Егер бұл ауда"},
+                        "finish_reason": "length",
+                    }
+                ]
+            },
+            request=httpx.Request("POST", url),
+        )
+
+    monkeypatch.setattr(llm_module.httpx, "post", fake_post)
+    monkeypatch.setattr(
+        client.app.state.shin.settings, "llm_api_key", Settings(llm_api_key=SECRET).llm_api_key
+    )
+
+    payload = client.post("/explain/client?language=kk", json=transaction()).json()
+
+    assert payload["source"] == "fallback"
+    assert "оборвался" in payload["fallback_reason"]
+    assert "Егер бұл ауда" not in payload["text"], "обрубок дошёл до клиента"
+
+
+def test_complete_answer_is_not_mistaken_for_truncated(client, monkeypatch) -> None:
+    """Обратная сторона: целый ответ обязан доходить.
+
+    Без этой проверки условие, отвергающее всё подряд, выглядело бы
+    работающим.
+    """
+    generated = "Операцияны сіз растағанша тоқтата тұрдық. Ақша есептен шығарылған жоқ."
+
+    def fake_post(url, *, json, headers, timeout):
+        return httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": generated}, "finish_reason": "stop"}]},
+            request=httpx.Request("POST", url),
+        )
+
+    monkeypatch.setattr(llm_module.httpx, "post", fake_post)
+    monkeypatch.setattr(
+        client.app.state.shin.settings, "llm_api_key", Settings(llm_api_key=SECRET).llm_api_key
+    )
+
+    payload = client.post("/explain/client?language=kk", json=transaction()).json()
+
+    assert payload["source"] == "llm"
+    assert payload["text"] == generated
+
+
+def test_missing_finish_reason_does_not_break_the_answer(client, monkeypatch) -> None:
+    """Провайдер вправе не прислать поле вовсе.
+
+    Чужой ответ — данные, а не гарантия формы. Отсутствие признака
+    обрыва не повод отказываться от целого текста.
+    """
+    generated = "Мы приостановили операцию до вашего подтверждения. Деньги не списаны."
+
+    def fake_post(url, *, json, headers, timeout):
+        return httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": generated}}]},
+            request=httpx.Request("POST", url),
+        )
+
+    monkeypatch.setattr(llm_module.httpx, "post", fake_post)
+    monkeypatch.setattr(
+        client.app.state.shin.settings, "llm_api_key", Settings(llm_api_key=SECRET).llm_api_key
+    )
+
+    payload = client.post("/explain/client?language=ru", json=transaction()).json()
+
+    assert payload["source"] == "llm"
+    assert payload["text"] == generated

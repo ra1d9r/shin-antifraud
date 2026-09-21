@@ -141,7 +141,8 @@ def _extract_text(response: httpx.Response) -> str:
     """
     try:
         body = response.json()
-        text = body["choices"][0]["message"]["content"]
+        choice = body["choices"][0]
+        text = choice["message"]["content"]
     except Exception as exc:
         raise LlmUnavailableError(
             f"Ответ языковой модели не разобран ({type(exc).__name__})"
@@ -149,5 +150,26 @@ def _extract_text(response: httpx.Response) -> str:
 
     if not isinstance(text, str) or not text.strip():
         raise LlmUnavailableError("Языковая модель вернула пустой ответ")
+
+    # Обрыв по лимиту токенов. Провайдер отдаёт такой ответ кодом 200
+    # и с виду целым — обрыв виден только по `finish_reason`.
+    #
+    # Оборванный текст показывать нельзя. Он режется на полуслове,
+    # и первым исчезает конец — то есть указание, что клиенту делать
+    # дальше. Сообщение, которое объяснило задержку и не сказало, как
+    # её снять, хуже запасного, который говорит.
+    #
+    # Обрезать до последнего целого предложения тоже не годится
+    # по той же причине: обрезается ровно то, что нужнее всего.
+    #
+    # Случай не теоретический: на казахском ответ обрывался при лимите,
+    # которого русскому и английскому хватало. Специфичные казахские
+    # буквы редки в словаре токенизатора, и один и тот же смысл стоит
+    # там заметно дороже.
+    if choice.get("finish_reason") == "length":
+        raise LlmUnavailableError(
+            "Ответ языковой модели оборвался на середине: не хватило "
+            "лимита токенов (LLM_MAX_TOKENS)."
+        )
 
     return text.strip()
