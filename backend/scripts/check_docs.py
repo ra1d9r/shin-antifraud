@@ -25,6 +25,8 @@ ROC-AUC 0.9959, тогда как модель давала 0.9910.
 | число сценариев | `app/services/scenarios.py` |
 | упомянутые скрипты | файлы в `backend/scripts/` |
 | обязательные разделы | ТЗ §14 |
+| разделы «Финальной выдачи» | ТЗ, список финальной выдачи |
+| ссылки вида «см. „Раздел“» | заголовки самого README |
 """
 
 from __future__ import annotations
@@ -80,6 +82,44 @@ def check_sections(readme: str) -> list[str]:
                 f"раздел {index + 1}: ожидалось «{expected}», найдено «{headings[index]}»"
             )
     return problems
+
+
+#: Ненумерованные разделы, которые требует «Финальная выдача» ТЗ.
+#: Отдельным списком, потому что §14 их не нумерует, а `check_sections`
+#: сверяет именно нумерованные — и «Возможные улучшения» когда-то
+#: выпал из README, хотя ссылки на него в тексте остались.
+REQUIRED_EXTRA_SECTIONS = [
+    "Возможные улучшения",
+    "Документация проекта",
+]
+
+
+def check_extra_sections(readme: str) -> list[str]:
+    """Разделы из «Финальной выдачи», которые §14 не нумерует."""
+    headings = re.findall(r"^##\s+(.+)$", readme, re.M)
+    return [
+        f"нет раздела «{expected}»"
+        for expected in REQUIRED_EXTRA_SECTIONS
+        if not any(expected.lower() in heading.lower() for heading in headings)
+    ]
+
+
+def check_section_references(readme: str) -> list[str]:
+    """Ссылки вида «см. „Название“» ведут в существующий раздел.
+
+    Дважды ссылаться на раздел, которого нет, — ровно то, что случилось
+    с «Возможными улучшениями»: текст обещал подробности, а идти
+    за ними было некуда.
+    """
+    headings = [h.lower() for h in re.findall(r"^#{2,3}\s+(.+)$", readme, re.M)]
+    problems = []
+    for name in set(re.findall(r"«([А-ЯЁ][^»]{4,40})»", readme)):
+        # Ссылка — это упоминание рядом со словом «см.» или «раздел».
+        if not re.search(rf"(см\.|раздел[еа]?)\s*«{re.escape(name)}»", readme):
+            continue
+        if not any(name.lower() in heading for heading in headings):
+            problems.append(f"ссылка на «{name}» — такого раздела нет")
+    return sorted(problems)
 
 
 def check_metrics(readme: str) -> list[str]:
@@ -179,6 +219,8 @@ def main() -> int:
 
     checks = [
         ("Обязательные разделы ТЗ §14", check_sections),
+        ("Разделы «Финальной выдачи»", check_extra_sections),
+        ("Ссылки на разделы", check_section_references),
         ("Метрики модели", check_metrics),
         ("Результаты сценариев", check_scenarios),
         ("Числа о составе системы", check_counts),
