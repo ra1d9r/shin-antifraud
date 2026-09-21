@@ -139,6 +139,20 @@ class IdempotencyStore:
             self._replays += 1
             return stored.response
 
+    def has_conflict(self, transaction_id: str, digest: str) -> bool:
+        """Занят ли номер операции другими данными.
+
+        Отличается от `lookup` тем, что ничего не меняет: не считает
+        повторы, не двигает запись от края вытеснения и не бросает
+        исключение. Нужна партии, которая обязана найти все конфликты
+        **до** того, как обработает хоть одну операцию, — иначе падение
+        на середине оставило бы часть партии записанной, а клиент
+        получил бы только ошибку и не знал, что именно прошло.
+        """
+        with self._lock:
+            stored = self._entries.get(transaction_id)
+            return stored is not None and stored.digest != digest
+
     def remember(self, transaction_id: str, digest: str, response: object) -> None:
         with self._lock:
             self._entries[transaction_id] = StoredResult(digest=digest, response=response)

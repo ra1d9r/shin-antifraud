@@ -37,7 +37,6 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from app.schemas.enums import Decision
 from app.schemas.prediction import PredictionResponse
 from app.schemas.transaction import TransactionRequest
 
@@ -48,13 +47,6 @@ LIGHT = "-" * WIDTH
 #: Что решение означает на практике. Формулировки совпадают с таблицей
 #: ТЗ §6 и описанием в Swagger. Полнота набора закреплена тестом:
 #: новое решение без пояснения не должно проскочить молча.
-DECISION_MEANING: dict[Decision, str] = {
-    Decision.APPROVE: "транзакция проходит, клиент ничего не заметил",
-    Decision.CHALLENGE: "нужна дополнительная проверка или 2FA",
-    Decision.BLOCK: "транзакция блокируется",
-}
-
-
 def _money(value: float) -> str:
     """Сумма с разделением разрядов. Пробел, а не запятая, — как в отчётах скриптов."""
     return f"{value:,.2f}".replace(",", " ")
@@ -124,7 +116,7 @@ def render_transaction_report(
             f" < CHALLENGE <= {response.thresholds.challenge_max} < BLOCK",
         ),
         "",
-        f"  Что это значит: {DECISION_MEANING[response.decision]}.",
+        f"  Что это значит: {response.decision.meaning}.",
     ]
 
     # ------------------------------------------------------------- почему

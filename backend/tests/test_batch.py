@@ -146,6 +146,68 @@ def test_same_number_with_other_data_is_a_conflict(client) -> None:
     assert response.status_code == 409
 
 
+def test_a_conflict_in_the_middle_leaves_no_trace(client) -> None:
+    """Отказ по занятому номеру не оставляет половину партии записанной.
+
+    Так было до проверки номеров: операции обрабатывались по очереди,
+    конфликт возникал на третьей, и первые две уже лежали в истории
+    и сдвинули профили. Клиент получал 409 и не знал, что именно прошло,
+    а повторить партию не мог — тот же конфликт возникал снова.
+    """
+    client.post("/predict", json=transaction(transaction_id="occupied", amount=11.0))
+    before = client.get("/transactions").json()["total"]
+
+    response = client.post(
+        "/predict/batch",
+        json={
+            "transactions": [
+                transaction(transaction_id="fresh_1"),
+                transaction(transaction_id="fresh_2"),
+                transaction(transaction_id="occupied", amount=999.0),
+                transaction(transaction_id="fresh_3"),
+            ]
+        },
+    )
+
+    assert response.status_code == 409
+    assert client.get("/transactions").json()["total"] == before, (
+        "ни одна операция партии не должна быть записана"
+    )
+    # Виновник назван: без этого клиенту пришлось бы искать его перебором.
+    assert "occupied" in response.json()["details"]["transaction_ids"]
+
+
+def test_the_same_number_twice_inside_one_batch_is_a_conflict(client) -> None:
+    """Дубликат номера внутри партии ловится так же, как занятый снаружи.
+
+    Первая из двух записала бы номер, вторая упала бы на конфликте —
+    и снова с половиной партии в истории.
+    """
+    response = client.post(
+        "/predict/batch",
+        json={
+            "transactions": [
+                transaction(transaction_id="twin", amount=100.0),
+                transaction(transaction_id="twin", amount=200.0),
+            ]
+        },
+    )
+
+    assert response.status_code == 409
+    assert client.get("/transactions").json()["total"] == 0
+
+
+def test_the_same_number_twice_with_the_same_body_is_allowed(client) -> None:
+    """А вот дословный дубликат — это повтор, и он безопасен по построению."""
+    body = transaction(transaction_id="echo")
+    response = client.post("/predict/batch", json={"transactions": [body, body]})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["replayed"] == 1, "вторая копия обслужена повтором"
+    assert client.get("/transactions").json()["total"] == 1
+
+
 def test_batch_size_is_capped(client) -> None:
     """Ответ содержит полный разбор каждой операции, поэтому партия ограничена."""
     body = {"transactions": [transaction() for _ in range(MAX_BATCH + 1)]}

@@ -63,24 +63,6 @@ const DECISION_CLASS: Record<Decision, string> = {
   BLOCK: 'block',
 }
 
-/**
- * Что решение означает для клиента.
- *
- * Брифинг §4.3 называет действие «Challenge/2FA (Доп. проверка)», а §10.3
- * описывает его как «запрос на биометрическую верификацию (2FA)». Одно
- * слово CHALLENGE этого не передаёт: по нему не понять, ушли деньги или
- * нет и что теперь произойдёт с клиентом.
- *
- * Подпись только в вердикте симулятора. В таблицах дашборда решение —
- * это метка в строке из сотен, и русская фраза в каждой строке мешала бы
- * видеть распределение, ради которого таблицу и читают.
- */
-const DECISION_MEANING: Record<Decision, string> = {
-  APPROVE: 'операция проходит, клиент ничего не заметил',
-  CHALLENGE: 'нужно подтверждение владельца — 2FA или биометрия',
-  BLOCK: 'операция отклонена',
-}
-
 export default function Simulator() {
   const [scenarios, setScenarios] = useState<Scenario[]>([])
   const [activeScenario, setActiveScenario] = useState<string>('')
@@ -516,7 +498,7 @@ function Result({ result }: { result: PredictionResponse }) {
         </div>
         <div className="verdict-meta">
           <div className="decision">{result.decision}</div>
-          <div className="decision-meaning">{DECISION_MEANING[result.decision]}</div>
+          <div className="decision-meaning">{result.decision_meaning}</div>
           <div className="level">Risk Level: {result.risk_level}</div>
           <div className="muted">
             модель дала {result.model_score}

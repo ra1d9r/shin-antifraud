@@ -70,18 +70,23 @@ def predict(
     idempotency: IdempotencyDep,
     response: Response,
 ) -> PredictionResponse:
-    result, replayed = _predict_once(request, service, idempotency)
+    result, replayed = predict_once(request, service, idempotency)
     if replayed:
         response.headers[REPLAY_HEADER] = "true"
     return result
 
 
-def _predict_once(
+def predict_once(
     request: TransactionRequest,
     service: PredictionService,
     idempotency: IdempotencyStore | None,
 ) -> tuple[PredictionResponse, bool]:
     """Одна операция с учётом идемпотентности.
+
+    Публичная, потому что ей пользуется соседний роут: партия обязана
+    получить ту же гарантию, что и одиночный запрос. Импортировать
+    подчёркнутое имя из другого модуля значило бы притвориться, что
+    это внутренняя деталь, хотя это общий контракт двух роутов.
 
     Вынесено, чтобы партия получила ту же гарантию, что и одиночный
     запрос. Без неё повтор партии, оборвавшейся на сети, удвоил бы
