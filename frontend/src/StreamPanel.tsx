@@ -28,11 +28,13 @@ const SIZES = [100, 300, 500] as const
 
 export default function StreamPanel({ onFinished }: { onFinished: () => void }) {
   const [summary, setSummary] = useState<StreamSummary | null>(null)
-  const [running, setRunning] = useState(false)
+  // Не булево «идёт прогон», а сколько именно операций гоним: при трёх
+  // кнопках под общей подписью «Идёт прогон…» непонятно, какая нажата.
+  const [running, setRunning] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   async function run(count: number) {
-    setRunning(true)
+    setRunning(count)
     setError(null)
     try {
       const payload = await runStream(count)
@@ -43,7 +45,7 @@ export default function StreamPanel({ onFinished }: { onFinished: () => void }) 
         cause instanceof ApiError ? cause.message : 'Не удалось прогнать поток',
       )
     } finally {
-      setRunning(false)
+      setRunning(null)
     }
   }
 
@@ -63,13 +65,18 @@ export default function StreamPanel({ onFinished }: { onFinished: () => void }) 
 
       <div className="scenario-buttons">
         {SIZES.map((size) => (
-          <button key={size} type="button" disabled={running} onClick={() => run(size)}>
-            {running ? 'Идёт прогон…' : `Прогнать ${size}`}
+          <button
+            key={size}
+            type="button"
+            disabled={running !== null}
+            onClick={() => run(size)}
+          >
+            {running === size ? `Идёт прогон ${size}…` : `Прогнать ${size}`}
           </button>
         ))}
       </div>
 
-      {running && (
+      {running !== null && (
         <p className="hint">
           Каждая операция проходит полную цепочку, включая SHAP-объяснение. На бесплатном
           хостинге это занимает десятки секунд.
@@ -78,7 +85,7 @@ export default function StreamPanel({ onFinished }: { onFinished: () => void }) 
 
       {error && <p className="warn-text">{error}</p>}
 
-      {summary && !running && (
+      {summary && running === null && (
         <>
           <div className="tiles">
             <Tile label="Операций прогнано" value={formatCount(summary.processed)} />

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from app.schemas.enums import Decision, ImpactDirection, RiskLevel
 
@@ -96,3 +96,20 @@ class PredictionResponse(BaseModel):
     features: dict[str, float] = Field(description="Полный вектор признаков транзакции")
 
     processing_ms: float = Field(description="Время обработки на стороне сервера, мс")
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def decision_meaning(self) -> str:
+        """Что решение означает для клиента.
+
+        В ответе, а не в интерфейсе: это утверждение системы о своём
+        решении, такое же как `explanation.summary`. Пока формулировка
+        жила на клиенте, она успела разойтись с текстовым отчётом —
+        одно решение описывалось двумя разными фразами (ТЗ §11:
+        интерфейс ничего не вычисляет сам).
+
+        Вычисляемое поле, а не обычное: значение однозначно следует
+        из `decision`, и отдельное поле можно было бы заполнить
+        несогласованно.
+        """
+        return self.decision.meaning

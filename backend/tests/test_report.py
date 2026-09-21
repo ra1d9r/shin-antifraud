@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 
 from app.config.settings import Settings
 from app.main import create_app
-from app.reports.transaction import DECISION_MEANING, render_transaction_report
+from app.reports.transaction import render_transaction_report
 from app.schemas.enums import Decision
 
 BASE_TIME = datetime(2026, 9, 1, 3, 14, 0)
@@ -90,8 +90,13 @@ def test_every_decision_has_a_meaning() -> None:
 
     Иначе отчёт по нему упал бы с KeyError уже в проде — на операции,
     которую как раз и надо объяснить.
+
+    Формулировка живёт при самом решении (`Decision.meaning`), а не
+    в отчёте: её показывает ещё и вердикт интерфейса, и пока копий было
+    две, они успели разойтись.
     """
-    assert set(DECISION_MEANING) == set(Decision)
+    for decision in Decision:
+        assert decision.meaning.strip(), f"{decision} без пояснения"
 
 
 def test_report_answers_what_was_decided_and_why(client) -> None:
@@ -100,7 +105,7 @@ def test_report_answers_what_was_decided_and_why(client) -> None:
     # Что решено.
     assert "txn_report" in text
     assert "РЕШЕНИЕ: BLOCK" in text
-    assert DECISION_MEANING[Decision.BLOCK] in text
+    assert Decision.BLOCK.meaning in text
     # Почему.
     assert "ПОЧЕМУ" in text
     assert "Сработавшие политики:" in text

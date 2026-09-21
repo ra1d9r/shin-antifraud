@@ -22,7 +22,7 @@ from functools import lru_cache
 from fastapi import APIRouter, status
 
 from app.api.deps import IdempotencyDep, ServiceDep
-from app.api.routes.predict import _predict_once
+from app.api.routes.predict import predict_once
 from app.core.logging import get_logger
 from app.features.builder import parse_device_list
 from app.schemas.batch import (
@@ -36,6 +36,7 @@ from app.schemas.enums import Decision
 from app.schemas.prediction import PredictionResponse
 from app.schemas.system import ErrorResponse
 from app.schemas.transaction import TransactionRequest
+from app.store.idempotency import IdempotencyConflictError, IdempotencyStore, fingerprint
 
 logger = get_logger("shin.api.batch")
 
@@ -67,6 +68,57 @@ def _pool():
     return generate_dataset(rows=POOL_ROWS, users=POOL_USERS, seed=POOL_SEED)
 
 
+def _reject_conflicts(
+    transactions: list[TransactionRequest],
+    idempotency: IdempotencyStore | None,
+) -> None:
+    """Найти занятые номера до того, как хоть одна операция обработана.
+
+    Без этой проверки партия падала на середине: первые операции уже
+    записаны в историю и сдвинули профили, а клиент получал 409 и не мог
+    узнать, что именно прошло. Повторить партию он тоже не мог — тот же
+    конфликт возникал снова.
+
+    Ищутся два вида конфликтов: номер, занятый прежней операцией,
+    и повтор номера внутри самой партии с другим телом.
+
+    Гарантия узкая и намеренно не называется атомарностью: проверка
+    закрывает конфликт номеров, а не гонку с параллельным запросом,
+    который займёт номер между проверкой и обработкой. Такая гонка
+    оставит партию наполовину обработанной — но она требует, чтобы
+    два клиента одновременно прислали разные операции под одним
+    номером, и повтор партии после неё уже безопасен.
+    """
+    if idempotency is None:
+        return
+
+    seen: dict[str, str] = {}
+    clashing: list[str] = []
+
+    for transaction in transactions:
+        if not transaction.persist:
+            # Режим «что если» ничего не запоминает, значит и занять
+            # номер не может.
+            continue
+
+        digest = fingerprint(transaction.model_dump(mode="json"))
+        previous = seen.get(transaction.transaction_id)
+        if (previous is not None and previous != digest) or idempotency.has_conflict(
+            transaction.transaction_id, digest
+        ):
+            clashing.append(transaction.transaction_id)
+        seen[transaction.transaction_id] = digest
+
+    if clashing:
+        raise IdempotencyConflictError(
+            f"Номера операций заняты другими данными: {', '.join(sorted(set(clashing)))}. "
+            "Партия не обработана целиком — ни одна операция не записана. "
+            "Повтор с тем же номером должен содержать то же тело запроса; "
+            "для другой операции задайте другой transaction_id.",
+            details={"transaction_ids": sorted(set(clashing))},
+        )
+
+
 def _tally(results: list[PredictionResponse]) -> tuple[dict[str, int], dict[str, int], float]:
     """Распределение решений, срабатывания политик и средний балл."""
     decisions = Counter(item.decision.value for item in results)
@@ -91,9 +143,15 @@ def _tally(results: list[PredictionResponse]) -> tuple[dict[str, int], dict[str,
         "партия не удвоит ни историю, ни профили клиентов. Сколько "
         "операций обслужено повтором, видно в поле `replayed`.\n\n"
         "Порядок ответа совпадает с порядком запроса.\n\n"
-        "Партия обрабатывается целиком или не обрабатывается вовсе: "
-        "некорректная операция — это 422 на весь запрос, а не частичный "
-        "результат с дырками."
+        "**Отказ не оставляет следов.** Некорректная операция — это 422 "
+        "на весь запрос, занятый номер — 409 со списком конфликтующих "
+        "номеров; ни в том, ни в другом случае не записана ни одна "
+        "операция партии. Номера проверяются до обработки: иначе партия "
+        "падала бы на середине, а клиент получал бы ошибку, не зная, "
+        "что именно прошло, и не мог бы повторить запрос.\n\n"
+        "Оговорка: проверка закрывает конфликт номеров, а не гонку "
+        "с параллельным запросом, который займёт номер между проверкой "
+        "и обработкой."
     ),
     responses={
         409: {"model": ErrorResponse, "description": "Тот же номер операции, другие данные"},
@@ -108,10 +166,12 @@ def predict_batch(
 ) -> BatchResponse:
     started = time.perf_counter()
 
+    _reject_conflicts(request.transactions, idempotency)
+
     results: list[PredictionResponse] = []
     replayed = 0
     for transaction in request.transactions:
-        result, was_replay = _predict_once(transaction, service, idempotency)
+        result, was_replay = predict_once(transaction, service, idempotency)
         results.append(result)
         replayed += was_replay
 

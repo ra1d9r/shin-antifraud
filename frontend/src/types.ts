@@ -100,6 +100,13 @@ export interface PredictionResponse {
   decision: Decision
   risk_level: RiskLevel
   raised_by_rules: boolean
+  /**
+   * Что решение означает для клиента — формулировкой backend.
+   *
+   * Не своей: пока копия жила здесь, она разошлась с текстовым
+   * отчётом, и одно решение описывалось двумя разными фразами.
+   */
+  decision_meaning: string
   triggered_rules: TriggeredRule[]
   explanation: Explanation
   thresholds: Thresholds
