@@ -1,6 +1,6 @@
 {
   "format_version": "1",
-  "generated_at": "2026-09-21T11:58:05+00:00",
+  "generated_at": "2026-09-21T13:23:19+00:00",
   "rows": 99360,
   "min_fraud_per_segment": 30,
   "fallback_approve_max": 4,

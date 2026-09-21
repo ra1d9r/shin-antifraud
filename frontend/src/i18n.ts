@@ -256,6 +256,23 @@ export const DICTIONARY = {
   'feedback.correct': entry('Вердикт верный', 'Шешім дұрыс', 'Verdict correct'),
   'feedback.incorrect': entry('Вердикт ошибочный', 'Шешім қате', 'Verdict wrong'),
 
+  // --- карта аномалий ---
+  'map.title': entry('Карта аномалий', 'Ауытқулар картасы', 'Anomaly map'),
+  'map.lowFraud': entry('фрода мало', 'алаяқтық аз', 'little fraud'),
+  'map.someFraud': entry('фрод заметен', 'алаяқтық байқалады', 'noticeable fraud'),
+  'map.mostlyFraud': entry('почти всё фрод', 'дерлік бәрі алаяқтық', 'mostly fraud'),
+  'map.highRiskCountry': entry(
+    'страна повышенного риска',
+    'жоғары тәуекелді ел',
+    'high-risk country',
+  ),
+  'map.ordinaryCountry': entry('обычная страна', 'қарапайым ел', 'ordinary country'),
+  'map.hovered': entry('Под курсором', 'Меңзер астында', 'Under the cursor'),
+  'map.worst': entry('Самая тревожная', 'Ең алаңдатарлық', 'Most alarming'),
+  'map.operations': entry('Операций', 'Операциялар', 'Transactions'),
+  'map.fraudShare': entry('Доля фрода', 'Алаяқтық үлесі', 'Fraud share'),
+  'map.flaggedShare': entry('Задержано системой', 'Жүйе ұстады', 'Flagged by the system'),
+
   // --- остальные панели ---
   'graph.title': entry('Связи между клиентами', 'Клиенттер арасындағы байланыс', 'Links between clients'),
   'shadow.title': entry('Теневая конфигурация', 'Көлеңкелі конфигурация', 'Shadow configuration'),

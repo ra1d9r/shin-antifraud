@@ -42,6 +42,26 @@ class RuleStatOut(BaseModel):
     )
 
 
+class CountryStatOut(BaseModel):
+    """Одна страна на карте аномалий (брифинг §6).
+
+    Координаты приходят с backend вместе со статистикой, а не ищутся
+    на клиенте: справочник координат тот же, по которому считается
+    скорость перемещения между операциями, и второй его копии быть
+    не должно (ТЗ §11).
+    """
+
+    country: str = Field(description="Код страны ISO-3166 alpha-2")
+    latitude: float
+    longitude: float
+    rows: int = Field(description="Операций из этой страны")
+    fraud_rows: int = Field(description="Из них мошеннических по разметке")
+    flagged: int = Field(description="Операций с решением, отличным от APPROVE")
+    high_risk: bool = Field(description="Страна в списке повышенного риска")
+    fraud_share: float
+    flagged_share: float
+
+
 class CurvePointOut(BaseModel):
     """Точка кривой компромисса при одном пороге чувствительности."""
 
@@ -138,6 +158,17 @@ class AnalyticsOverview(BaseModel):
     )
     rules_added_friction: int = Field(
         description="Добросовестные клиенты, задетые политиками сверх модели"
+    )
+
+    countries: list[CountryStatOut] = Field(
+        default_factory=list,
+        description=(
+            "География операций для карты аномалий. Страны без известных "
+            "координат сюда не попадают: точка наугад хуже, чем её отсутствие. "
+            "Пустой список у артефакта, выгруженного до появления карты: "
+            "отчёт лежит файлом на диске и может быть старым, а ронять "
+            "из-за этого весь дашборд нельзя."
+        ),
     )
 
     rules: list[RuleStatOut]

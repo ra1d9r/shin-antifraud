@@ -53,6 +53,7 @@
 | 31 | Адаптивный порог по категории мерчанта | `DONE` | [stage-26](stages/stage-26-adaptive-thresholds.md) |
 | 32 | LLM-ассистент: объяснение клиенту | `DONE` | [stage-27](stages/stage-27-llm-assistant.md) |
 | 33 | Три языка интерфейса | `DONE` | [stage-28](stages/stage-28-languages.md) |
+| 34 | Карта аномалий | `DONE` | [stage-29](stages/stage-29-anomaly-map.md) |
 
 ---
 
