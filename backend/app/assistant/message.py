@@ -45,6 +45,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.assistant import phrases
+from app.features.geo import country_name
 from app.i18n import DEFAULT_LANGUAGE, Language
 from app.schemas.enums import Decision
 from app.schemas.prediction import PredictionResponse
@@ -64,6 +65,9 @@ class DecisionFacts:
     risk_score: int
     amount: float
     merchant: str
+    # Название страны словом, а не код ISO: письмо клиенту
+    # банка — не место для «NG». Разворачивается в `build_facts`,
+    # где известен язык.
     country: str
     reasons: tuple[str, ...]
     policies: tuple[str, ...]
@@ -91,17 +95,26 @@ class DecisionFacts:
         return "\n".join(lines)
 
 
-def build_facts(request: TransactionRequest, response: PredictionResponse) -> DecisionFacts:
-    """Собрать факты решения для ассистента."""
+def build_facts(
+    request: TransactionRequest,
+    response: PredictionResponse,
+    language: Language = DEFAULT_LANGUAGE,
+) -> DecisionFacts:
+    """Собрать факты решения для ассистента.
+
+    Язык нужен здесь, а не в промпте: страна приходит кодом ISO,
+    а модели нельзя поручить его развернуть — её же инструкция
+    запрещает сообщать факты, которых нет во входных данных.
+    """
     reasons = tuple(response.explanation.reasons[:MAX_REASONS])
     policies = tuple(rule.title for rule in response.triggered_rules)
     return DecisionFacts(
         decision=response.decision,
-        decision_meaning=response.decision.meaning,
+        decision_meaning=response.decision.meaning_in(language),
         risk_score=response.risk_score,
         amount=request.amount,
         merchant=request.merchant,
-        country=request.country,
+        country=country_name(request.country, language),
         reasons=reasons,
         policies=policies,
     )
