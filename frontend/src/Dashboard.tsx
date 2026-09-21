@@ -22,6 +22,7 @@ import { formatCount as formatNumber, formatMoney } from './format'
 import { useLanguage } from './LanguageContext'
 import FeedbackPanel from './FeedbackPanel'
 import GraphPanel from './GraphPanel'
+import MapPanel from './MapPanel'
 import ShadowPanel from './ShadowPanel'
 import StreamPanel from './StreamPanel'
 import Tile from './Tile'
@@ -340,6 +341,8 @@ export default function Dashboard({
           </div>
         </section>
       )}
+
+      <MapPanel data={data} />
 
       <AdaptivePanel />
 

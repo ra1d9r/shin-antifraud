@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -244,6 +245,55 @@ def test_the_whole_layer_is_not_the_sum_of_its_rules(report) -> None:
     """
     assert report.rules_added_friction <= sum(rule.added_friction for rule in report.rules)
     assert report.rules_gained_fraud <= sum(rule.gained_fraud for rule in report.rules)
+
+
+def test_geography_covers_the_dataset(report) -> None:
+    """Карта аномалий (брифинг §6) считается по тем же решениям."""
+    assert report.countries, "в датасете есть страны с известными координатами"
+
+    for item in report.countries:
+        assert item.rows > 0
+        assert 0 <= item.fraud_rows <= item.rows
+        assert 0 <= item.flagged <= item.rows
+        assert -90 <= item.latitude <= 90
+        assert -180 <= item.longitude <= 180
+
+    # Сумма по странам не больше всего датасета: страны без известных
+    # координат в карту не попадают, но лишних взяться неоткуда.
+    assert sum(item.rows for item in report.countries) <= report.rows
+    assert sum(item.fraud_rows for item in report.countries) <= report.fraud_rows
+
+
+def test_countries_use_the_same_coordinates_as_the_features(report) -> None:
+    """Второй набор координат разошёлся бы с тем, по которому считается
+    скорость перемещения, и карта показывала бы не то место."""
+    from app.features.geo import COUNTRY_COORDINATES
+
+    for item in report.countries:
+        assert item.country in COUNTRY_COORDINATES
+        latitude, longitude = COUNTRY_COORDINATES[item.country]
+        assert item.latitude == pytest.approx(latitude)
+        assert item.longitude == pytest.approx(longitude)
+
+
+def test_an_artifact_without_geography_still_serves(tmp_path) -> None:
+    """Артефакт лежит файлом на диске и живёт дольше кода.
+
+    Выгруженный до появления карты, он не содержит поля `countries`.
+    Ронять из-за этого весь дашборд нельзя: карта — одна панель из
+    одиннадцати, а отчёт нужен всем остальным.
+    """
+    payload = json.loads(
+        (Path(__file__).resolve().parents[1] / "models" / "evaluation.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    payload.pop("countries", None)
+
+    overview = AnalyticsOverview(**payload)
+
+    assert overview.countries == []
+    assert overview.rows > 0, "остальной отчёт на месте"
 
 
 def test_report_serialises_completely(report) -> None:

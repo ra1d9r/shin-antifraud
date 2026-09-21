@@ -756,3 +756,110 @@ summary {
   display: inline-flex;
   margin-left: 8px;
 }
+
+/* --- карта аномалий (брифинг §6) --- */
+
+.anomaly-map {
+  width: 100%;
+  min-width: 620px;
+  height: auto;
+  display: block;
+}
+
+.map-bg {
+  fill: #0e1117;
+  stroke: var(--border);
+}
+
+.map-grid {
+  stroke: #1f242e;
+  stroke-width: 1;
+}
+
+.map-axis {
+  fill: var(--muted);
+  font-size: 9px;
+}
+
+.map-label {
+  fill: var(--text);
+  font-size: 10px;
+  font-family: "Cascadia Mono", Consolas, monospace;
+  pointer-events: none;
+}
+
+.map-point {
+  cursor: pointer;
+}
+
+/* Полупрозрачность намеренная: точки соседних стран накладываются,
+   и без неё мелкая страна исчезала бы под крупной совсем. */
+.map-dot {
+  fill-opacity: 0.55;
+  stroke-width: 1;
+}
+
+.map-dot.low {
+  fill: var(--approve);
+  stroke: var(--approve);
+}
+
+.map-dot.medium {
+  fill: var(--challenge);
+  stroke: var(--challenge);
+}
+
+.map-dot.high {
+  fill: var(--block);
+  stroke: var(--block);
+}
+
+.map-dot.high-risk {
+  stroke: var(--text);
+  stroke-width: 2;
+  stroke-dasharray: 3 2;
+}
+
+.map-point:hover .map-dot {
+  fill-opacity: 0.85;
+}
+
+.map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 10px;
+}
+
+.map-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Кружок легенды — тот же класс, что на карте, но вне SVG:
+   `fill` там не работает, поэтому цвет задаётся фоном. */
+.map-legend i {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.map-legend i.low {
+  background: var(--approve);
+}
+
+.map-legend i.medium {
+  background: var(--challenge);
+}
+
+.map-legend i.high {
+  background: var(--block);
+}
+
+.map-legend i.high-risk {
+  border: 2px dashed var(--text);
+}

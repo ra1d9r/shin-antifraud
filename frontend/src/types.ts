@@ -190,6 +190,20 @@ export interface RuleStat {
   checks_per_fraud: number | null
 }
 
+/** Одна страна на карте аномалий (брифинг §6). */
+export interface CountryStat {
+  country: string
+  latitude: number
+  longitude: number
+  rows: number
+  fraud_rows: number
+  /** Операции с решением, отличным от APPROVE. */
+  flagged: number
+  high_risk: boolean
+  fraud_share: number
+  flagged_share: number
+}
+
 /** Точка кривой компромисса при одном пороге чувствительности. */
 export interface CurvePoint {
   threshold: number
@@ -243,6 +257,12 @@ export interface AnalyticsOverview {
   /** Разница по решениям целиком, а не сумма по строкам `rules`: политики пересекаются. */
   rules_gained_fraud: number
   rules_added_friction: number
+  /**
+   * География для карты аномалий; страны без координат сюда не попадают.
+   *
+   * Необязательное: артефакт мог быть выгружен до появления карты.
+   */
+  countries?: CountryStat[]
   rules: RuleStat[]
   cost_with_rules: number
   cost_without_rules: number

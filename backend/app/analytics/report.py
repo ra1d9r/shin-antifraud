@@ -112,6 +112,49 @@ class RuleStat:
 
 
 @dataclass(frozen=True, slots=True)
+class CountryStat:
+    """Одна страна на карте аномалий (брифинг §6).
+
+    Координаты берутся из того же справочника, что и признак
+    «резкая смена геолокации» (`features/geo.py`). Второй набор
+    координат — ради карты — разошёлся бы с тем, по которому
+    считается скорость перемещения, и карта показывала бы не то
+    место, где система увидела аномалию.
+    """
+
+    country: str
+    latitude: float
+    longitude: float
+    rows: int
+    fraud_rows: int
+    #: Операции с решением, отличным от APPROVE.
+    flagged: int
+    #: Помечена ли страна как высокорисковая в справочнике.
+    high_risk: bool
+
+    @property
+    def fraud_share(self) -> float:
+        return self.fraud_rows / max(1, self.rows)
+
+    @property
+    def flagged_share(self) -> float:
+        return self.flagged / max(1, self.rows)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "country": self.country,
+            "latitude": round(self.latitude, 4),
+            "longitude": round(self.longitude, 4),
+            "rows": self.rows,
+            "fraud_rows": self.fraud_rows,
+            "flagged": self.flagged,
+            "high_risk": self.high_risk,
+            "fraud_share": round(self.fraud_share, 4),
+            "flagged_share": round(self.flagged_share, 4),
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class CurvePoint:
     """Точка кривой компромисса при одном пороге чувствительности."""
 
@@ -213,6 +256,11 @@ class DatasetReport:
     fraud_stopped_without_rules: int
     friction_without_rules: int
 
+    #: География операций для карты аномалий (брифинг §6). Пустой
+    #: кортеж означает, что в датасете не оказалось ни одной страны
+    #: с известными координатами — карта тогда не рисуется.
+    countries: tuple[CountryStat, ...]
+
     rules: tuple[RuleStat, ...]
     cost_with_rules: float
     cost_without_rules: float
@@ -306,6 +354,7 @@ class DatasetReport:
             "friction_share_without_rules": round(self.friction_share_without_rules, 4),
             "rules_gained_fraud": self.rules_gained_fraud,
             "rules_added_friction": self.rules_added_friction,
+            "countries": [item.to_dict() for item in self.countries],
             "rules": [rule.to_dict() for rule in self.rules],
             "cost_with_rules": round(self.cost_with_rules, 2),
             "cost_without_rules": round(self.cost_without_rules, 2),
@@ -435,6 +484,46 @@ def _count_stopped(decisions: list[Decision], is_fraud: list[bool], *, fraud: bo
         # с питоновским, и счётчик молча вернул бы ноль.
         if bool(is_fraud_row) == fraud and decision is not Decision.APPROVE
     )
+
+
+def _country_stats(
+    frame, decisions: list[Decision], is_fraud: list[bool]
+) -> tuple[CountryStat, ...]:
+    """Сводка по странам для карты аномалий.
+
+    Страны без координат пропускаются молча: показать точку наугад
+    хуже, чем не показать её вовсе — на карте это выглядело бы как
+    операции из середины океана.
+    """
+    from app.features.geo import COUNTRY_COORDINATES, HIGH_RISK_COUNTRIES
+
+    totals: dict[str, list[int]] = {}
+    for country, decision, fraud in zip(frame["country"], decisions, is_fraud, strict=True):
+        code = str(country).upper()
+        if code not in COUNTRY_COORDINATES:
+            continue
+        counters = totals.setdefault(code, [0, 0, 0])
+        counters[0] += 1
+        counters[1] += int(bool(fraud))
+        counters[2] += int(decision is not Decision.APPROVE)
+
+    stats = []
+    for code, (rows, fraud_rows, flagged) in totals.items():
+        latitude, longitude = COUNTRY_COORDINATES[code]
+        stats.append(
+            CountryStat(
+                country=code,
+                latitude=latitude,
+                longitude=longitude,
+                rows=rows,
+                fraud_rows=fraud_rows,
+                flagged=flagged,
+                high_risk=code in HIGH_RISK_COUNTRIES,
+            )
+        )
+    # По убыванию объёма: так крупные страны рисуются первыми и мелкие
+    # ложатся поверх, а не прячутся под ними.
+    return tuple(sorted(stats, key=lambda item: -item.rows))
 
 
 def _total_cost(
@@ -588,6 +677,7 @@ def build_report(
             if rules_enabled
             else ()
         ),
+        countries=_country_stats(frame, decisions, is_fraud),
         cost_with_rules=_total_cost(decisions, amounts, is_fraud, settings),
         cost_without_rules=_total_cost(bare_decisions, amounts, is_fraud, settings),
         curve=curve,
