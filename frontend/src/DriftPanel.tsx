@@ -17,7 +17,6 @@ import { useEffect, useMemo, useState } from 'react'
 
 import Tile from './Tile'
 import { fetchDrift } from './api'
-import { formatCount } from './format'
 import {
   DRIFT_STATUS_LABEL,
   driftHeadline,
@@ -27,9 +26,11 @@ import {
 } from './drift'
 import type { DriftReport, FeatureDrift } from './types'
 import { useLanguage } from './LanguageContext'
+import { useFormat } from './useFormat'
 
 export default function DriftPanel() {
   const { t } = useLanguage()
+  const { formatCount } = useFormat()
   const [report, setReport] = useState<DriftReport | null>(null)
   const [selected, setSelected] = useState<string>('')
 

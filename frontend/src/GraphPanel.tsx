@@ -14,9 +14,9 @@ import { useEffect, useState } from 'react'
 
 import Tile from './Tile'
 import { fetchClusters } from './api'
-import { formatCount, formatMoney } from './format'
 import type { ClusterReport, LinkStrength } from './types'
 import { useLanguage } from './LanguageContext'
+import { useFormat } from './useFormat'
 
 const STRENGTH_LABEL: Record<LinkStrength, string> = {
   DEVICE: 'общее устройство',
@@ -25,6 +25,7 @@ const STRENGTH_LABEL: Record<LinkStrength, string> = {
 
 export default function GraphPanel() {
   const { t } = useLanguage()
+  const { formatCount, formatMoney } = useFormat()
   const [report, setReport] = useState<ClusterReport | null>(null)
 
   useEffect(() => {

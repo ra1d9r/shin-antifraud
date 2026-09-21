@@ -19,8 +19,8 @@
 import { useState } from 'react'
 
 import { ApiError, runStream } from './api'
-import { formatCount } from './format'
 import { useLanguage } from './LanguageContext'
+import { useFormat } from './useFormat'
 import Tile from './Tile'
 import type { StreamSummary } from './types'
 
@@ -29,6 +29,7 @@ const SIZES = [100, 300, 500] as const
 
 export default function StreamPanel({ onFinished }: { onFinished: () => void }) {
   const { t } = useLanguage()
+  const { formatCount } = useFormat()
   const [summary, setSummary] = useState<StreamSummary | null>(null)
   // Не булево «идёт прогон», а сколько именно операций гоним: при трёх
   // кнопках под общей подписью «Идёт прогон…» непонятно, какая нажата.
