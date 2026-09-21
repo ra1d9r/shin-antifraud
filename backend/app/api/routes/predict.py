@@ -18,7 +18,8 @@ from app.api.deps import IdempotencyDep, ServiceDep
 from app.schemas.prediction import PredictionResponse
 from app.schemas.system import ErrorResponse
 from app.schemas.transaction import TransactionRequest
-from app.store.idempotency import fingerprint
+from app.services.prediction_service import PredictionService
+from app.store.idempotency import IdempotencyStore, fingerprint
 
 #: Заголовок, которым ответ признаётся повтором. Имя как у платёжных
 #: систем — клиенты, которые умеют идемпотентность, ищут именно его.
@@ -69,17 +70,36 @@ def predict(
     idempotency: IdempotencyDep,
     response: Response,
 ) -> PredictionResponse:
+    result, replayed = _predict_once(request, service, idempotency)
+    if replayed:
+        response.headers[REPLAY_HEADER] = "true"
+    return result
+
+
+def _predict_once(
+    request: TransactionRequest,
+    service: PredictionService,
+    idempotency: IdempotencyStore | None,
+) -> tuple[PredictionResponse, bool]:
+    """Одна операция с учётом идемпотентности.
+
+    Вынесено, чтобы партия получила ту же гарантию, что и одиночный
+    запрос. Без неё повтор партии, оборвавшейся на сети, удвоил бы
+    историю и сдвинул профили — ровно то, ради чего идемпотентность
+    и заводилась.
+
+    Возвращает ответ и признак того, что он взят из памяти повторов.
+    """
     # Режим «что если» последствий не оставляет, значит и повторять
     # ему нечего.
     if idempotency is None or not request.persist:
-        return service.predict(request)
+        return service.predict(request), False
 
     digest = fingerprint(request.model_dump(mode="json"))
     replayed = idempotency.lookup(request.transaction_id, digest)
     if replayed is not None:
-        response.headers[REPLAY_HEADER] = "true"
-        return replayed  # type: ignore[return-value]
+        return replayed, True  # type: ignore[return-value]
 
     result = service.predict(request)
     idempotency.remember(request.transaction_id, digest, result)
-    return result
+    return result, False

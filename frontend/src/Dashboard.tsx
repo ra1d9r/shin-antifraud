@@ -21,6 +21,7 @@ import { formatCount as formatNumber, formatMoney } from './format'
 import FeedbackPanel from './FeedbackPanel'
 import GraphPanel from './GraphPanel'
 import ShadowPanel from './ShadowPanel'
+import StreamPanel from './StreamPanel'
 import Tile from './Tile'
 import type { AnalyticsOverview, CurvePoint, ModelInfo } from './types'
 
@@ -66,6 +67,8 @@ export default function Dashboard({
   // Ползунок стартует с текущего порога системы: сравнивать удобнее,
   // когда точка отсчёта — то, что работает прямо сейчас.
   const [threshold, setThreshold] = useState(data.thresholds.approve_max)
+  // Счётчик прогонов: меняется — панели наблюдения перечитывают состояние.
+  const [streamRuns, setStreamRuns] = useState(0)
 
   const point = useMemo(
     () => data.curve.find((item) => item.threshold === threshold) ?? data.curve[0],
@@ -333,13 +336,18 @@ export default function Dashboard({
         </section>
       )}
 
-      <FeedbackPanel />
+      <StreamPanel onFinished={() => setStreamRuns((runs) => runs + 1)} />
 
-      <GraphPanel />
+      {/* Ключ, а не проп обновления: панели забирают своё состояние при
+          монтировании, и после прогона показывали бы картину, снятую
+          до него. Смена ключа перемонтирует их — без правки каждой. */}
+      <FeedbackPanel key={`feedback-${streamRuns}`} />
 
-      <ShadowPanel />
+      <GraphPanel key={`graph-${streamRuns}`} />
 
-      <DriftPanel />
+      <ShadowPanel key={`shadow-${streamRuns}`} />
+
+      <DriftPanel key={`drift-${streamRuns}`} />
 
       {!model?.loaded && modelError && (
         <section className="panel alert">

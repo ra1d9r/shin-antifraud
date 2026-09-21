@@ -449,3 +449,28 @@ export interface ModelInfo {
   recall?: number | null
   f1?: number | null
 }
+
+/* ------------------------------------------- порождённый поток (§5.B) */
+
+/**
+ * Итог прогона потока.
+ *
+ * Разметка потока известна: операции порождены тем же генератором,
+ * на котором обучалась модель. Поэтому качество считается прямо на
+ * прогоне, а не берётся из выгруженной аналитики.
+ */
+export interface StreamSummary {
+  requested: number
+  processed: number
+  seed: number
+  pool_rows: number
+  decisions: Record<string, number>
+  average_risk_score: number
+  raised_by_rules: number
+  triggered_rules: Record<string, number>
+  fraud_in_stream: number
+  fraud_stopped: number
+  fraud_missed: number
+  false_positives: number
+  processing_ms: number
+}

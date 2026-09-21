@@ -21,6 +21,7 @@ import type {
   Scenario,
   ScenarioList,
   ShadowComparison,
+  StreamSummary,
   TransactionRequest,
   Verdict,
 } from './types'
@@ -62,6 +63,15 @@ export class ApiError extends Error {
  */
 const REQUEST_TIMEOUT_MS = 60_000
 
+/**
+ * Отдельный таймаут для прогона потока.
+ *
+ * Общей минуты мало: поток из трёхсот операций идёт полной цепочкой,
+ * включая SHAP на каждую, и на бесплатном хостинге это десятки секунд
+ * поверх возможного пробуждения контейнера.
+ */
+const STREAM_TIMEOUT_MS = 180_000
+
 /** Человеческое описание статуса, когда backend не прислал своего. */
 function describeStatus(status: number): string {
   if (status === 404) return 'Адрес не найден на backend'
@@ -71,9 +81,13 @@ function describeStatus(status: number): string {
   return 'Запрос отклонён'
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(
+  path: string,
+  init?: RequestInit,
+  timeoutMs: number = REQUEST_TIMEOUT_MS,
+): Promise<T> {
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
 
   try {
     let response: Response
@@ -88,7 +102,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     } catch (cause) {
       if (cause instanceof DOMException && cause.name === 'AbortError') {
         throw new ApiError(
-          `Backend не ответил за ${REQUEST_TIMEOUT_MS / 1000} секунд. ` +
+          `Backend не ответил за ${timeoutMs / 1000} секунд. ` +
             'Столько не занимает даже пробуждение уснувшего сервиса — ' +
             'похоже, он недоступен. Попробуйте обновить страницу.',
           0,
@@ -290,3 +304,22 @@ export function fetchClusters(): Promise<ClusterReport> {
 }
 
 export const apiBaseUrl = BASE_URL
+
+/**
+ * Прогнать порождённый поток операций через систему.
+ *
+ * Наблюдение за дрейфом, теневая конфигурация и история операций
+ * показывают что-либо только на потоке: на свежем экземпляре системы
+ * они пусты, и понять, работают ли панели, нельзя.
+ *
+ * Таймаут свой и больше общего: каждая операция идёт полной цепочкой
+ * с построением SHAP-объяснения, и три сотни на бесплатном хостинге —
+ * это десятки секунд, а не привычные миллисекунды.
+ */
+export function runStream(count: number): Promise<StreamSummary> {
+  return request<StreamSummary>(
+    '/predict/stream',
+    { method: 'POST', body: JSON.stringify({ count }) },
+    STREAM_TIMEOUT_MS,
+  )
+}
