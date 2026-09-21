@@ -18,7 +18,7 @@ from typing import Annotated
 
 from fastapi import Depends, Request
 
-from app.analytics.report import load_report
+from app.analytics.report import cheapest_threshold, load_report, reprice_curve
 from app.config.settings import Settings, get_settings
 from app.core.exceptions import ModelNotLoadedError, ShadowUnavailableError, ShinError
 from app.core.logging import get_logger
@@ -81,11 +81,25 @@ class AppState:
     # Правки порогов на работающей системе. Живут в памяти: перезапуск
     # возвращает к `.env`, и неудачную правку отменяет рестарт.
     threshold_changes: deque = field(default_factory=lambda: deque(maxlen=20))
+    # Когда в последний раз правили политики и веса метрики. `None` —
+    # не правили ни разу, действуют значения из `.env`. Хранится время,
+    # а не флаг: «меняли» без «когда» не помогает разобраться, почему
+    # числа выглядят иначе, чем вчера.
+    policy_changed_at: datetime | None = None
+    cost_changed_at: datetime | None = None
     started_at: float = field(default_factory=time.monotonic)
 
     @property
     def thresholds_overridden(self) -> bool:
         return bool(self.threshold_changes)
+
+    @property
+    def policies_overridden(self) -> bool:
+        return self.policy_changed_at is not None
+
+    @property
+    def cost_overridden(self) -> bool:
+        return self.cost_changed_at is not None
 
     @property
     def model_loaded(self) -> bool:
@@ -460,3 +474,144 @@ IdempotencyDep = Annotated["IdempotencyStore | None", Depends(get_idempotency)]
 DriftDep = Annotated[DriftMonitor, Depends(get_drift)]
 ShadowDep = Annotated[ShadowRunner, Depends(get_shadow)]
 SettingsDep = Annotated[Settings, Depends(get_app_settings)]
+
+
+# ------------------------------------ настройка политик и бизнес-метрики
+
+
+#: Поле запроса -> поле настроек. Имена в API короче: префикс `rule_`
+#: там лишний, адрес и так называется `/config/policies`.
+POLICY_FIELDS: dict[str, str] = {
+    "impossible_travel_min_score": "rule_impossible_travel_min_score",
+    "high_risk_country_min_score": "rule_high_risk_country_min_score",
+    "unusual_country_min_score": "rule_unusual_country_min_score",
+    "new_device_min_score": "rule_new_device_min_score",
+    "velocity_min_score": "rule_velocity_min_score",
+    "new_account_amount_min_score": "rule_new_account_amount_min_score",
+    "velocity_txn_per_hour": "rule_velocity_txn_per_hour",
+    "new_account_amount_ratio": "rule_new_account_amount_ratio",
+}
+
+COST_FIELDS: dict[str, str] = {
+    "fraud_loss_ratio": "cost_fraud_loss_ratio",
+    "fraud_fixed": "cost_fraud_fixed",
+    "false_block": "cost_false_block",
+    "false_challenge": "cost_false_challenge",
+}
+
+
+def apply_policies(
+    state: AppState,
+    *,
+    updates: dict[str, float],
+    changed_by: str | None = None,
+    reason: str | None = None,
+) -> dict:
+    """Сменить пороги политик на работающей системе.
+
+    Политики решают судьбу операции наравне с моделью, поэтому
+    последствия те же, что у смены порогов Risk Engine, и по тем же
+    причинам: тень обнуляется — она сравнивает две конфигурации;
+    аналитика помечается устаревшей — её числа посчитаны на прежних
+    политиках; дрейф не трогается — политики на входные признаки
+    не влияют.
+
+    Настройки заменяются целиком новым объектом, а не правятся по полю:
+    `build_rules` читает их при сборке, и подмена одного объекта
+    на другой не оставляет промежуточного состояния, в котором половина
+    правил собрана по старым значениям.
+    """
+    state.settings = state.settings.model_copy(
+        update={POLICY_FIELDS[name]: value for name, value in updates.items()}
+    )
+
+    engine = state.risk_engine
+    state.risk_engine = RiskEngine(
+        thresholds=engine.thresholds if engine else RiskThresholds(),
+        rules=build_rules(state.settings),
+        rules_enabled=engine.rules_enabled if engine else True,
+    )
+    if state.service is not None:
+        state.service.replace_risk_engine(state.risk_engine)
+
+    shadow_reset = False
+    if state.shadow is not None:
+        _build_shadow(state)
+        if state.service is not None:
+            state.service.replace_shadow(state.shadow)
+        shadow_reset = True
+
+    marked_stale = False
+    if state.evaluation is not None and not state.evaluation_stale:
+        state.evaluation_stale = True
+        state.evaluation_stale_reason = (
+            "Пороги политик изменены на работающей системе, а отчёт посчитан "
+            "на прежних. Выгрузите заново: "
+            "python backend/scripts/export_evaluation.py"
+        )
+        marked_stale = True
+
+    state.policy_changed_at = datetime.now(UTC).replace(tzinfo=None)
+    logger.warning(
+        "Пороги политик изменены в рантайме: %s (%s)",
+        ", ".join(f"{name}={value}" for name, value in sorted(updates.items())),
+        changed_by or "без подписи",
+    )
+    if reason:
+        logger.warning("Причина смены политик: %s", reason)
+
+    return {"shadow_reset": shadow_reset, "analytics_marked_stale": marked_stale}
+
+
+def apply_cost_weights(
+    state: AppState,
+    *,
+    updates: dict[str, float],
+    changed_by: str | None = None,
+    reason: str | None = None,
+) -> dict:
+    """Сменить веса бизнес-метрики и пересчитать по ним кривую.
+
+    В отличие от политик, веса не влияют на решения: они переводят уже
+    принятые решения в деньги. Поэтому ни тень, ни движок здесь
+    не трогаются — меняется то, как система себя оценивает, а не то,
+    как она судит.
+
+    Аналитика не помечается устаревшей, а **пересчитывается**. Пометить
+    её было бы проще, но бесполезно: человек, настраивающий метрику,
+    хочет увидеть новый оптимум сразу, а не после выгрузки, которой
+    в проде нечем заняться — датасета в образе нет. Пересчёт по счётчикам
+    датасета не требует (см. `reprice_curve`).
+    """
+    state.settings = state.settings.model_copy(
+        update={COST_FIELDS[name]: value for name, value in updates.items()}
+    )
+    state.cost_changed_at = datetime.now(UTC).replace(tzinfo=None)
+
+    before = after = None
+    recomputed = False
+    if state.evaluation is not None:
+        before = state.evaluation.get("optimal_threshold")
+        curve = reprice_curve(state.evaluation.get("curve", []), state.settings)
+        if curve is not None:
+            state.evaluation = {
+                **state.evaluation,
+                "curve": curve,
+                "optimal_threshold": cheapest_threshold(curve),
+            }
+            after = state.evaluation["optimal_threshold"]
+            recomputed = True
+
+    logger.warning(
+        "Веса бизнес-метрики изменены в рантайме: %s (%s)",
+        ", ".join(f"{name}={value}" for name, value in sorted(updates.items())),
+        changed_by or "без подписи",
+    )
+    if reason:
+        logger.warning("Причина смены весов: %s", reason)
+
+    return {
+        "curve_recomputed": recomputed,
+        "optimal_threshold_before": before,
+        "optimal_threshold_after": after,
+    }

@@ -17,10 +17,12 @@ import type { MouseEvent } from 'react'
 import AdaptivePanel from './AdaptivePanel'
 import DriftPanel from './DriftPanel'
 import { readoutX, thresholdAtPointer } from './chart'
+import { fetchCostWeights } from './api'
 import { formatMeasuredShare } from './feedback'
 import { useLanguage } from './LanguageContext'
 import type { Translator } from './i18n'
 import { useFormat } from './useFormat'
+import { usePanelData } from './usePanelData'
 import FeedbackPanel from './FeedbackPanel'
 import GraphPanel from './GraphPanel'
 import MapPanel from './MapPanel'
@@ -174,6 +176,8 @@ export default function Dashboard({
           не трогает и пропускает фрод, справа ловит всё и мешает живым клиентам. Ищем дно
           суммарной кривой.
         </p>
+
+        <CostMetricLine />
 
         <TradeOffChart
           curve={data.curve}
@@ -530,6 +534,39 @@ function costNote(
  * Клавиатурный путь к тем же числам уже есть — ползунок под графиком,
  * поэтому подсказка мышью ничего не запирает.
  */
+
+/**
+ * Чем система меряет свои ошибки (брифинг §5.C).
+ *
+ * Кривая выше нарисована в деньгах, но откуда они берутся, до сих пор
+ * нигде не говорилось. Строка называет метрику словами и помечает,
+ * если её правили на работающей системе: тогда числа на графике
+ * посчитаны не тем, что лежит в `.env`, и об этом надо знать.
+ *
+ * Читается без пароля — знать метрику полезно всем, кто смотрит
+ * на оптимум. Менять её можно только с `X-Admin-Token`.
+ */
+function CostMetricLine() {
+  const { t } = useLanguage()
+  const { formatMoney } = useFormat()
+  const { data: cost } = usePanelData(fetchCostWeights)
+
+  if (cost === null) return null
+
+  return (
+    <p className="hint always-visible metric-line">
+      <strong>{t('cost.metric')}:</strong>{' '}
+      {t('cost.missedFraud', {
+        ratio: cost.fraud_loss_ratio.toFixed(2),
+        fixed: formatMoney(cost.fraud_fixed),
+      })}
+      {'; '}
+      {t('cost.extraCheck', { amount: formatMoney(cost.false_challenge) })}
+      {cost.overridden && <span className="warn-text"> · {t('cost.tunedAt')}</span>}
+    </p>
+  )
+}
+
 function TradeOffChart({
   curve,
   selected,

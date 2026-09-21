@@ -9,20 +9,21 @@
 
 import type { Language } from './i18n'
 import type {
+  AdaptiveThresholdsState,
   AnalyticsOverview,
   ApiErrorBody,
+  ClientMessage,
   ClusterReport,
+  CostState,
   DriftReport,
   FeatureRegistry,
   FeedbackAccepted,
   FeedbackSummary,
   HealthResponse,
-  PredictionResponse,
   ModelInfo,
+  PredictionResponse,
   Scenario,
   ScenarioList,
-  AdaptiveThresholdsState,
-  ClientMessage,
   ShadowComparison,
   StreamSummary,
   TransactionRequest,
@@ -436,4 +437,14 @@ export function explainForClient(
     { method: 'POST', body: JSON.stringify(transaction) },
     ASSISTANT_TIMEOUT_MS,
   )
+}
+
+/**
+ * Веса бизнес-метрики — чем система меряет свои ошибки.
+ *
+ * Чтение открыто, пароль нужен только для записи: знать, по какой
+ * метрике посчитан оптимум, полезно всем, кто на него смотрит.
+ */
+export function fetchCostWeights(): Promise<CostState> {
+  return request<CostState>('/config/cost')
 }

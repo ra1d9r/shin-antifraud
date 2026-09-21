@@ -181,3 +181,151 @@ class AdaptiveThresholdsState(BaseModel):
     )
     segments: list[SegmentThresholdOut] = Field(default_factory=list)
     validation: AdaptiveValidationOut | None = None
+
+
+# --------------------------------------------- политики (брифинг §4.5)
+
+
+class PolicyUpdate(BaseModel):
+    """Новые минимальные оценки политик.
+
+    Все поля необязательны: незаданное остаётся как есть. Настраивают
+    обычно одну политику, и требовать переслать остальные пять значило бы
+    напрашиваться на опечатку в той, которую трогать не собирались.
+    """
+
+    impossible_travel_min_score: int | None = Field(default=None, ge=0, le=100)
+    high_risk_country_min_score: int | None = Field(default=None, ge=0, le=100)
+    unusual_country_min_score: int | None = Field(default=None, ge=0, le=100)
+    new_device_min_score: int | None = Field(default=None, ge=0, le=100)
+    velocity_min_score: int | None = Field(default=None, ge=0, le=100)
+    new_account_amount_min_score: int | None = Field(default=None, ge=0, le=100)
+
+    velocity_txn_per_hour: int | None = Field(
+        default=None, ge=1, description="Сколько операций за час считать всплеском"
+    )
+    new_account_amount_ratio: float | None = Field(
+        default=None, gt=0.0, description="Во сколько раз сумма выше обычной"
+    )
+
+    changed_by: str | None = Field(default=None, max_length=80)
+    reason: str | None = Field(default=None, max_length=300)
+
+    @model_validator(mode="after")
+    def _at_least_one_field(self) -> PolicyUpdate:
+        """Пустое тело меняет ноль величин и молча отвечает успехом.
+
+        Для того, кто ждал изменения, это неотличимо от применённой
+        правки — поэтому отвечаем отказом, а не тишиной.
+        """
+        touched = self.model_dump(exclude={"changed_by", "reason"}, exclude_none=True)
+        if not touched:
+            raise ValueError("не задано ни одной величины: менять нечего")
+        return self
+
+
+class PolicyOut(BaseModel):
+    """Одна политика и её текущий порог."""
+
+    key: str
+    title: str
+    min_score: int = Field(description="Ниже этой оценки политика не поднимает риск")
+
+
+class PolicyState(BaseModel):
+    """Что действует сейчас."""
+
+    policies: list[PolicyOut]
+    velocity_txn_per_hour: int
+    new_account_amount_ratio: float
+    rules_enabled: bool = Field(description="Применяются ли политики вообще")
+    overridden: bool = Field(
+        description=(
+            "Пороги политик меняли в рантайме. false — действуют значения "
+            "из `.env`. Перезапуск всегда возвращает к `.env`."
+        )
+    )
+    changed_at: datetime | None = None
+    writable: bool = Field(description="Задан ли CONFIG_ADMIN_TOKEN")
+
+
+class PolicyApplied(BaseModel):
+    """Что изменилось и что за этим последовало."""
+
+    state: PolicyState
+    # int | float, а не просто float: пороги целые, и «80.0» в ответе
+    # читается как округление чего-то дробного, хотя округлять нечего.
+    changed: dict[str, int | float] = Field(
+        description="Какие величины и во что превратились"
+    )
+    shadow_reset: bool
+    analytics_marked_stale: bool
+
+
+# ------------------------------- бизнес-метрика стоимости (брифинг §5.C)
+
+
+class CostUpdate(BaseModel):
+    """Новые веса бизнес-метрики.
+
+    Как и у политик, незаданное остаётся как есть.
+    """
+
+    fraud_loss_ratio: float | None = Field(
+        default=None,
+        ge=0.0,
+        description="Какая доля суммы пропущенного фрода теряется",
+    )
+    fraud_fixed: float | None = Field(
+        default=None,
+        ge=0.0,
+        description="Постоянные издержки на один пропущенный фрод: разбор, чарджбэк",
+    )
+    false_block: float | None = Field(
+        default=None, ge=0.0, description="Во что обходится зря заблокированный клиент"
+    )
+    false_challenge: float | None = Field(
+        default=None, ge=0.0, description="Во что обходится лишняя проверка"
+    )
+
+    changed_by: str | None = Field(default=None, max_length=80)
+    reason: str | None = Field(default=None, max_length=300)
+
+    @model_validator(mode="after")
+    def _at_least_one_field(self) -> CostUpdate:
+        touched = self.model_dump(exclude={"changed_by", "reason"}, exclude_none=True)
+        if not touched:
+            raise ValueError("не задано ни одной величины: менять нечего")
+        return self
+
+
+class CostState(BaseModel):
+    """Действующие веса и признак применимости."""
+
+    fraud_loss_ratio: float
+    fraud_fixed: float
+    false_block: float
+    false_challenge: float
+    overridden: bool = Field(description="Веса меняли в рантайме")
+    changed_at: datetime | None = None
+    writable: bool = Field(description="Задан ли CONFIG_ADMIN_TOKEN")
+    curve_recomputable: bool = Field(
+        description=(
+            "Можно ли пересчитать кривую компромисса на новых весах без "
+            "повторной выгрузки. false — отчёт выгружен старой версией "
+            "и не хранит сумм пропущенного фрода; числа на дашборде "
+            "останутся посчитанными прежними весами."
+        )
+    )
+
+
+class CostApplied(BaseModel):
+    """Что изменилось и что это дало."""
+
+    state: CostState
+    changed: dict[str, float]
+    curve_recomputed: bool = Field(
+        description="Пересчитана ли кривая компромисса прямо сейчас"
+    )
+    optimal_threshold_before: int | None = None
+    optimal_threshold_after: int | None = None
