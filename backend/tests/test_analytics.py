@@ -180,6 +180,72 @@ def test_rule_marginal_contribution_is_consistent(report) -> None:
             )
 
 
+def test_policies_can_only_stop_more_than_the_model_alone(report) -> None:
+    """Правила поднимают оценку и никогда не снижают.
+
+    Значит ни один фрод и ни один честный клиент не могут выпасть из
+    остановленных: множество решений, отличных от APPROVE, только растёт.
+    Отрицательная разница означала бы, что где-то правило понизило балл.
+    """
+    assert report.fraud_stopped >= report.fraud_stopped_without_rules
+    assert report.friction >= report.friction_without_rules
+    assert report.rules_gained_fraud >= 0
+    assert report.rules_added_friction >= 0
+
+
+def test_counterfactual_shares_use_the_same_denominators(report) -> None:
+    """Доли «без политик» сравнимы с обычными, иначе плитка врала бы."""
+    assert report.fraud_stopped_share_without_rules == pytest.approx(
+        report.fraud_stopped_without_rules / report.fraud_rows
+    )
+    assert report.friction_share_without_rules == pytest.approx(
+        report.friction_without_rules / report.legit_rows
+    )
+
+
+def test_counterfactual_counts_come_from_the_same_run_as_the_counterfactual_cost(
+    report,
+) -> None:
+    """Счётчики «без политик» и стоимость «без политик» — один и тот же прогон.
+
+    Проверка нужна именно в таком виде. Если считать счётчики по решениям
+    *с* политиками, разница выйдет нулевой — и это молча пройдёт все
+    остальные утверждения: ноль неотрицателен и не больше суммы по
+    строкам таблицы. Поймать подмену можно только противоречием со
+    стоимостью, которая считается отдельно и по решениям без политик.
+
+    Отсюда инвариант: стоимости разошлись тогда и только тогда, когда
+    разошлись наборы решений.
+    """
+    costs_differ = report.cost_with_rules != report.cost_without_rules
+    counts_differ = report.rules_gained_fraud > 0 or report.rules_added_friction > 0
+
+    assert costs_differ == counts_differ
+
+
+def test_policies_actually_move_the_numbers_on_this_dataset(report) -> None:
+    """На этой выборке политики точно срабатывают — иначе сравнивать нечего.
+
+    Файл уже опирается на это в `test_rule_marginal_contribution_is_consistent`.
+    Здесь то же требование к сводке по слою: приписка «без политик» на
+    плитках имеет смысл, только когда числа действительно разные.
+    """
+    assert report.rules_added_friction > 0
+    assert report.friction_without_rules < report.friction
+
+
+def test_the_whole_layer_is_not_the_sum_of_its_rules(report) -> None:
+    """Сводка по слою считается по решениям, а не сложением строк таблицы.
+
+    Политики пересекаются: на одной операции их срабатывает несколько,
+    и каждая записывает себе её предельный вклад. Сумма по столбцу
+    поэтому не меньше честной разницы — на этом и держится оговорка
+    в интерфейсе.
+    """
+    assert report.rules_added_friction <= sum(rule.added_friction for rule in report.rules)
+    assert report.rules_gained_fraud <= sum(rule.gained_fraud for rule in report.rules)
+
+
 def test_report_serialises_completely(report) -> None:
     """Отчёт должен пережить запись в JSON и чтение обратно."""
     payload = json.loads(json.dumps(report.to_dict(), ensure_ascii=False))
@@ -315,6 +381,13 @@ def test_report_without_rules_has_no_rule_statistics() -> None:
     assert report.rules_enabled is False
     assert report.raised_by_rules == 0
     assert report.model_trained_at == model.trained_at
+
+    # Без политик контрфактический расчёт совпадает с фактическим: сравнивать
+    # не с чем, и интерфейс приписку «без политик» не показывает.
+    assert report.fraud_stopped_without_rules == report.fraud_stopped
+    assert report.friction_without_rules == report.friction
+    assert report.rules_gained_fraud == 0
+    assert report.rules_added_friction == 0
 
 
 # ------------------------------- точность и полнота на кривой (§5.A)

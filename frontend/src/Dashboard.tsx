@@ -38,6 +38,22 @@ function formatShare(value: number): string {
   return `${(value * 100).toFixed(1)} %`
 }
 
+/**
+ * Приписка «а без политик было бы столько» к обязательным метрикам §5.A.
+ *
+ * Сами по себе «спасённый бюджет» и «процент ложных срабатываний» не
+ * показывают, чья это заслуга и чья цена: политики поверх модели двигают
+ * обе, причём в разные стороны. Без сравнения FPR 2.1 % читается как
+ * неточность модели, хотя у неё самой он 0.1 %.
+ *
+ * При выключенных политиках приписки нет: числа совпали бы, и строка
+ * повторяла бы саму себя.
+ */
+function withoutRules(data: AnalyticsOverview, value: number): string {
+  if (!data.rules_enabled) return ''
+  return ` · без политик ${formatShare(value)}`
+}
+
 export default function Dashboard({
   data,
   model,
@@ -90,7 +106,10 @@ export default function Dashboard({
           <Tile
             label="Фрод остановлен"
             value={formatShare(data.fraud_stopped_share)}
-            note={`${formatNumber(data.fraud_stopped)} из ${formatNumber(data.fraud_rows)}`}
+            note={
+              `${formatNumber(data.fraud_stopped)} из ${formatNumber(data.fraud_rows)}` +
+              withoutRules(data, data.fraud_stopped_share_without_rules)
+            }
             tone="good"
           />
           <Tile
@@ -108,7 +127,10 @@ export default function Dashboard({
           <Tile
             label="Процент ложных срабатываний (False Positive Rate)"
             value={formatShare(data.friction_share)}
-            note={`${formatNumber(data.friction)} честных клиентов побеспокоено зря`}
+            note={
+              `${formatNumber(data.friction)} честных клиентов побеспокоено зря` +
+              withoutRules(data, data.friction_share_without_rules)
+            }
             tone="warn"
           />
           <Tile
@@ -253,6 +275,17 @@ export default function Dashboard({
             Предельный вклад — что политика меняет <strong>сверх</strong> решения модели.
             Срабатывание на транзакции, которую модель и так остановила, пользы не приносит,
             а трение у честного клиента добавляет всегда.
+          </p>
+          {/* Числа подставляются в готовые формулировки, а падеж
+              существительного от числа не зависит: «+1 901 побеспокоенных
+              клиентов» согласуется неверно, а вести таблицу склонений
+              ради двух строк не стоит. */}
+          <p className="hint">
+            Весь слой целиком: пойманного фрода{' '}
+            <strong>+{formatNumber(data.rules_gained_fraud)}</strong>, побеспокоено честных
+            клиентов <strong>+{formatNumber(data.rules_added_friction)}</strong>. Это
+            разница по решениям целиком — сумма по столбцам таблицы получилась бы больше,
+            потому что на одной операции срабатывает сразу несколько политик.
           </p>
           <div className="table-scroll">
           <table className="table">

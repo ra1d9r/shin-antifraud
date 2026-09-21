@@ -228,6 +228,14 @@ export interface AnalyticsOverview {
   friction: number
   friction_share: number
   raised_by_rules: number
+  /** Те же две обязательные метрики §5.A по решениям одной модели, без политик. */
+  fraud_stopped_without_rules: number
+  fraud_stopped_share_without_rules: number
+  friction_without_rules: number
+  friction_share_without_rules: number
+  /** Разница по решениям целиком, а не сумма по строкам `rules`: политики пересекаются. */
+  rules_gained_fraud: number
+  rules_added_friction: number
   rules: RuleStat[]
   cost_with_rules: number
   cost_without_rules: number
