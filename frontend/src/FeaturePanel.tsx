@@ -29,9 +29,22 @@ const NAMED_IN_BRIEF = new Set([
   'geo_distance_km',
 ])
 
-function formatValue(value: number | undefined, isFlag: boolean, decimals: number): string {
+/**
+ * Значение признака для человека.
+ *
+ * «да» и «нет» приходят переводом, а не зашиты: флаг показывается
+ * в трёх языках, и русское «да» в английском интерфейсе выглядело
+ * бы как недоделка.
+ */
+function formatValue(
+  value: number | undefined,
+  isFlag: boolean,
+  decimals: number,
+  yes: string,
+  no: string,
+): string {
   if (value === undefined || !Number.isFinite(value)) return '—'
-  if (isFlag) return value >= 0.5 ? 'да' : 'нет'
+  if (isFlag) return value >= 0.5 ? yes : no
   return value.toFixed(decimals)
 }
 
@@ -101,7 +114,13 @@ export default function FeaturePanel({ features }: { features: Record<string, nu
                       <td className="muted">{feature.description}</td>
                       <td>
                         <strong>
-                          {formatValue(features[feature.name], feature.is_flag, feature.decimals)}
+                          {formatValue(
+                            features[feature.name],
+                            feature.is_flag,
+                            feature.decimals,
+                            t('common.yes'),
+                            t('common.no'),
+                          )}
                         </strong>
                       </td>
                     </tr>

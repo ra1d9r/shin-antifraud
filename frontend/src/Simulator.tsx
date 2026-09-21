@@ -28,7 +28,7 @@ import {
   newTransactionId,
   scenarioToForm,
 } from './form'
-import { VERDICT_LABEL, feedbackHeadline } from './feedback'
+import { feedbackHeadline } from './feedback'
 import { useLanguage } from './LanguageContext'
 import { WAKE_UP_HINT, useSlowHint } from './useSlowHint'
 import type { FieldSpec, FormState } from './form'
@@ -81,10 +81,16 @@ export default function Simulator() {
   const [analysis, setAnalysis] = useState<Analysis | null>(null)
   const [error, setError] = useState<DisplayError | null>(null)
   const [loading, setLoading] = useState(false)
-  const [startupError, setStartupError] = useState<string>('')
+  // Хранится не переведённый текст, а то, что пришло с backend.
+  // `null` — ошибки нет, пустая строка — ошибка без своего сообщения,
+  // и тогда показывается наша формулировка. Перевод делается при
+  // отрисовке: иначе сообщение осталось бы на языке, который был
+  // выбран в момент сбоя, а эффект пришлось бы перезапускать при
+  // каждой смене языка и заново дёргать backend.
+  const [startupError, setStartupError] = useState<string | null>(null)
   const [persist, setPersist] = useState(true)
   // Ждём либо ответа на анализ, либо самой первой загрузки сценариев.
-  const waking = useSlowHint(loading || (scenarios.length === 0 && startupError === ''))
+  const waking = useSlowHint(loading || (scenarios.length === 0 && startupError === null))
 
   // Пресеты берём с backend: тот же источник, что у автотестов и
   // docs/HAND_TESTING.md, поэтому кнопки не могут с ними разойтись.
@@ -102,9 +108,7 @@ export default function Simulator() {
         }
       } catch (cause) {
         if (cancelled) return
-        setStartupError(
-          cause instanceof ApiError ? cause.message : 'Не удалось загрузить сценарии',
-        )
+        setStartupError(cause instanceof ApiError ? cause.message : '')
       }
     }
 
@@ -168,11 +172,11 @@ export default function Simulator() {
     [scenarios, activeScenario],
   )
 
-  if (startupError) {
+  if (startupError !== null) {
     return (
       <section className="panel alert">
-        <h2>Сценарии не загрузились</h2>
-        <strong>{startupError}</strong>
+        <h2>{t('error.scenariosTitle')}</h2>
+        <strong>{startupError || t('error.scenariosFailed')}</strong>
         <p>
           Ожидаемый адрес backend: <code>{apiBaseUrl}</code>
         </p>
@@ -201,7 +205,7 @@ export default function Simulator() {
         {currentScenario && (
           <p className="hint">
             {currentScenario.description} <br />
-            <strong>Ожидание по ТЗ:</strong> {currentScenario.expectation}
+            <strong>{t('sim.expectation')}:</strong> {currentScenario.expectation}
           </p>
         )}
       </section>
@@ -220,7 +224,7 @@ export default function Simulator() {
         </div>
 
         <details className="context">
-          <summary>Контекст клиента — что система знает о нём до этой операции</summary>
+          <summary>{t('sim.clientContext')}</summary>
           <p className="hint">
             Эти поля отправляются вместе с транзакцией. Если их очистить, система
             возьмёт данные из накопленного профиля, и повторные нажатия Analyze
@@ -241,7 +245,7 @@ export default function Simulator() {
 
         <div className="actions">
           <button type="button" className="primary" onClick={() => void analyze()} disabled={loading}>
-            {loading ? 'Анализ…' : 'Analyze Transaction'}
+            {loading ? t('sim.analyzing') : t('sim.analyze')}
           </button>
           <label className="checkbox">
             <input
@@ -264,7 +268,7 @@ export default function Simulator() {
 
       {error && (
         <section className="panel alert">
-          <h2>Ошибка</h2>
+          <h2>{t('error.title')}</h2>
           <p>
             <strong>{error.title}</strong>
           </p>
@@ -480,6 +484,7 @@ function TextReport({ analysis }: { analysis: Analysis }) {
  * копию правила и однажды разойтись с ней (ТЗ §11).
  */
 function FeedbackControls({ analysis }: { analysis: Analysis }) {
+  const { t } = useLanguage()
   const [sending, setSending] = useState<Verdict | null>(null)
   const [accepted, setAccepted] = useState<FeedbackAccepted | null>(null)
   const [failure, setFailure] = useState('')
@@ -502,7 +507,7 @@ function FeedbackControls({ analysis }: { analysis: Analysis }) {
   if (!analysis.persisted) {
     return (
       <section className="panel">
-        <h2>Разметка</h2>
+        <h2>{t('sim.labelling')}</h2>
         <p className="hint">
           Операция посчитана в режиме «что если»: галочка «сохранять в историю» была
           снята, и в истории её нет — размечать нечего. Повторите анализ с включённой
@@ -514,7 +519,7 @@ function FeedbackControls({ analysis }: { analysis: Analysis }) {
 
   return (
     <section className="panel">
-      <h2>Система права?</h2>
+      <h2>{t('sim.systemRight')}</h2>
       <p className="hint">
         Отметка — не оценка интерфейса, а настоящая метка для системы. Из накопленного
         считается подтверждённое качество на вкладке «Дашборд», и оно же станет
@@ -530,7 +535,7 @@ function FeedbackControls({ analysis }: { analysis: Analysis }) {
           disabled={sending !== null}
           onClick={() => void submit('CORRECT')}
         >
-          {sending === 'CORRECT' ? 'Сохраняю…' : VERDICT_LABEL.CORRECT}
+          {sending === 'CORRECT' ? t('sim.saving') : t('feedback.correct')}
         </button>
         <button
           type="button"
@@ -538,7 +543,7 @@ function FeedbackControls({ analysis }: { analysis: Analysis }) {
           disabled={sending !== null}
           onClick={() => void submit('INCORRECT')}
         >
-          {sending === 'INCORRECT' ? 'Сохраняю…' : VERDICT_LABEL.INCORRECT}
+          {sending === 'INCORRECT' ? t('sim.saving') : t('feedback.incorrect')}
         </button>
       </div>
 
@@ -667,7 +672,8 @@ function Result({ result }: { result: PredictionResponse }) {
       <section className="panel">
         <h2>{t('sim.contributions')}</h2>
         <p className="hint">
-          Метод: <code>{result.explanation.method}</code>, единицы вклада:{' '}
+          {t('sim.method')}: <code>{result.explanation.method}</code>,{' '}
+          {t('sim.units')}:{' '}
           <code>{result.explanation.units}</code>
           {result.explanation.units === 'logit' &&
             ' — вклад в логит базовой модели до калибровки; знак и порядок сохраняются.'}
@@ -679,10 +685,10 @@ function Result({ result }: { result: PredictionResponse }) {
         <table className="contributions">
           <thead>
             <tr>
-              <th>Признак</th>
-              <th>Значение</th>
-              <th>Вклад</th>
-              <th>Направление</th>
+              <th>{t('sim.feature')}</th>
+              <th>{t('sim.value')}</th>
+              <th>{t('sim.contribution')}</th>
+              <th>{t('sim.direction')}</th>
             </tr>
           </thead>
           <tbody>
@@ -718,7 +724,7 @@ function Result({ result }: { result: PredictionResponse }) {
       <section className="panel">
         <details>
           <summary>
-            <h2 className="inline">Исходный JSON-ответ API</h2>
+            <h2 className="inline">{t('sim.rawJson')}</h2>
           </summary>
           <pre className="json">{JSON.stringify(result, null, 2)}</pre>
         </details>

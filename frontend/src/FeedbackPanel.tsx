@@ -75,28 +75,28 @@ export default function FeedbackPanel() {
       ) : (
         <>
           <div className="tiles">
-            <Tile label="Размечено операций" value={String(summary.labeled_total)} />
+            <Tile label={t('feedback.labeled')} value={String(summary.labeled_total)} />
             <Tile
-              label="Вердикт признан верным"
+              label={t('feedback.verdictRight')}
               value={formatMeasuredShare(summary.correct_share)}
               note={`${summary.correct} из ${summary.labeled_total}`}
               tone={summary.incorrect === 0 ? 'good' : undefined}
             />
             <Tile
-              label="Точность на подтверждённом"
+              label={t('feedback.measuredPrecision')}
               value={formatMeasuredShare(summary.precision)}
               note={`${summary.true_positive} фрода из ${
                 summary.true_positive + summary.false_positive
               } помеченных`}
             />
             <Tile
-              label="Ложных срабатываний"
+              label={t('feedback.falsePositives')}
               value={String(summary.false_positive)}
-              note="честных клиентов побеспокоили зря"
+              note={t('feedback.botheredInVain')}
               tone={summary.false_positive > 0 ? 'warn' : 'good'}
             />
             <Tile
-              label="Пропущено фрода"
+              label={t('feedback.fraudMissed')}
               value={String(summary.false_negative)}
               note={
                 summary.fraud_amount_missed > 0
@@ -120,10 +120,10 @@ export default function FeedbackPanel() {
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Решение</th>
-                    <th>Размечено</th>
-                    <th>Оказалось фродом</th>
-                    <th>Оказалось честным</th>
+                    <th>{t('common.decision')}</th>
+                    <th>{t('feedback.marked')}</th>
+                    <th>{t('feedback.turnedFraud')}</th>
+                    <th>{t('feedback.turnedHonest')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -146,7 +146,7 @@ export default function FeedbackPanel() {
 
           {summary.rules.length > 0 && (
             <>
-              <h3>Политики на подтверждённых операциях</h3>
+              <h3>{t('feedback.policiesOnConfirmed')}</h3>
               <p className="hint">
                 То же, что таблица политик выше, но по живым данным, а не по датасету.
                 Политика, которая раз за разом срабатывает на подтверждённо честных
@@ -156,10 +156,10 @@ export default function FeedbackPanel() {
                 <table className="table">
                   <thead>
                     <tr>
-                      <th>Политика</th>
-                      <th>Срабатываний в разметке</th>
-                      <th>Подтверждённый фрод</th>
-                      <th>Ложные</th>
+                      <th>{t('rules.policy')}</th>
+                      <th>{t('feedback.firedInLabels')}</th>
+                      <th>{t('feedback.confirmedFraud')}</th>
+                      <th>{t('feedback.falseOnes')}</th>
                     </tr>
                   </thead>
                   <tbody>

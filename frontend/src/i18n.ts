@@ -124,6 +124,11 @@ export const DICTIONARY = {
   ),
   'dash.threshold': entry('Порог чувствительности', 'Сезімталдық шегі', 'Sensitivity threshold'),
   'dash.current': entry('текущий', 'ағымдағы', 'current'),
+  'dash.optimalByCost': entry(
+    'оптимальный по стоимости',
+    'құны бойынша оңтайлы',
+    'cost-optimal',
+  ),
   'dash.optimal': entry('оптимальный', 'оңтайлы', 'optimal'),
   'dash.decisions': entry('Решения системы', 'Жүйенің шешімдері', 'System decisions'),
   'dash.legit': entry('Легальных', 'Заңды', 'Legitimate'),
@@ -159,6 +164,11 @@ export const DICTIONARY = {
   'adaptive.off': entry('выключен', 'өшірулі', 'off'),
   'adaptive.segments': entry('Сегментов', 'Сегменттер', 'Segments'),
   'adaptive.fallback': entry('Общий запасной порог', 'Жалпы қосалқы шек', 'Shared fallback threshold'),
+  'adaptive.forOthers': entry(
+    'для категорий без своего',
+    'өз шегі жоқ санаттар үшін',
+    'for categories without their own',
+  ),
   'adaptive.worth': entry('Чего это стоит', 'Бұл не тұрады', 'What it is worth'),
   'adaptive.gain': entry(
     'Выигрыш против одного порога',
@@ -192,8 +202,10 @@ export const DICTIONARY = {
   // --- симулятор ---
   'sim.scenarios': entry('Сценарии', 'Сценарийлер', 'Scenarios'),
   'sim.transaction': entry('Транзакция', 'Транзакция', 'Transaction'),
-  'sim.analyze': entry('Проанализировать', 'Талдау', 'Analyze'),
+  'sim.analyze': entry('Проанализировать', 'Талдау', 'Analyze Transaction'),
   'sim.analyzing': entry('Анализ…', 'Талдау…', 'Analyzing…'),
+  'sim.saving': entry('Сохраняю…', 'Сақталуда…', 'Saving…'),
+  'sim.units': entry('единицы вклада', 'үлес бірліктері', 'contribution units'),
   'sim.persist': entry(
     'Сохранять в истории',
     'Тарихта сақтау',
@@ -255,6 +267,196 @@ export const DICTIONARY = {
   'feedback.title': entry('Разметка аналитика', 'Талдаушы белгілеуі', 'Analyst labelling'),
   'feedback.correct': entry('Вердикт верный', 'Шешім дұрыс', 'Verdict correct'),
   'feedback.incorrect': entry('Вердикт ошибочный', 'Шешім қате', 'Verdict wrong'),
+
+  // --- теневая конфигурация ---
+  'shadow.compared': entry('Операций сравнено', 'Салыстырылған операциялар', 'Transactions compared'),
+  'shadow.agreed': entry('Решения совпали', 'Шешімдер сәйкес келді', 'Decisions agreed'),
+  'shadow.frictionRemoved': entry('Трение снялось бы', 'Кедергі азаяр еді', 'Friction would drop'),
+  'shadow.frictionAdded': entry('Трение добавилось бы', 'Кедергі артар еді', 'Friction would grow'),
+  'shadow.primaryLive': entry(
+    'Основная — работает',
+    'Негізгі — жұмыс істейді',
+    'Primary — live',
+  ),
+  'shadow.shadowOnlyCounts': entry(
+    'Теневая — только считает',
+    'Көлеңкелі — тек санайды',
+    'Shadow — counts only',
+  ),
+  'shadow.whoDecided': entry('Кто что решил', 'Кім не шешті', 'Who decided what'),
+  'shadow.primary': entry('Основная', 'Негізгі', 'Primary'),
+  'shadow.shadow': entry('Теневая', 'Көлеңкелі', 'Shadow'),
+  'shadow.lastDisagreements': entry(
+    'Последние расхождения',
+    'Соңғы алшақтықтар',
+    'Latest disagreements',
+  ),
+  'shadow.sameConfig': entry(
+    'Теневая конфигурация совпадает с основной — сравнивать нечего.',
+    'Көлеңкелі конфигурация негізгімен бірдей — салыстыратын ештеңе жоқ.',
+    'The shadow configuration matches the primary one — nothing to compare.',
+  ),
+
+  // --- граф связей ---
+  'graph.scanned': entry('Просмотрено операций', 'Қаралған операциялар', 'Transactions scanned'),
+  'graph.users': entry('Клиентов в них', 'Ондағы клиенттер', 'Clients in them'),
+  'graph.deviceGroups': entry(
+    'Групп с общим устройством',
+    'Ортақ құрылғылы топтар',
+    'Groups sharing a device',
+  ),
+  'graph.subnetGroups': entry(
+    'Групп только по подсети',
+    'Тек ішкі желі бойынша топтар',
+    'Groups by subnet only',
+  ),
+  'graph.weakLink': entry('связь слабая', 'байланыс әлсіз', 'weak link'),
+  'graph.badLink': entry('связь объясняется плохо', 'байланысты түсіндіру қиын', 'hard to explain'),
+  'graph.clients': entry('Клиенты', 'Клиенттер', 'Clients'),
+  'graph.link': entry('Связь', 'Байланыс', 'Link'),
+  'graph.through': entry('Через что', 'Не арқылы', 'Through what'),
+  'graph.flagged': entry('Помечено', 'Белгіленді', 'Flagged'),
+  'graph.maxRisk': entry('Макс. риск', 'Ең жоғары тәуекел', 'Max risk'),
+
+  // --- дрейф ---
+  'drift.overall': entry('Общая картина', 'Жалпы көрініс', 'Overall picture'),
+  'drift.observed': entry(
+    'Наблюдений с запуска',
+    'Іске қосылғаннан бергі бақылаулар',
+    'Observations since start',
+  ),
+  'drift.overLimit': entry('Признаков за границей', 'Шектен шыққан белгілер', 'Features past the limit'),
+  'drift.baselineRows': entry('Эталон снят по', 'Эталон алынған', 'Baseline taken from'),
+  'drift.datasetRows': entry('строкам датасета', 'датасет жолдары', 'dataset rows'),
+  'drift.worstFeature': entry(
+    'по самому разошедшемуся признаку',
+    'ең көп ауытқыған белгі бойынша',
+    'by the most divergent feature',
+  ),
+  'drift.howSplit': entry(
+    'как разложился поток',
+    'ағын қалай бөлінді',
+    'how the stream split up',
+  ),
+  'drift.state': entry('Состояние', 'Күйі', 'State'),
+
+  // --- разметка аналитика ---
+  'feedback.labeled': entry('Размечено операций', 'Белгіленген операциялар', 'Transactions labelled'),
+  'feedback.verdictRight': entry(
+    'Вердикт признан верным',
+    'Шешім дұрыс деп танылды',
+    'Verdict confirmed right',
+  ),
+  'feedback.measuredPrecision': entry(
+    'Точность на подтверждённом',
+    'Расталғандағы дәлдік',
+    'Precision on confirmed',
+  ),
+  'feedback.falsePositives': entry('Ложных срабатываний', 'Жалған дабылдар', 'False positives'),
+  'feedback.fraudMissed': entry('Пропущено фрода', 'Өткізілген алаяқтық', 'Fraud missed'),
+  'feedback.botheredInVain': entry(
+    'честных клиентов побеспокоили зря',
+    'адал клиенттер бекер мазаланды',
+    'honest clients bothered for nothing',
+  ),
+  'feedback.marked': entry('Размечено', 'Белгіленді', 'Labelled'),
+  'feedback.turnedFraud': entry('Оказалось фродом', 'Алаяқтық болып шықты', 'Turned out fraudulent'),
+  'feedback.turnedHonest': entry('Оказалось честным', 'Адал болып шықты', 'Turned out honest'),
+  'feedback.policiesOnConfirmed': entry(
+    'Политики на подтверждённых операциях',
+    'Расталған операциялардағы саясаттар',
+    'Policies on confirmed transactions',
+  ),
+  'feedback.firedInLabels': entry(
+    'Срабатываний в разметке',
+    'Белгілеудегі іске қосылулар',
+    'Fired in labelled data',
+  ),
+  'feedback.confirmedFraud': entry('Подтверждённый фрод', 'Расталған алаяқтық', 'Confirmed fraud'),
+
+  // --- общее для таблиц и состояний ---
+  'common.decision': entry('Решение', 'Шешім', 'Decision'),
+  'common.legit': entry('Легальные', 'Заңды', 'Legitimate'),
+  'common.fraud': entry('Фрод', 'Алаяқтық', 'Fraud'),
+  'common.amount': entry('Сумма', 'Сома', 'Amount'),
+  'common.forAmount': entry('На сумму', 'Сомасы', 'For amount'),
+  'common.transaction': entry('Операция', 'Операция', 'Transaction'),
+  'common.operations': entry('Операций', 'Операциялар', 'Transactions'),
+  'common.yes': entry('да', 'иә', 'yes'),
+  'common.no': entry('нет', 'жоқ', 'no'),
+  'common.loading': entry('Загружаю…', 'Жүктелуде…', 'Loading…'),
+
+  'error.analyticsTitle': entry('Аналитика недоступна', 'Талдау қолжетімсіз', 'Analytics unavailable'),
+  'error.analyticsLoading': entry('Загружаю аналитику', 'Талдау жүктелуде', 'Loading analytics'),
+  'error.scenariosTitle': entry(
+    'Сценарии не загрузились',
+    'Сценарийлер жүктелмеді',
+    'Scenarios failed to load',
+  ),
+  'error.scenariosFailed': entry(
+    'Не удалось загрузить сценарии',
+    'Сценарийлерді жүктеу мүмкін болмады',
+    'Could not load the scenarios',
+  ),
+  'error.title': entry('Ошибка', 'Қате', 'Error'),
+  'error.backendAddress': entry('Адрес backend', 'Backend мекенжайы', 'Backend address'),
+  'error.staleAnalytics': entry('Аналитика устарела', 'Талдау ескірген', 'Analytics are stale'),
+  'error.modelInfo': entry(
+    'Сведения о модели не получены',
+    'Модель туралы мәліметтер алынбады',
+    'Model details not received',
+  ),
+  'error.panelUnavailable': entry('Панель недоступна', 'Панель қолжетімсіз', 'Panel unavailable'),
+
+  // --- симулятор, продолжение ---
+  'sim.expectation': entry('Ожидание по ТЗ', 'ТЗ бойынша күтілетіні', 'Expected per the spec'),
+  'sim.clientContext': entry(
+    'Контекст клиента — что система знает о нём до этой операции',
+    'Клиент контексті — жүйе бұл операцияға дейін не біледі',
+    'Client context — what the system knows before this transaction',
+  ),
+  'sim.labelling': entry('Разметка', 'Белгілеу', 'Labelling'),
+  'sim.systemRight': entry('Система права?', 'Жүйе дұрыс па?', 'Was the system right?'),
+  'sim.rawJson': entry(
+    'Исходный JSON-ответ API',
+    'API-дің бастапқы JSON жауабы',
+    'Raw JSON response from the API',
+  ),
+
+  'curve.fraudMissed': entry('Пропущено фрода', 'Өткізілген алаяқтық', 'Fraud missed'),
+  'curve.frictionHit': entry('Задето честных', 'Адалдар қозғалды', 'Honest clients hit'),
+  'curve.fraudLoss': entry('Потери от фрода', 'Алаяқтықтан шығын', 'Fraud loss'),
+  'curve.checksCost': entry('Стоимость проверок', 'Тексерулер құны', 'Cost of checks'),
+  'curve.total': entry('Итого', 'Жиыны', 'Total'),
+  'curve.precision': entry('Точность (Precision)', 'Дәлдік (Precision)', 'Precision'),
+  'curve.recall': entry('Полнота (Recall)', 'Толықтық (Recall)', 'Recall'),
+  'curve.precisionNote': entry(
+    'доля настоящего фрода среди помеченного',
+    'белгіленгендер ішіндегі нағыз алаяқтық үлесі',
+    'share of real fraud among flagged',
+  ),
+  'curve.recallNote': entry(
+    'доля пойманного фрода от всего',
+    'барлық алаяқтықтан ұсталғаны',
+    'share of all fraud that was caught',
+  ),
+  'curve.chartLabel': entry('Кривая компромисса', 'Ымыра қисығы', 'Trade-off curve'),
+  'curve.qualityLabel': entry(
+    'Точность и полнота по порогу',
+    'Шек бойынша дәлдік пен толықтық',
+    'Precision and recall by threshold',
+  ),
+  'model.algorithm': entry('Алгоритм', 'Алгоритм', 'Algorithm'),
+
+  'sim.contribution': entry('Вклад', 'Үлес', 'Contribution'),
+  'sim.direction': entry('Направление', 'Бағыты', 'Direction'),
+
+  'shadow.identical': entry(
+    'Теневая конфигурация совпадает с основной — сравнивать нечего.',
+    'Көлеңкелі конфигурация негізгімен бірдей — салыстыратын ештеңе жоқ.',
+    'The shadow configuration matches the primary one — nothing to compare.',
+  ),
+  'feedback.falseOnes': entry('Ложные', 'Жалған', 'False'),
 
   // --- карта аномалий ---
   'map.title': entry('Карта аномалий', 'Ауытқулар картасы', 'Anomaly map'),

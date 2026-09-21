@@ -89,7 +89,7 @@ export default function Dashboard({
     <>
       {data.stale && (
         <section className="panel alert">
-          <h2>Аналитика устарела</h2>
+          <h2>{t('error.staleAnalytics')}</h2>
           <p>
             <strong>{data.stale_reason}</strong>
           </p>
@@ -203,7 +203,7 @@ export default function Dashboard({
           </label>
           <div className="slider-marks">
             <button type="button" className="chip" onClick={() => setThreshold(data.thresholds.approve_max)}>
-              текущий ({data.thresholds.approve_max})
+              {t('dash.current')} ({data.thresholds.approve_max})
             </button>
             <button type="button" className="chip" onClick={() => setThreshold(data.optimal_threshold)}>
               дешевле всего ({data.optimal_threshold})
@@ -212,25 +212,33 @@ export default function Dashboard({
         </div>
 
         <div className="tiles">
-          <Tile label="Пропущено фрода" value={formatNumber(point.fraud_missed)} tone="bad" />
-          <Tile label="Задето честных" value={formatNumber(point.friction)} tone="warn" />
-          <Tile label="Потери от фрода" value={formatMoney(point.fraud_loss)} />
-          <Tile label="Стоимость проверок" value={formatMoney(point.friction_cost)} />
           <Tile
-            label="Итого"
+            label={t('curve.fraudMissed')}
+            value={formatNumber(point.fraud_missed)}
+            tone="bad"
+          />
+          <Tile
+            label={t('curve.frictionHit')}
+            value={formatNumber(point.friction)}
+            tone="warn"
+          />
+          <Tile label={t('curve.fraudLoss')} value={formatMoney(point.fraud_loss)} />
+          <Tile label={t('curve.checksCost')} value={formatMoney(point.friction_cost)} />
+          <Tile
+            label={t('curve.total')}
             value={formatMoney(point.total_cost)}
             note={costNote(point, current)}
             tone={point.total_cost <= current.total_cost ? 'good' : 'bad'}
           />
           <Tile
-            label="Точность (Precision)"
+            label={t('curve.precision')}
             value={formatMeasuredShare(point.precision)}
-            note="доля настоящего фрода среди помеченного"
+            note={t('curve.precisionNote')}
           />
           <Tile
-            label="Полнота (Recall)"
+            label={t('curve.recall')}
             value={formatMeasuredShare(point.recall)}
-            note="доля пойманного фрода от всего"
+            note={t('curve.recallNote')}
           />
         </div>
 
@@ -249,9 +257,9 @@ export default function Dashboard({
         <table className="table">
           <thead>
             <tr>
-              <th>Решение</th>
-              <th>Легальные</th>
-              <th>Фрод</th>
+              <th>{t('common.decision')}</th>
+              <th>{t('common.legit')}</th>
+              <th>{t('common.fraud')}</th>
             </tr>
           </thead>
           <tbody>
@@ -361,7 +369,7 @@ export default function Dashboard({
 
       {!model?.loaded && modelError && (
         <section className="panel alert">
-          <h2>Сведения о модели не получены</h2>
+          <h2>{t('error.modelInfo')}</h2>
           <p>
             <strong>{modelError}</strong>
           </p>
@@ -374,9 +382,9 @@ export default function Dashboard({
 
       {model?.loaded && (
         <section className="panel">
-          <h2>Модель</h2>
+          <h2>{t('model.title')}</h2>
           <div className="tiles">
-            <Tile label="Алгоритм" value={model.algorithm ?? '—'} note={model.calibration_method ?? ''} />
+            <Tile label={t('model.algorithm')} value={model.algorithm ?? '—'} note={model.calibration_method ?? ''} />
             <Tile label="ROC-AUC" value={model.roc_auc?.toFixed(4) ?? '—'} />
             <Tile label="PR-AUC" value={model.pr_auc?.toFixed(4) ?? '—'} />
             <Tile label="Precision" value={model.precision?.toFixed(4) ?? '—'} />
@@ -415,6 +423,7 @@ function QualityChart({
   currentThreshold: number
   optimalThreshold: number
 }) {
+  const { t } = useLanguage()
   const width = 720
   const height = 150
   const padding = { top: 14, right: 16, bottom: 26, left: 56 }
@@ -443,7 +452,7 @@ function QualityChart({
       className="chart"
       viewBox={`0 0 ${width} ${height}`}
       role="img"
-      aria-label="Точность и полнота по порогу"
+      aria-label={t('curve.qualityLabel')}
     >
       {[0, 0.25, 0.5, 0.75, 1].map((share) => (
         <g key={share}>
@@ -525,6 +534,7 @@ function TradeOffChart({
   currentThreshold: number
   optimalThreshold: number
 }) {
+  const { t } = useLanguage()
   const width = 720
   const height = 260
   const padding = { top: 16, right: 16, bottom: 28, left: 56 }
@@ -556,7 +566,7 @@ function TradeOffChart({
   const point = hovered === null ? null : (curve.find((item) => item.threshold === hovered) ?? null)
 
   return (
-    <svg className="chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Кривая компромисса">
+    <svg className="chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={t('curve.chartLabel')}>
       {[0, 0.25, 0.5, 0.75, 1].map((fraction) => (
         <g key={fraction}>
           <line
