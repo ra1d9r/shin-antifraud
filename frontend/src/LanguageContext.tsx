@@ -34,7 +34,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     document.documentElement.lang = language
     // Язык управляет и тем, показывать ли русские пояснения: правило
-    // одно, в CSS, вместо двухсот тридцати правок по компонентам.
+    // одно, в CSS, вместо полусотни правок по компонентам.
     document.documentElement.dataset.lang = language
   }, [language])
 
