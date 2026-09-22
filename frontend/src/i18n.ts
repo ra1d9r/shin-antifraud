@@ -741,6 +741,16 @@ export const DICTIONARY = {
     'шешімдер ортақ шекте',
     'decisions use the common threshold',
   ),
+  'adaptive.offBecauseLost': entry(
+    'Проверка не подтвердила выигрыш — поэтому режим выключен и на решения не влияет',
+    'Тексеру ұтысты растамады — сондықтан режим өшірулі және шешімдерге әсер етпейді',
+    'The validation did not confirm a gain — the mode is therefore off and does not affect decisions',
+  ),
+  'adaptive.offThoughWon': entry(
+    'Проверка показала выигрыш, но режим выключен по умолчанию — включается настройкой',
+    'Тексеру ұтысты көрсетті, бірақ режим әдепкіде өшірулі — баптау арқылы қосылады',
+    'The validation showed a gain, but the mode is off by default — it is enabled by configuration',
+  ),
   'adaptive.ownThreshold': entry(
     'свой порог у {count}',
     '{count} сегментте өз шегі бар',

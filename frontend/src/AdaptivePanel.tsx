@@ -126,6 +126,24 @@ export default function AdaptivePanel() {
               }
             />
           </div>
+          {/* Вывод, а не комментарий: он виден на всех трёх языках.
+              Числа выше говорят «режим проигрывает», но человек, который
+              смотрит на дашборд минуту, не обязан складывать из них
+              заключение сам — иначе панель читается как недоделанная
+              функция, а не как измеренный и осознанно выключенный режим.
+              Условие берётся из самой проверки: переобучение сменит знак,
+              и фраза сменится вместе с ним. */}
+          {!state.enabled && (
+            <p className="hint always-visible">
+              <strong className={check.mean_gain > 0 ? '' : 'warn-text'}>
+                {check.mean_gain > 0
+                  ? t('adaptive.offThoughWon')
+                  : t('adaptive.offBecauseLost')}
+                .
+              </strong>
+            </p>
+          )}
+
           <p className="hint">
             Сравнение с действующей настройкой <code>approve_max = </code>
             {check.configured_approve_max}: стоимость{' '}
