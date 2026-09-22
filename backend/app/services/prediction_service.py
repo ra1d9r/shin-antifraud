@@ -206,6 +206,7 @@ class PredictionService:
                 base_value=explanation.base_value,
                 summary=explanation.summary,
                 reasons=list(explanation.reasons),
+                model_reasons=list(explanation.model_reasons),
                 policy_reasons=list(explanation.policy_reasons),
                 factors=[
                     RiskFactorOut(

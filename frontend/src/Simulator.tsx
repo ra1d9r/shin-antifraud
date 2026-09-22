@@ -615,9 +615,12 @@ function Field({
 
 function Result({ result }: { result: PredictionResponse }) {
   const { t } = useLanguage()
-  const increasing = result.explanation.factors.filter(
-    (factor) => factor.direction === 'INCREASES_RISK',
-  )
+  // Список берётся с backend, а не собирается здесь фильтром по знаку.
+  // Собственный фильтр был второй копией правила «что считать причиной»
+  // (ТЗ §11 запрещает клиенту вычислять) и немедленно с ним разошёлся:
+  // backend отсеивал шумовые вклады, а экран их показывал — вплоть до
+  // «крупная сумма» под одобренной операцией на сумму 100.
+  const increasing = result.explanation.model_reasons
   const maxContribution = Math.max(
     ...result.explanation.factors.map((factor) => Math.abs(factor.contribution)),
     1e-9,
@@ -669,8 +672,8 @@ function Result({ result }: { result: PredictionResponse }) {
         <h3>{t('sim.topFactors')}</h3>
         {increasing.length > 0 ? (
           <ul>
-            {increasing.map((factor) => (
-              <li key={factor.feature}>{factor.reason}</li>
+            {increasing.map((reason) => (
+              <li key={reason}>{reason}</li>
             ))}
           </ul>
         ) : (

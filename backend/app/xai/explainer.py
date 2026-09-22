@@ -73,6 +73,28 @@ class Explanation:
     summary: str = ""
 
     @property
+    def model_reasons(self) -> tuple[str, ...]:
+        """Причины от модели — без политик.
+
+        Отдаётся отдельным полем, потому что интерфейс показывает
+        политики и факторы разными списками. Пока поля не было, он
+        фильтровал факторы сам — то есть держал вторую копию правила
+        «что считать причиной», а ТЗ §11 запрещает клиенту вычислять.
+        Копия немедленно разошлась с оригиналом: backend отсеивал шум,
+        а экран его показывал.
+
+        Мало быть положительным — надо ещё что-то значить. Признак,
+        сдвинувший логит на пять процентов базы, риск формально повышал,
+        но причиной решения не был (см. `narrator.is_meaningful`).
+        """
+        return tuple(
+            factor.reason
+            for factor in self.factors
+            if factor.direction is ImpactDirection.INCREASES_RISK
+            and narrator.is_meaningful(factor.contribution, self.base_value)
+        )
+
+    @property
     def reasons(self) -> tuple[str, ...]:
         """Плоский список причин: сначала политики, затем факторы модели.
 
@@ -84,15 +106,9 @@ class Explanation:
         country» приходит и от правила, и от признака `is_high_risk_country`),
         а одна и та же фраза дважды в списке выглядит как ошибка.
         """
-        model_reasons = (
-            factor.reason
-            for factor in self.factors
-            if factor.direction is ImpactDirection.INCREASES_RISK
-        )
-
         seen: set[str] = set()
         unique: list[str] = []
-        for reason in (*self.policy_reasons, *model_reasons):
+        for reason in (*self.policy_reasons, *self.model_reasons):
             key = reason.strip().lower()
             if key not in seen:
                 seen.add(key)
@@ -106,6 +122,7 @@ class Explanation:
             "base_value": round(self.base_value, 6),
             "summary": self.summary,
             "reasons": list(self.reasons),
+            "model_reasons": list(self.model_reasons),
             "policy_reasons": list(self.policy_reasons),
             "factors": [factor.to_dict() for factor in self.factors],
         }
