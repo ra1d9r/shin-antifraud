@@ -37,6 +37,7 @@
 import { useCallback, useState } from 'react'
 
 import {
+  ApiError,
   errorText,
   fetchCostWeights,
   fetchPolicies,
@@ -76,6 +77,19 @@ function changedNumbers(draft: Draft, current: Record<string, number>): Record<s
     if (value !== current[name]) changed[name] = value
   }
   return changed
+}
+
+/**
+ * Число из поля, а если поля нет — действующее значение.
+ *
+ * Нужна потому, что `Number('')` — это ноль, а не «не трогать».
+ * Пороги отправляются все четыре сразу, и очищенное поле уходило бы
+ * нулём: очистив «пропускать до» и поправив соседнее, человек молча
+ * получил бы систему, которая проверяет всё подряд начиная с единицы.
+ */
+function numberOr(text: string | undefined, fallback: number): number {
+  const value = Number(text)
+  return text === undefined || text.trim() === '' || !Number.isFinite(value) ? fallback : value
 }
 
 /** Черновик из действующих значений: числа становятся строками полей. */
@@ -196,6 +210,30 @@ function Applied({ report }: { report: ApplyReport }) {
         : null}
       {report.reload ? ` ${t('config.reloadHint')}.` : null}
     </p>
+  )
+}
+
+/**
+ * Отказ формы: заголовок и разбор по полям.
+ *
+ * Разбор показывается отдельным списком потому, что без него человек
+ * видит «Некорректные данные запроса» и не узнаёт, что именно не так.
+ * Проверка «пороги возрастают» живёт на backend (ТЗ §11), и её причина
+ * приходит в `details` — показать заголовок и выбросить причину значило
+ * бы оставить форму без единственного объяснения, которое у неё есть.
+ */
+function FormError({ error }: { error: { text: string; details: string[] } }) {
+  return (
+    <>
+      <p className="warn-text">{error.text}</p>
+      {error.details.length > 0 && (
+        <ul className="warn-text">
+          {error.details.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      )}
+    </>
   )
 }
 
@@ -351,7 +389,7 @@ function ThresholdForm({ state, token, writable, report, onApplied }: FormProps<
   const [rulesEnabled, setRulesEnabled] = useState(state.rules_enabled)
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<{ text: string; details: string[] } | null>(null)
 
   function set(name: string, value: string) {
     setDraft((previous) => ({ ...previous, [name]: value }))
@@ -366,9 +404,9 @@ function ThresholdForm({ state, token, writable, report, onApplied }: FormProps<
           // Пороги отправляются все четыре: они проверяются на возрастание
           // друг относительно друга, и «менять только изменённое» здесь
           // означало бы проверять новое значение против старого соседа.
-          approve_max: Number(draft.approve_max),
-          challenge_max: Number(draft.challenge_max),
-          critical_min: Number(draft.critical_min),
+          approve_max: numberOr(draft.approve_max, state.approve_max),
+          challenge_max: numberOr(draft.challenge_max, state.challenge_max),
+          critical_min: numberOr(draft.critical_min, state.critical_min),
           rules_enabled: rulesEnabled,
           ...(reason.trim() ? { reason: reason.trim() } : {}),
         },
@@ -380,7 +418,10 @@ function ThresholdForm({ state, token, writable, report, onApplied }: FormProps<
       if (applied.drift_kept) notes.push({ key: 'config.driftKept' })
       onApplied({ form: 'thresholds', notes, reload: applied.analytics_marked_stale })
     } catch (cause) {
-      setError(errorText(cause, t))
+      setError({
+        text: errorText(cause, t),
+        details: cause instanceof ApiError ? cause.fieldErrors : [],
+      })
     } finally {
       setBusy(false)
     }
@@ -456,7 +497,7 @@ function ThresholdForm({ state, token, writable, report, onApplied }: FormProps<
       {writable && untouched && report === null && (
         <p className="muted">{t('config.nothingToChange')}</p>
       )}
-      {error && <p className="warn-text">{error}</p>}
+      {error && <FormError error={error} />}
       {report && <Applied report={report} />}
     </div>
   )
@@ -482,7 +523,7 @@ function PolicyForm({ state, token, writable, report, onApplied }: FormProps<Pol
   const [draft, setDraft] = useState<Draft>(() => draftFrom(current))
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<{ text: string; details: string[] } | null>(null)
 
   function set(name: string, value: string) {
     setDraft((previous) => ({ ...previous, [name]: value }))
@@ -503,7 +544,10 @@ function PolicyForm({ state, token, writable, report, onApplied }: FormProps<Pol
       if (applied.analytics_marked_stale) notes.push({ key: 'config.analyticsStale' })
       onApplied({ form: 'policies', notes, reload: applied.analytics_marked_stale })
     } catch (cause) {
-      setError(errorText(cause, t))
+      setError({
+        text: errorText(cause, t),
+        details: cause instanceof ApiError ? cause.fieldErrors : [],
+      })
     } finally {
       setBusy(false)
     }
@@ -585,7 +629,7 @@ function PolicyForm({ state, token, writable, report, onApplied }: FormProps<Pol
         </span>
       </div>
 
-      {error && <p className="warn-text">{error}</p>}
+      {error && <FormError error={error} />}
       {report && <Applied report={report} />}
     </div>
   )
@@ -605,7 +649,7 @@ function CostForm({ state, token, writable, report, onApplied }: FormProps<CostS
   const [draft, setDraft] = useState<Draft>(() => draftFrom(current))
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<{ text: string; details: string[] } | null>(null)
 
   function set(name: string, value: string) {
     setDraft((previous) => ({ ...previous, [name]: value }))
@@ -641,7 +685,10 @@ function CostForm({ state, token, writable, report, onApplied }: FormProps<CostS
       // страницу незачем, и предлагать это было бы лишним беспокойством.
       onApplied({ form: 'cost', notes, reload: false })
     } catch (cause) {
-      setError(errorText(cause, t))
+      setError({
+        text: errorText(cause, t),
+        details: cause instanceof ApiError ? cause.fieldErrors : [],
+      })
     } finally {
       setBusy(false)
     }
@@ -711,7 +758,7 @@ function CostForm({ state, token, writable, report, onApplied }: FormProps<CostS
       {!state.curve_recomputable && (
         <p className="muted">{t('config.curveNotRecomputed')}</p>
       )}
-      {error && <p className="warn-text">{error}</p>}
+      {error && <FormError error={error} />}
       {report && <Applied report={report} />}
     </div>
   )
