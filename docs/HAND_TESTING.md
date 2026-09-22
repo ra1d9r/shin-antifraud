@@ -94,8 +94,6 @@ pytest backend/tests/test_scenarios.py -v
 
 **Причины:**
 
-- 3 transactions in the last 24 hours
-- Large transaction amount in absolute terms
 
 **Вклады признаков** (`shap`, единицы: `logit`):
 
@@ -135,7 +133,6 @@ pytest backend/tests/test_scenarios.py -v
 - Unrecognized device on an unrecognized network
 - New device detected
 - Network changed: different IP subnet than the previous transaction
-- 3 transactions in the last 24 hours
 
 **Вклады признаков** (`shap`, единицы: `logit`):
 
@@ -177,7 +174,6 @@ pytest backend/tests/test_scenarios.py -v
 - Transaction from an unusual country on an unfamiliar connection
 - Implied travel speed of 396 km/h between transactions
 - Unusual country: transaction outside the user's home country
-- Transaction 7921 km away from the previous one
 
 **Вклады признаков** (`shap`, единицы: `logit`):
 
@@ -214,8 +210,6 @@ pytest backend/tests/test_scenarios.py -v
 
 - Amount deviates 50.0 standard deviations from the user's usual spending
 - Transaction amount is 25.0x the user's normal amount
-- Large transaction amount in absolute terms
-- 3 transactions in the last 24 hours
 
 **Вклады признаков** (`shap`, единицы: `logit`):
 
@@ -301,7 +295,6 @@ pytest backend/tests/test_scenarios.py -v
 - Abnormal transaction velocity
 - 9 transactions in the last hour
 - Transaction frequency is 7.3x the user's normal rate
-- Only 0.10 hours since the previous transaction
 
 **Вклады признаков** (`shap`, единицы: `logit`):
 

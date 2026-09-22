@@ -206,12 +206,24 @@ def test_scenario_5_is_blocked(client) -> None:
 
 
 def test_every_scenario_is_explained(client) -> None:
-    """ТЗ §7: у каждого решения от 3 до 5 факторов и хотя бы одна причина."""
-    for payload in run_all(client).values():
+    """ТЗ §7: у каждого решения от 3 до 5 факторов и связная фраза.
+
+    Требование к причинам уточнено. Раньше проверялось «хотя бы одна
+    причина у каждого решения», и ради этого в список попадал шум:
+    у одобренной операции на сумму 100 значилось «Large transaction
+    amount in absolute terms» с вкладом в пять процентов базы.
+
+    Причина — ответ на вопрос «почему система насторожилась». Если она
+    не насторожилась, честный ответ пустой, а не выдуманный. Поэтому
+    причины требуются там, где операцию не пропустили; факторы и фраза
+    обязательны всегда, и это ровно то, чего требует ТЗ §7.
+    """
+    for key, payload in run_all(client).items():
         explanation = payload["explanation"]
-        assert 3 <= len(explanation["factors"]) <= 5
-        assert explanation["summary"]
-        assert explanation["reasons"]
+        assert 3 <= len(explanation["factors"]) <= 5, key
+        assert explanation["summary"], key
+        if payload["decision"] != "APPROVE":
+            assert explanation["reasons"], f"{key}: решение не объяснено"
 
 
 # ------------------------------------------------------ воспроизводимость
@@ -250,3 +262,63 @@ def test_running_scenarios_fills_dashboard_statistics(client) -> None:
     assert stats["suspicious_transactions"] >= 1
     assert stats["average_risk_score"] > 0
     assert stats["triggered_rules"]
+
+
+# ------------------------------- шум не выдаётся за причину решения
+
+
+def test_approved_transaction_has_no_risk_reasons(client) -> None:
+    """Одобренная обычная операция ничем не объясняется — и не должна.
+
+    До правки первый демонстрационный сценарий показывал «Large
+    transaction amount in absolute terms» при сумме 100 и оценке 0.
+    Вклад у признака был +0.45 при базовом значении −8.83 — пять
+    процентов, то есть шум, выданный за объяснение.
+    """
+    payload = client.post("/scenarios/normal/run?persist=false").json()
+
+    assert payload["decision"] == "APPROVE"
+    assert payload["risk_score"] == 0
+    assert payload["explanation"]["model_reasons"] == []
+    assert payload["explanation"]["reasons"] == []
+
+
+@pytest.mark.parametrize(
+    "key",
+    ["new_device", "unusual_country", "large_amount", "multiple_anomalies", "high_frequency"],
+)
+def test_risky_scenarios_still_explain_themselves(client, key) -> None:
+    """Обратная сторона: отсечение не должно обеднить настоящие объяснения.
+
+    Без этой проверки слишком жадный порог выглядел бы работающим —
+    все списки пустые, зато шума нет.
+    """
+    payload = client.post(f"/scenarios/{key}/run?persist=false").json()
+
+    assert payload["explanation"]["reasons"], f"{key}: решение ничем не объяснено"
+
+
+def test_reasons_keep_only_meaningful_contributions(client) -> None:
+    """Каждая причина от модели весит не меньше десятой доли базы."""
+    payload = client.post("/scenarios/large_amount/run?persist=false").json()
+    explanation = payload["explanation"]
+    base = abs(explanation["base_value"])
+
+    by_reason = {factor["reason"]: factor["contribution"] for factor in explanation["factors"]}
+    for reason in explanation["model_reasons"]:
+        share = abs(by_reason[reason]) / base
+        assert share >= 0.10, f"«{reason}» прошёл с долей {share:.1%}"
+
+
+def test_dropped_factors_stay_in_the_table(client) -> None:
+    """Шум убран из причин, но не из таблицы вкладов.
+
+    Таблица показывает устройство решения целиком, включая мелочи
+    и то, что риск понижало. Спрятать их значило бы подменить
+    объяснение пересказом.
+    """
+    explanation = client.post("/scenarios/normal/run?persist=false").json()["explanation"]
+
+    assert explanation["model_reasons"] == []
+    assert len(explanation["factors"]) >= 3, "таблица вкладов опустела вместе с причинами"
+    assert any(f["direction"] == "DECREASES_RISK" for f in explanation["factors"])

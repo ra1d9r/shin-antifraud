@@ -78,6 +78,8 @@ export interface Explanation {
   base_value: number
   summary: string
   reasons: string[]
+  /** Только причины от модели, без политик и без шума. */
+  model_reasons: string[]
   policy_reasons: string[]
   factors: RiskFactor[]
 }

@@ -49,6 +49,16 @@ class ExplanationOut(BaseModel):
     base_value: float = Field(description="Базовое значение, от которого отсчитываются вклады")
     summary: str = Field(description="Одна фраза про решение целиком")
     reasons: list[str] = Field(description="Причины: сначала политики, затем факторы модели")
+    model_reasons: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Только причины от модели, без политик и без шума. "
+            "Признак, сдвинувший оценку меньше чем на десятую долю "
+            "базового значения, сюда не попадает: он формально повышал "
+            "риск, но причиной решения не был. Интерфейс показывает "
+            "именно этот список — считать его у себя ему нечем (ТЗ §11)."
+        ),
+    )
     policy_reasons: list[str] = Field(description="Только сработавшие политики")
     factors: list[RiskFactorOut] = Field(description="3–5 факторов с величиной вклада")
 
