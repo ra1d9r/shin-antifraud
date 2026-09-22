@@ -11,6 +11,7 @@ from fastapi import APIRouter
 from fastapi.responses import PlainTextResponse
 
 from app.api.deps import ServiceDep, StateDep
+from app.i18n import DEFAULT_LANGUAGE, Language
 from app.reports.transaction import render_transaction_report
 from app.schemas.transaction import TransactionRequest
 
@@ -46,16 +47,18 @@ def transaction_report(
     request: TransactionRequest,
     service: ServiceDep,
     state: StateDep,
+    language: Language = DEFAULT_LANGUAGE,
 ) -> PlainTextResponse:
     # Копия без сохранения: клиент мог прислать persist=true, но отчёт
     # состоянием системы не распоряжается.
     read_only = request.model_copy(update={"persist": False})
-    response = service.predict(read_only)
+    response = service.predict(read_only, language)
 
     text = render_transaction_report(
         read_only,
         response,
         model_algorithm=state.model.algorithm if state.model else None,
         model_trained_at=state.model.trained_at if state.model else None,
+        language=language,
     )
     return PlainTextResponse(text, media_type="text/plain; charset=utf-8")

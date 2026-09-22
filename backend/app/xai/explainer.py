@@ -147,6 +147,7 @@ class Explainer:
         self,
         features: dict[str, float],
         assessment: RiskAssessment | None = None,
+        language: Language = DEFAULT_LANGUAGE,
     ) -> Explanation:
         """Построить объяснение для транзакции.
 
@@ -164,9 +165,11 @@ class Explainer:
         except Exception as exc:
             raise ExplanationError(f"Не удалось посчитать вклады признаков: {exc}") from exc
 
-        factors = self._build_factors(result.values, features)
+        factors = self._build_factors(result.values, features, language)
         policy_reasons = (
-            tuple(rule.title for rule in assessment.triggered_rules) if assessment else ()
+            tuple(rule.title.get(language) for rule in assessment.triggered_rules)
+            if assessment
+            else ()
         )
 
         summary = ""
@@ -193,6 +196,7 @@ class Explainer:
         self,
         contributions: dict[str, float],
         features: dict[str, float],
+        language: Language = DEFAULT_LANGUAGE,
     ) -> tuple[RiskFactor, ...]:
         """Отобрать и оформить топ факторов.
 
@@ -215,12 +219,17 @@ class Explainer:
                     selected.append((name, value))
 
         return tuple(
-            self._make_factor(name, features.get(name, 0.0), contribution)
+            self._make_factor(name, features.get(name, 0.0), contribution, language)
             for name, contribution in selected
         )
 
     @staticmethod
-    def _make_factor(feature: str, value: float, contribution: float) -> RiskFactor:
+    def _make_factor(
+        feature: str,
+        value: float,
+        contribution: float,
+        language: Language = DEFAULT_LANGUAGE,
+    ) -> RiskFactor:
         spec = get_spec(feature) if has_spec(feature) else None
         return RiskFactor(
             feature=feature,
@@ -228,7 +237,7 @@ class Explainer:
             display_value=spec.format_value(value) if spec else f"{value:.2f}",
             contribution=float(contribution),
             direction=narrator.direction_of(contribution),
-            reason=narrator.describe(feature, value, contribution),
+            reason=narrator.describe(feature, value, contribution, language),
             # Неизвестный признак описывается собственным именем —
             # техническим и одинаковым на всех языках.
             description=spec.description

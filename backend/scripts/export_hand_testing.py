@@ -128,7 +128,7 @@ def _format_scenario(index: int, scenario, payload: dict) -> str:
     rules = payload["triggered_rules"]
 
     lines = [
-        f"## {index}. {scenario.title} — `{scenario.key.value}`",
+        f"## {index}. {scenario.title.ru} — `{scenario.key.value}`",
         "",
         # Документ на русском — языке проекта. Переводы отдаёт API
         # по `?language=`; вторая их копия здесь разошлась бы с первой.
@@ -213,7 +213,7 @@ def main() -> int:
     for index, scenario in enumerate(SCENARIOS, start=1):
         payload = results[scenario.key.value]
         summary_rows.append(
-            f"| {index} | {scenario.title} | {scenario.expectation.ru} "
+            f"| {index} | {scenario.title.ru} | {scenario.expectation.ru} "
             f"| **{payload['risk_score']}** | `{payload['decision']}` "
             f"| `{payload['risk_level']}` |"
         )
@@ -242,7 +242,7 @@ def main() -> int:
     document += (
         "\n## Как менялся Risk Score\n\n```\n"
         + "\n".join(
-            f"{index}. {scenario.title:<22} {results[scenario.key.value]['risk_score']:>3}  "
+            f"{index}. {scenario.title.ru:<22} {results[scenario.key.value]['risk_score']:>3}  "
             f"{'#' * (results[scenario.key.value]['risk_score'] // 3)}"
             for index, scenario in enumerate(SCENARIOS, start=1)
         )

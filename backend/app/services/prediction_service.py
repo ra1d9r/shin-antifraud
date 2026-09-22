@@ -131,7 +131,7 @@ class PredictionService:
         # мерчантов — тем же, которым пользуется feature engineering.
         segment = request.merchant_category or merchant_category(request.merchant)
         assessment = self._risk_engine.assess(probability, features, segment=segment)
-        explanation = self._explainer.explain(features, assessment)
+        explanation = self._explainer.explain(features, assessment, language)
 
         # Состояние меняем только после того, как ответ полностью посчитан.
         if request.persist:
@@ -197,7 +197,9 @@ class PredictionService:
             risk_level=assessment.risk_level,
             raised_by_rules=assessment.raised_by_rules,
             triggered_rules=[
-                TriggeredRuleOut(key=rule.key, title=rule.title, min_score=rule.min_score)
+                TriggeredRuleOut(
+                    key=rule.key, title=rule.title.get(language), min_score=rule.min_score
+                )
                 for rule in assessment.triggered_rules
             ],
             explanation=ExplanationOut(

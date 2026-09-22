@@ -49,12 +49,12 @@ pytest backend/tests/test_scenarios.py -v
 
 | # | Сценарий | Ожидание по ТЗ | Risk Score | Решение | Уровень |
 |---|---|---|---|---|---|
-| 1 | Normal transaction | низкий Risk Score, решение APPROVE | **0** | `APPROVE` | `LOW` |
-| 2 | New device | Risk Score заметно выше, чем в сценарии 1 | **35** | `CHALLENGE` | `MEDIUM` |
-| 3 | Unusual country | повышенный риск | **55** | `CHALLENGE` | `MEDIUM` |
-| 4 | Large amount | повышенный риск | **57** | `CHALLENGE` | `MEDIUM` |
-| 5 | Multiple anomalies | высокий Risk Score, решение BLOCK | **100** | `BLOCK` | `CRITICAL` |
-| 6 | High frequency | повышенный риск | **60** | `CHALLENGE` | `MEDIUM` |
+| 1 | Обычная операция | низкий Risk Score, решение APPROVE | **0** | `APPROVE` | `LOW` |
+| 2 | Новое устройство | Risk Score заметно выше, чем в сценарии 1 | **35** | `CHALLENGE` | `MEDIUM` |
+| 3 | Необычная страна | повышенный риск | **55** | `CHALLENGE` | `MEDIUM` |
+| 4 | Крупная сумма | повышенный риск | **57** | `CHALLENGE` | `MEDIUM` |
+| 5 | Несколько аномалий | высокий Risk Score, решение BLOCK | **100** | `BLOCK` | `CRITICAL` |
+| 6 | Всплеск частоты | повышенный риск | **60** | `CHALLENGE` | `MEDIUM` |
 
 **Проверки:**
 
@@ -75,7 +75,7 @@ pytest backend/tests/test_scenarios.py -v
 
 ---
 
-## 1. Normal transaction — `normal`
+## 1. Обычная операция — `normal`
 
 Обычная покупка в продуктовом: привычная сумма, знакомое устройство, домашняя страна, нормальная частота операций.
 
@@ -107,7 +107,7 @@ pytest backend/tests/test_scenarios.py -v
 
 ---
 
-## 2. New device — `new_device`
+## 2. Новое устройство — `new_device`
 
 Та же покупка, но с незнакомого устройства и из незнакомой сети. Именно такая пара сигналов — сигнатура входа злоумышленника; новый телефон в домашней сети система намеренно не считает поводом для проверки.
 
@@ -126,13 +126,13 @@ pytest backend/tests/test_scenarios.py -v
 
 **Сработавшие политики:**
 
-- `new_device` (минимум 35) — Unrecognized device on an unrecognized network
+- `new_device` (минимум 35) — Незнакомое устройство в незнакомой сети
 
 **Причины:**
 
-- Unrecognized device on an unrecognized network
-- New device detected
-- Connection from a VPN, proxy or datacenter address
+- Незнакомое устройство в незнакомой сети
+- Обнаружено новое устройство
+- Подключение с адреса VPN, прокси или дата-центра
 
 **Вклады признаков** (`shap`, единицы: `logit`):
 
@@ -146,7 +146,7 @@ pytest backend/tests/test_scenarios.py -v
 
 ---
 
-## 3. Unusual country — `unusual_country`
+## 3. Необычная страна — `unusual_country`
 
 Клиент обычно платит из Казахстана, а операция идёт из Нигерии. Прошло 20 часов — долететь можно, так что невозможного перемещения здесь нет. IP местный: человек физически находится в другой стране.
 
@@ -165,16 +165,16 @@ pytest backend/tests/test_scenarios.py -v
 
 **Сработавшие политики:**
 
-- `high_risk_country` (минимум 55) — Transaction from a high-risk country
-- `unusual_country` (минимум 40) — Transaction from an unusual country on an unfamiliar connection
+- `high_risk_country` (минимум 55) — Операция из страны повышенного риска
+- `unusual_country` (минимум 40) — Операция из необычной страны с незнакомого подключения
 
 **Причины:**
 
-- Transaction from a high-risk country
-- Transaction from an unusual country on an unfamiliar connection
-- Implied travel speed of 396 km/h between transactions
-- Transaction 7921 km away from the previous one
-- Unusual country: transaction outside the user's home country
+- Операция из страны повышенного риска
+- Операция из необычной страны с незнакомого подключения
+- Требуемая скорость перемещения между операциями — 396 км/ч
+- Операция в 7921 км от предыдущей
+- Необычная страна: операция вне домашней страны клиента
 
 **Вклады признаков** (`shap`, единицы: `logit`):
 
@@ -188,7 +188,7 @@ pytest backend/tests/test_scenarios.py -v
 
 ---
 
-## 4. Large amount — `large_amount`
+## 4. Крупная сумма — `large_amount`
 
 Сумма в 25 раз выше обычной для клиента. Всё остальное привычно: своё устройство, домашняя страна, своя сеть.
 
@@ -209,8 +209,8 @@ pytest backend/tests/test_scenarios.py -v
 
 **Причины:**
 
-- Amount deviates 50.0 standard deviations from the user's usual spending
-- Transaction amount is 25.0x the user's normal amount
+- Сумма отклоняется на 50.0 стандартных отклонений от обычной для клиента
+- Сумма операции в 25.0 раз больше обычной для клиента
 
 **Вклады признаков** (`shap`, единицы: `logit`):
 
@@ -224,7 +224,7 @@ pytest backend/tests/test_scenarios.py -v
 
 ---
 
-## 5. Multiple anomalies — `multiple_anomalies`
+## 5. Несколько аномалий — `multiple_anomalies`
 
 Захват аккаунта ночью: крупная сумма, незнакомое устройство и сеть, чужая страна повышенного риска, всплеск частоты операций и физически невозможное перемещение — операция в Нигерии через 22 минуты после операции в Казахстане.
 
@@ -243,20 +243,20 @@ pytest backend/tests/test_scenarios.py -v
 
 **Сработавшие политики:**
 
-- `impossible_travel` (минимум 75) — Impossible travel: location cannot be reached in the elapsed time
-- `velocity_burst` (минимум 60) — Abnormal transaction velocity
-- `high_risk_country` (минимум 55) — Transaction from a high-risk country
-- `unusual_country` (минимум 40) — Transaction from an unusual country on an unfamiliar connection
-- `new_device` (минимум 35) — Unrecognized device on an unrecognized network
+- `impossible_travel` (минимум 75) — Невозможное перемещение: до точки не добраться за прошедшее время
+- `velocity_burst` (минимум 60) — Аномальная частота операций
+- `high_risk_country` (минимум 55) — Операция из страны повышенного риска
+- `unusual_country` (минимум 40) — Операция из необычной страны с незнакомого подключения
+- `new_device` (минимум 35) — Незнакомое устройство в незнакомой сети
 
 **Причины:**
 
-- Impossible travel: location cannot be reached in the elapsed time
-- Abnormal transaction velocity
-- Transaction from a high-risk country
-- Transaction from an unusual country on an unfamiliar connection
-- Unrecognized device on an unrecognized network
-- Implied travel speed of 21602 km/h between transactions
+- Невозможное перемещение: до точки не добраться за прошедшее время
+- Аномальная частота операций
+- Операция из страны повышенного риска
+- Операция из необычной страны с незнакомого подключения
+- Незнакомое устройство в незнакомой сети
+- Требуемая скорость перемещения между операциями — 21602 км/ч
 
 **Вклады признаков** (`shap`, единицы: `logit`):
 
@@ -270,7 +270,7 @@ pytest backend/tests/test_scenarios.py -v
 
 ---
 
-## 6. High frequency — `high_frequency`
+## 6. Всплеск частоты — `high_frequency`
 
 Всплеск числа операций при прочих привычных параметрах: та же сумма, своё устройство, домашняя страна, своя сеть. Изолирует признак частоты — так выглядит начало автоматизированного перебора, когда сумма ещё не выросла.
 
@@ -289,13 +289,13 @@ pytest backend/tests/test_scenarios.py -v
 
 **Сработавшие политики:**
 
-- `velocity_burst` (минимум 60) — Abnormal transaction velocity
+- `velocity_burst` (минимум 60) — Аномальная частота операций
 
 **Причины:**
 
-- Abnormal transaction velocity
-- 9 transactions in the last hour
-- Transaction frequency is 7.3x the user's normal rate
+- Аномальная частота операций
+- 9 операций за последний час
+- Частота операций в 7.3 раз выше обычной для клиента
 
 **Вклады признаков** (`shap`, единицы: `logit`):
 
@@ -312,12 +312,12 @@ pytest backend/tests/test_scenarios.py -v
 ## Как менялся Risk Score
 
 ```
-1. Normal transaction       0  
-2. New device              35  ###########
-3. Unusual country         55  ##################
-4. Large amount            57  ###################
-5. Multiple anomalies     100  #################################
-6. High frequency          60  ####################
+1. Обычная операция         0  
+2. Новое устройство        35  ###########
+3. Необычная страна        55  ##################
+4. Крупная сумма           57  ###################
+5. Несколько аномалий     100  #################################
+6. Всплеск частоты         60  ####################
 ```
 
 Пороги: APPROVE <= 30 < CHALLENGE <= 70 < BLOCK

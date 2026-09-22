@@ -440,7 +440,9 @@ def _rule_stats(
         stats.append(
             RuleStat(
                 key=rule.key,
-                title=rule.title,
+                # Отчёт выгружается офлайн и на русском — языке проекта.
+                # Переводы отдаёт API по `?language=`.
+                title=rule.title.ru,
                 min_score=rule.min_score,
                 legit_hits=legit_hits[rule.key],
                 fraud_hits=fraud_hits[rule.key],
