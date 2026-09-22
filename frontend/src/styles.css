@@ -911,3 +911,58 @@ summary {
    значило бы трогать всю палитру за день до сдачи. */
 .readout-row.precision { fill: #7c5cff; }
 .readout-row.recall { fill: #2ea86a; }
+
+/* Лента операций для аналитика.
+
+   Задержанные строки подсвечены слева: в потоке девять из десяти
+   операций одобрены, и без отметки глаз ищет нужные три построчно. */
+.feed-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.feed-controls .hint {
+  margin: 0;
+}
+
+table.feed {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+table.feed th,
+table.feed td {
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border);
+}
+
+table.feed tr.row-flagged td:first-child {
+  box-shadow: inset 2px 0 0 var(--challenge);
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+/* Сработавшие политики — метками: их бывает пять, и списком они
+   растянули бы строку на пол-экрана. */
+.signals .signal {
+  display: inline-block;
+  margin: 0 4px 3px 0;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--border);
+  font-size: 11px;
+}
+
+.signals .top-reason {
+  font-size: 11px;
+  line-height: 1.35;
+  max-width: 42ch;
+}

@@ -432,6 +432,57 @@ def test_transactions_filter_by_decision(client) -> None:
     assert all(item["decision"] == "APPROVE" for item in approved["items"])
 
 
+def test_transactions_filter_flagged_covers_both_held_decisions(client) -> None:
+    """«Только задержанные» — это CHALLENGE и BLOCK вместе.
+
+    Фильтр по одному решению для ленты аналитика не годится: его вопрос
+    «с чем система что-то сделала», а не «что именно она сделала».
+    Отбирать же на клиенте нельзя — тогда «только задержанные» показывало
+    бы задержанные из последних двадцати пяти, а не последние двадцать
+    пять задержанных.
+    """
+    client.post("/predict", json=transaction_body())
+    client.post("/predict", json=transaction_body(
+        amount=5000.0, country="NG", latitude=6.52, longitude=3.37,
+        device_id="dev_attacker", ip_address="203.0.113.7",
+        transaction_frequency=40, txn_count_last_hour=15,
+    ))
+
+    flagged = client.get("/transactions", params={"flagged": True}).json()
+    approved = client.get("/transactions", params={"flagged": False}).json()
+    everything = client.get("/transactions").json()
+
+    assert flagged["total"] >= 1, "ни одной задержанной — проверять нечего"
+    assert all(item["decision"] != "APPROVE" for item in flagged["items"])
+    assert all(item["decision"] == "APPROVE" for item in approved["items"])
+    # Две половины обязаны складываться в целое: иначе фильтр теряет строки.
+    assert flagged["total"] + approved["total"] == everything["total"]
+
+
+def test_flagged_filter_keeps_both_kinds_at_once(client) -> None:
+    """Оба вида задержанных обязаны попасть в один ответ.
+
+    Проверка против фильтра, который ловит только одно из двух решений:
+    с `decision=BLOCK` он выглядел бы работающим, а половину работы
+    аналитика — все операции на доп. проверку — тихо прятал.
+    """
+    # Незнакомое устройство в незнакомой сети — CHALLENGE.
+    client.post("/predict", json=transaction_body(
+        device_id="dev_new_one", ip_address="203.0.113.9",
+    ))
+    # Сумма много выше обычной — BLOCK одной только моделью.
+    client.post("/predict", json=transaction_body(amount=5000.0))
+
+    decisions = {
+        item["decision"]
+        for item in client.get("/transactions", params={"flagged": True}).json()["items"]
+    }
+
+    assert "CHALLENGE" in decisions, "доп. проверки потеряны фильтром"
+    assert "BLOCK" in decisions, "блокировки потеряны фильтром"
+    assert "APPROVE" not in decisions
+
+
 def test_transactions_filter_by_country_and_score(client) -> None:
     client.post("/predict", json=transaction_body())
     client.post("/predict", json=transaction_body(

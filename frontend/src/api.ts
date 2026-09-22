@@ -26,6 +26,7 @@ import type {
   ScenarioList,
   ShadowComparison,
   StreamSummary,
+  TransactionList,
   TransactionRequest,
   Verdict,
 } from './types'
@@ -447,4 +448,21 @@ export function explainForClient(
  */
 export function fetchCostWeights(): Promise<CostState> {
   return request<CostState>('/config/cost')
+}
+
+/**
+ * Лента обработанных операций для аналитика.
+ *
+ * `flagged` — всё, что система не пропустила: CHALLENGE и BLOCK вместе.
+ * Отбирает backend, а не клиент: иначе «только задержанные» показывало
+ * бы те из двадцати пяти последних, что задержаны, а не двадцать пять
+ * последних задержанных.
+ */
+export function fetchTransactions(
+  limit: number,
+  flagged?: boolean,
+): Promise<TransactionList> {
+  const query = new URLSearchParams({ limit: String(limit) })
+  if (flagged) query.set('flagged', 'true')
+  return request<TransactionList>(`/transactions?${query.toString()}`)
 }

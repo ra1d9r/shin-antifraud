@@ -588,3 +588,34 @@ export interface CostState {
   writable: boolean
   curve_recomputable: boolean
 }
+
+/**
+ * Одна обработанная операция в ленте аналитика.
+ *
+ * Поля те же, что отдаёт `GET /transactions`. Полный IP не хранится —
+ * только подсеть /24, по которой строится граф связей.
+ */
+export interface TransactionRecord {
+  transaction_id: string
+  user_id: string
+  timestamp: string
+  amount: number
+  country: string
+  merchant: string
+  device_id: string
+  risk_score: number
+  model_score: number
+  decision: Decision
+  risk_level: RiskLevel
+  triggered_rules: string[]
+  top_reason: string | null
+  ip_subnet: string | null
+  verdict: Verdict | null
+  actual_fraud: boolean | null
+}
+
+export interface TransactionList {
+  total: number
+  returned: number
+  items: TransactionRecord[]
+}

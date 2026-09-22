@@ -25,6 +25,7 @@ import { useFormat } from './useFormat'
 import { usePanelData } from './usePanelData'
 import FeedbackPanel from './FeedbackPanel'
 import GraphPanel from './GraphPanel'
+import TransactionFeed from './TransactionFeed'
 import MapPanel from './MapPanel'
 import ShadowPanel from './ShadowPanel'
 import StreamPanel from './StreamPanel'
@@ -375,6 +376,10 @@ export default function Dashboard({
       {/* Ключ, а не проп обновления: панели забирают своё состояние при
           монтировании, и после прогона показывали бы картину, снятую
           до него. Смена ключа перемонтирует их — без правки каждой. */}
+      {/* Лента стоит сразу после потока: поток её и наполняет,
+          и смотреть результат логично тут же. */}
+      <TransactionFeed key={`feed-${streamRuns}`} />
+
       <FeedbackPanel key={`feedback-${streamRuns}`} />
 
       <GraphPanel key={`graph-${streamRuns}`} />
