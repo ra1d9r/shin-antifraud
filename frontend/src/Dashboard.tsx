@@ -179,19 +179,29 @@ export default function Dashboard({
 
         <CostMetricLine />
 
-        <TradeOffChart
-          curve={data.curve}
-          selected={threshold}
-          currentThreshold={data.thresholds.approve_max}
-          optimalThreshold={data.optimal_threshold}
-        />
+        {/* Два графика в одной панели: у них общая ось порога, и смотреть
+            их порознь бессмысленно. Но раньше их разделяли восемь пикселей
+            и ничего больше — читались они как один график с пятью линиями.
+            Теперь у каждого своя подпись и своя рамка. */}
+        <figure className="chart-block">
+          <figcaption className="chart-caption">{t('curve.costTitle')}</figcaption>
+          <TradeOffChart
+            curve={data.curve}
+            selected={threshold}
+            currentThreshold={data.thresholds.approve_max}
+            optimalThreshold={data.optimal_threshold}
+          />
+        </figure>
 
-        <QualityChart
-          curve={data.curve}
-          selected={threshold}
-          currentThreshold={data.thresholds.approve_max}
-          optimalThreshold={data.optimal_threshold}
-        />
+        <figure className="chart-block">
+          <figcaption className="chart-caption">{t('curve.qualityTitle')}</figcaption>
+          <QualityChart
+            curve={data.curve}
+            selected={threshold}
+            currentThreshold={data.thresholds.approve_max}
+            optimalThreshold={data.optimal_threshold}
+          />
+        </figure>
 
         <div className="slider">
           <label>
@@ -453,6 +463,19 @@ function QualityChart({
     { at: selected, color: 'var(--text)' },
   ]
 
+  // Наведение работает так же, как на графике стоимости. Раньше его
+  // здесь не было, и два соседних графика вели себя по-разному: на одном
+  // числа под курсором есть, на другом нет — это читается как поломка,
+  // а не как решение.
+  const [hovered, setHovered] = useState<number | null>(null)
+
+  const track = (event: MouseEvent<SVGRectElement>) => {
+    const box = event.currentTarget.getBoundingClientRect()
+    setHovered(thresholdAtPointer(event.clientX - box.left, box.width))
+  }
+
+  const point = hovered === null ? null : (curve.find((item) => item.threshold === hovered) ?? null)
+
   return (
     <svg
       className="chart"
@@ -505,7 +528,65 @@ function QualityChart({
           — {t('quality.recallLegend')}
         </text>
       </g>
+
+      {point && <QualityReadout point={point} x={x(point.threshold)} width={width} height={height} />}
+
+      {/* Прозрачная накладка ловит мышь по всей площади — как у графика
+          стоимости. Попадать курсором в ломаную толщиной в полтора
+          пикселя одинаково мучительно на обоих. */}
+      <rect
+        x={padding.left}
+        y={padding.top}
+        width={width - padding.left - padding.right}
+        height={height - padding.top - padding.bottom}
+        fill="transparent"
+        onMouseMove={track}
+        onMouseLeave={() => setHovered(null)}
+      />
     </svg>
+  )
+}
+
+/**
+ * Точность и полнота под курсором.
+ *
+ * Отдельная от `Readout` компонента: там деньги и три строки расходов,
+ * здесь две доли и другая высота графика. Сводить их в одну значило бы
+ * получить пяток условий вместо двух коротких функций.
+ *
+ * `—` вместо числа не прячется: на высоких порогах система не помечает
+ * никого, и точность там не ноль, а неизвестна.
+ */
+function QualityReadout({
+  point,
+  x,
+  width,
+  height,
+}: {
+  point: CurvePoint
+  x: number
+  width: number
+  height: number
+}) {
+  const { t } = useLanguage()
+  const boxWidth = 150
+  const boxHeight = 56
+  const boxX = readoutX(x, boxWidth, width)
+
+  return (
+    <g className="chart-readout" pointerEvents="none">
+      <line x1={x} x2={x} y1={10} y2={height - 26} className="readout-rule" />
+      <rect x={boxX} y={12} width={boxWidth} height={boxHeight} rx={5} className="readout-box" />
+      <text x={boxX + 10} y={28} className="readout-title">
+        {t('cost.atThreshold', { score: point.threshold })}
+      </text>
+      <text x={boxX + 10} y={44} className="readout-row precision">
+        {t('quality.precisionShort', { value: formatMeasuredShare(point.precision, t) })}
+      </text>
+      <text x={boxX + 10} y={58} className="readout-row recall">
+        {t('quality.recallShort', { value: formatMeasuredShare(point.recall, t) })}
+      </text>
+    </g>
   )
 }
 
