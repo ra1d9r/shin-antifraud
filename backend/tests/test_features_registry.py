@@ -11,6 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.features.definitions import FEATURE_NAMES, FEATURE_SPECS
+from app.features.geo import is_datacenter_ip
 from app.i18n import LANGUAGES
 from app.main import create_app
 
@@ -139,3 +140,53 @@ def test_registry_keys_match_the_prediction_vector(client, registry) -> None:
     listed = {item["name"] for section in registry["sections"] for item in section["features"]}
 
     assert listed == set(features)
+
+
+# ------------------------------------ VPN/прокси (пример из брифинга)
+
+
+def test_vpn_feature_recognises_datacenter_addresses() -> None:
+    """Признак ловит адреса из списка и не трогает обычные."""
+    assert is_datacenter_ip("203.0.113.7")
+    assert is_datacenter_ip("185.220.101.5")
+    assert not is_datacenter_ip("85.132.10.55")
+
+
+@pytest.mark.parametrize("value", ["", None, "1.2", "не адрес"])
+def test_vpn_feature_survives_garbage(value) -> None:
+    """Мусор в поле адреса — не повод падать в середине оценки риска."""
+    assert is_datacenter_ip(value) is False
+
+
+def test_vpn_feature_reaches_the_vector(client) -> None:
+    """Признак обязан доезжать до вектора, а не жить в реестре.
+
+    Проверяется на двух адресах: иначе тест прошёл бы и на признаке,
+    который всегда возвращает одно и то же.
+    """
+    through_vpn = client.post(
+        "/predict", json=transaction(ip_address="203.0.113.7", persist=False)
+    ).json()
+    from_home = client.post(
+        "/predict", json=transaction(ip_address="85.132.10.55", persist=False)
+    ).json()
+
+    assert through_vpn["features"]["is_vpn_ip"] == 1.0
+    assert from_home["features"]["is_vpn_ip"] == 0.0
+
+
+def test_vpn_alone_does_not_decide(client) -> None:
+    """VPN — не улика, и одного его мало для задержания.
+
+    Им пользуются в поездках и в офисах. Если бы признак решал сам,
+    система задерживала бы каждого осторожного клиента — а в обучающих
+    данных мошенническая лишь каждая пятая операция из-под VPN.
+    """
+    payload = client.post(
+        "/predict", json=transaction(ip_address="203.0.113.7", persist=False)
+    ).json()
+
+    assert payload["features"]["is_vpn_ip"] == 1.0
+    assert payload["decision"] == "APPROVE", (
+        f"обычная операция задержана только за VPN: {payload['risk_score']}"
+    )

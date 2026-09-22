@@ -248,6 +248,22 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
         reason_low="Same network as the previous transaction",
         is_flag=True,
     ),
+    FeatureSpec(
+        name="is_vpn_ip",
+        section=SECTION_IP,
+        description=Text(
+            ru="Адрес похож на VPN, прокси или дата-центр",
+            kk="Мекенжай VPN, прокси немесе дата-орталыққа ұқсайды",
+            en="The address looks like a VPN, proxy or datacenter",
+        ),
+        # Сам по себе VPN — не улика: им пользуются в поездках, в офисах
+        # и просто из осторожности. Поэтому формулировка говорит о том,
+        # что видно, а не о том, что за этим стоит, а вес признаку
+        # назначает модель, а не список.
+        reason_high="Connection from a VPN, proxy or datacenter address",
+        reason_low="Connection from a regular consumer network",
+        is_flag=True,
+    ),
     # ------------------------------------------------ частота (ТЗ §4.5, §4.8)
     FeatureSpec(
         name="transaction_frequency",

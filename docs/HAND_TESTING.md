@@ -52,7 +52,7 @@ pytest backend/tests/test_scenarios.py -v
 | 1 | Normal transaction | низкий Risk Score, решение APPROVE | **0** | `APPROVE` | `LOW` |
 | 2 | New device | Risk Score заметно выше, чем в сценарии 1 | **35** | `CHALLENGE` | `MEDIUM` |
 | 3 | Unusual country | повышенный риск | **55** | `CHALLENGE` | `MEDIUM` |
-| 4 | Large amount | повышенный риск | **73** | `BLOCK` | `HIGH` |
+| 4 | Large amount | повышенный риск | **57** | `CHALLENGE` | `MEDIUM` |
 | 5 | Multiple anomalies | высокий Risk Score, решение BLOCK | **100** | `BLOCK` | `CRITICAL` |
 | 6 | High frequency | повышенный риск | **60** | `CHALLENGE` | `MEDIUM` |
 
@@ -99,11 +99,11 @@ pytest backend/tests/test_scenarios.py -v
 
 | Признак | Значение | Вклад | Направление |
 |---|---|---|---|
-| `travel_speed_kmh` | 1 | -1.1884 | понижает |
-| `geo_distance_km` | 3 | -0.7068 | понижает |
-| `transaction_frequency` | 3 | +0.6610 | повышает |
-| `amount_zscore` | 0.0 | -0.5139 | понижает |
-| `amount_log` | 4.62 | +0.4499 | повышает |
+| `travel_speed_kmh` | 1 | -0.5883 | понижает |
+| `amount_zscore` | 0.0 | -0.5726 | понижает |
+| `transaction_frequency` | 3 | +0.3653 | повышает |
+| `is_weekend` | no | +0.3411 | повышает |
+| `hours_since_previous` | 5.00 | +0.3026 | повышает |
 
 ---
 
@@ -118,8 +118,8 @@ pytest backend/tests/test_scenarios.py -v
 | Показатель | Значение |
 |---|---|
 | Risk Score | **35** |
-| Оценка модели без правил | 1 |
-| Вероятность фрода | 0.0096 |
+| Оценка модели без правил | 17 |
+| Вероятность фрода | 0.1668 |
 | Decision | **`CHALLENGE`** |
 | Risk Level | `MEDIUM` |
 | Поднято политиками | да |
@@ -132,17 +132,17 @@ pytest backend/tests/test_scenarios.py -v
 
 - Unrecognized device on an unrecognized network
 - New device detected
-- Network changed: different IP subnet than the previous transaction
+- Connection from a VPN, proxy or datacenter address
 
 **Вклады признаков** (`shap`, единицы: `logit`):
 
 | Признак | Значение | Вклад | Направление |
 |---|---|---|---|
-| `is_new_device` | yes | +4.5276 | повышает |
-| `ip_subnet_changed` | yes | +1.3360 | повышает |
-| `travel_speed_kmh` | 1 | -0.8366 | понижает |
-| `geo_distance_km` | 3 | -0.7305 | понижает |
-| `transaction_frequency` | 3 | +0.6580 | повышает |
+| `is_new_device` | yes | +6.0685 | повышает |
+| `is_vpn_ip` | yes | +2.3423 | повышает |
+| `transaction_frequency` | 3 | +0.6312 | повышает |
+| `geo_distance_km` | 3 | -0.5942 | понижает |
+| `amount_zscore` | 0.0 | -0.5134 | понижает |
 
 ---
 
@@ -157,8 +157,8 @@ pytest backend/tests/test_scenarios.py -v
 | Показатель | Значение |
 |---|---|
 | Risk Score | **55** |
-| Оценка модели без правил | 6 |
-| Вероятность фрода | 0.0585 |
+| Оценка модели без правил | 5 |
+| Вероятность фрода | 0.0466 |
 | Decision | **`CHALLENGE`** |
 | Risk Level | `MEDIUM` |
 | Поднято политиками | да |
@@ -173,17 +173,18 @@ pytest backend/tests/test_scenarios.py -v
 - Transaction from a high-risk country
 - Transaction from an unusual country on an unfamiliar connection
 - Implied travel speed of 396 km/h between transactions
+- Transaction 7921 km away from the previous one
 - Unusual country: transaction outside the user's home country
 
 **Вклады признаков** (`shap`, единицы: `logit`):
 
 | Признак | Значение | Вклад | Направление |
 |---|---|---|---|
-| `travel_speed_kmh` | 396 | +2.6998 | повышает |
-| `is_unusual_country` | yes | +1.0957 | повышает |
-| `is_high_risk_country` | yes | +0.8406 | повышает |
-| `geo_distance_km` | 7921 | +0.7645 | повышает |
-| `hours_since_previous` | 20.00 | -0.7203 | понижает |
+| `is_high_risk_country` | yes | +1.8280 | повышает |
+| `travel_speed_kmh` | 396 | +1.7833 | повышает |
+| `geo_distance_km` | 7921 | +1.2652 | повышает |
+| `is_unusual_country` | yes | +1.0365 | повышает |
+| `country_changed_from_previous` | yes | +0.7555 | повышает |
 
 ---
 
@@ -197,11 +198,11 @@ pytest backend/tests/test_scenarios.py -v
 
 | Показатель | Значение |
 |---|---|
-| Risk Score | **73** |
-| Оценка модели без правил | 73 |
-| Вероятность фрода | 0.7321 |
-| Decision | **`BLOCK`** |
-| Risk Level | `HIGH` |
+| Risk Score | **57** |
+| Оценка модели без правил | 57 |
+| Вероятность фрода | 0.5722 |
+| Decision | **`CHALLENGE`** |
+| Risk Level | `MEDIUM` |
 | Поднято политиками | нет |
 
 **Политики не сработали** — оценку целиком дала модель.
@@ -215,11 +216,11 @@ pytest backend/tests/test_scenarios.py -v
 
 | Признак | Значение | Вклад | Направление |
 |---|---|---|---|
-| `amount_zscore` | 50.0 | +5.8281 | повышает |
-| `amount_deviation_ratio` | 25.0 | +3.2486 | повышает |
-| `amount_log` | 7.82 | +0.8158 | повышает |
-| `travel_speed_kmh` | 1 | -0.8110 | понижает |
-| `transaction_frequency` | 3 | +0.5932 | повышает |
+| `amount_zscore` | 50.0 | +5.4212 | повышает |
+| `amount_deviation_ratio` | 25.0 | +3.0645 | повышает |
+| `amount_log` | 7.82 | +0.8623 | повышает |
+| `is_weekend` | no | +0.6047 | повышает |
+| `frequency_ratio` | 1.0 | +0.4154 | повышает |
 
 ---
 
@@ -235,7 +236,7 @@ pytest backend/tests/test_scenarios.py -v
 |---|---|
 | Risk Score | **100** |
 | Оценка модели без правил | 100 |
-| Вероятность фрода | 0.9997 |
+| Вероятность фрода | 0.9998 |
 | Decision | **`BLOCK`** |
 | Risk Level | `CRITICAL` |
 | Поднято политиками | нет |
@@ -261,11 +262,11 @@ pytest backend/tests/test_scenarios.py -v
 
 | Признак | Значение | Вклад | Направление |
 |---|---|---|---|
-| `travel_speed_kmh` | 21602 | +4.0541 | повышает |
-| `is_impossible_travel` | yes | +2.9658 | повышает |
-| `amount_zscore` | 50.0 | +2.7068 | повышает |
-| `txn_count_last_hour` | 12 | +2.0357 | повышает |
-| `is_new_device` | yes | +1.8008 | повышает |
+| `travel_speed_kmh` | 21602 | +2.9652 | повышает |
+| `amount_zscore` | 50.0 | +2.6433 | повышает |
+| `is_impossible_travel` | yes | +2.2289 | повышает |
+| `is_vpn_ip` | yes | +2.0471 | повышает |
+| `is_new_device` | yes | +2.0343 | повышает |
 
 ---
 
@@ -281,7 +282,7 @@ pytest backend/tests/test_scenarios.py -v
 |---|---|
 | Risk Score | **60** |
 | Оценка модели без правил | 5 |
-| Вероятность фрода | 0.0503 |
+| Вероятность фрода | 0.0500 |
 | Decision | **`CHALLENGE`** |
 | Risk Level | `MEDIUM` |
 | Поднято политиками | да |
@@ -300,11 +301,11 @@ pytest backend/tests/test_scenarios.py -v
 
 | Признак | Значение | Вклад | Направление |
 |---|---|---|---|
-| `txn_count_last_hour` | 9 | +4.4220 | повышает |
-| `frequency_ratio` | 7.3 | +2.5207 | повышает |
-| `transaction_frequency` | 22 | -1.0394 | понижает |
-| `hours_since_previous` | 0.10 | +0.5978 | повышает |
-| `amount_zscore` | 0.0 | -0.5290 | понижает |
+| `txn_count_last_hour` | 9 | +3.8774 | повышает |
+| `frequency_ratio` | 7.3 | +2.8465 | повышает |
+| `travel_speed_kmh` | 30 | +0.5585 | повышает |
+| `amount_zscore` | 0.0 | -0.5488 | понижает |
+| `is_weekend` | no | +0.3883 | повышает |
 
 ---
 
@@ -314,7 +315,7 @@ pytest backend/tests/test_scenarios.py -v
 1. Normal transaction       0  
 2. New device              35  ###########
 3. Unusual country         55  ##################
-4. Large amount            73  ########################
+4. Large amount            57  ###################
 5. Multiple anomalies     100  #################################
 6. High frequency          60  ####################
 ```

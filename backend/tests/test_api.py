@@ -13,6 +13,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.config.settings import Settings
+from app.features.definitions import FEATURE_NAMES
 from app.main import create_app
 
 BASE_TIME = datetime(2026, 9, 1, 14, 30, 0)
@@ -110,7 +111,10 @@ def test_health_counts_processed_transactions(client) -> None:
 def test_model_endpoint_exposes_metrics(client) -> None:
     payload = client.get("/model").json()
     assert payload["loaded"] is True
-    assert payload["feature_count"] == 27
+    # Число берётся из реестра, а не вписывается: прибитое гвоздём,
+    # оно падает при каждом новом признаке и ничего не проверяет,
+    # кроме того, что кто-то не забыл поправить тест.
+    assert payload["feature_count"] == len(FEATURE_NAMES)
     assert 0.0 < payload["roc_auc"] <= 1.0
 
 
@@ -144,7 +148,7 @@ def test_predict_returns_full_chain(client) -> None:
         assert key in payload, f"в ответе нет поля {key}"
 
     assert 0 <= payload["risk_score"] <= 100
-    assert len(payload["features"]) == 27
+    assert len(payload["features"]) == len(FEATURE_NAMES)
     assert 3 <= len(payload["explanation"]["factors"]) <= 5
 
 
@@ -466,12 +470,20 @@ def test_flagged_filter_keeps_both_kinds_at_once(client) -> None:
     с `decision=BLOCK` он выглядел бы работающим, а половину работы
     аналитика — все операции на доп. проверку — тихо прятал.
     """
-    # Незнакомое устройство в незнакомой сети — CHALLENGE.
-    client.post("/predict", json=transaction_body(
+    # Незнакомое устройство в незнакомой сети — доп. проверка.
+    challenge = client.post("/predict", json=transaction_body(
         device_id="dev_new_one", ip_address="203.0.113.9",
-    ))
-    # Сумма много выше обычной — BLOCK одной только моделью.
-    client.post("/predict", json=transaction_body(amount=5000.0))
+    )).json()
+    # Крупная сумма с незнакомого устройства — блокировка.
+    block = client.post("/predict", json=transaction_body(
+        amount=20000.0, device_id="dev_new_two", ip_address="198.51.100.9",
+    )).json()
+
+    # Решения закреплены явно: если модель после переобучения начнёт
+    # судить иначе, тест обязан сказать об этом прямо, а не молча
+    # проверять одно решение вместо двух.
+    assert challenge["decision"] == "CHALLENGE"
+    assert block["decision"] == "BLOCK"
 
     decisions = {
         item["decision"]
