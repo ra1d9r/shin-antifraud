@@ -246,7 +246,12 @@ def _policy_state(
     engine = state.risk_engine
     return PolicyState(
         policies=[
-            PolicyOut(key=rule.key, title=rule.title.get(language), min_score=rule.min_score)
+            PolicyOut(
+                key=rule.key,
+                title=rule.title.get(language),
+                min_score=rule.min_score,
+                config_field=rule.config_field,
+            )
             for rule in (engine.rules if engine else ())
         ],
         velocity_txn_per_hour=settings.rule_velocity_txn_per_hour,

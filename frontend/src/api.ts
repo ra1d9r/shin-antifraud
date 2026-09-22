@@ -14,18 +14,26 @@ import type {
   ApiErrorBody,
   ClientMessage,
   ClusterReport,
+  CostApplied,
   CostState,
+  CostUpdate,
   DriftReport,
   FeatureRegistry,
   FeedbackAccepted,
   FeedbackSummary,
   HealthResponse,
   ModelInfo,
+  PolicyApplied,
+  PolicyState,
+  PolicyUpdate,
   PredictionResponse,
   Scenario,
   ScenarioList,
   ShadowComparison,
   StreamSummary,
+  ThresholdsApplied,
+  ThresholdsState,
+  ThresholdUpdate,
   TransactionList,
   TransactionRequest,
   Verdict,
@@ -448,6 +456,79 @@ export function explainForClient(
  */
 export function fetchCostWeights(): Promise<CostState> {
   return request<CostState>('/config/cost')
+}
+
+/**
+ * Заголовки запроса на запись настроек.
+ *
+ * `Content-Type` повторяется здесь намеренно. В `request` он стоит
+ * до развёртывания `init`, поэтому переданные заголовки заменяют его
+ * целиком, а не дополняют: отправив один только `X-Admin-Token`,
+ * мы бы послали JSON без указания типа и получили отказ, который
+ * выглядел бы как неверный пароль.
+ */
+function adminHeaders(token: string): HeadersInit {
+  return { 'Content-Type': 'application/json', 'X-Admin-Token': token }
+}
+
+/**
+ * Действующие пороги Risk Engine, их происхождение и журнал правок.
+ *
+ * Чтение открыто: те же три числа видны в каждом ответе `/predict`.
+ */
+export function fetchThresholds(): Promise<ThresholdsState> {
+  return request<ThresholdsState>('/config/thresholds')
+}
+
+/**
+ * Сменить пороги на работающей системе.
+ *
+ * Проверка «пороги возрастают» здесь не делается: её делает backend
+ * и отвечает разбором по полям. Вторая её копия на клиенте — ровно
+ * то, что запрещает ТЗ §11, и разошлась бы с первой при первом же
+ * изменении диапазонов.
+ */
+export function updateThresholds(
+  update: ThresholdUpdate,
+  token: string,
+): Promise<ThresholdsApplied> {
+  return request<ThresholdsApplied>('/config/thresholds', {
+    method: 'POST',
+    headers: adminHeaders(token),
+    body: JSON.stringify(update),
+  })
+}
+
+/**
+ * Пороги политик — «корректировать веса рисков» из брифинга §4.5.
+ *
+ * Язык нужен: названия политик уходят человеку, а не в код.
+ */
+export function fetchPolicies(language: Language): Promise<PolicyState> {
+  return request<PolicyState>(`/config/policies?language=${language}`)
+}
+
+/** Скорректировать веса рисков. Отправляются только изменённые величины. */
+export function updatePolicies(update: PolicyUpdate, token: string): Promise<PolicyApplied> {
+  return request<PolicyApplied>('/config/policies', {
+    method: 'POST',
+    headers: adminHeaders(token),
+    body: JSON.stringify(update),
+  })
+}
+
+/**
+ * Настроить бизнес-метрику (брифинг §5.C).
+ *
+ * Решения от этого не меняются: веса переводят уже принятые решения
+ * в деньги. Меняется кривая компромисса и оптимальный порог на ней.
+ */
+export function updateCostWeights(update: CostUpdate, token: string): Promise<CostApplied> {
+  return request<CostApplied>('/config/cost', {
+    method: 'POST',
+    headers: adminHeaders(token),
+    body: JSON.stringify(update),
+  })
 }
 
 /**

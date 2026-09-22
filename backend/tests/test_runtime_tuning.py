@@ -91,6 +91,39 @@ def test_policy_thresholds_are_readable_without_a_password(client) -> None:
     assert payload["overridden"] is False
 
 
+def test_every_policy_says_which_field_changes_it(client) -> None:
+    """Имя поля отдаёт backend, и оно обязано работать — для каждой политики.
+
+    Проверяется не совпадение со словарём, а то, что заявленным полем
+    политика действительно двигается: словарь можно поправить в одном
+    месте и забыть в другом, а решающее здесь — сохранилось ли значение.
+
+    Нужна проверка потому, что имя поля совпадает с ключом не у всех:
+    `velocity_burst` настраивается полем `velocity_min_score`. Клиент,
+    выводящий имя из ключа, на двух политиках из шести отправлял бы
+    поле, которого нет, — Pydantic отбрасывает лишнее молча, и форма
+    показывала бы успех при несохранённом значении.
+    """
+    policies = client.get("/config/policies").json()["policies"]
+    assert len(policies) == 6, "набор политик изменился — проверьте форму настроек"
+
+    for policy in policies:
+        target = 100 if policy["min_score"] < 100 else 0
+        applied = client.post(
+            "/config/policies",
+            json={policy["config_field"]: target, "reason": "проверка контракта поля"},
+            headers=HEADERS,
+        )
+        assert applied.status_code == 200, (policy["key"], applied.json())
+        assert applied.json()["changed"] == {policy["config_field"]: target}
+
+        after = {item["key"]: item["min_score"] for item in applied.json()["state"]["policies"]}
+        assert after[policy["key"]] == target, (
+            f"политика {policy['key']} заявляет поле {policy['config_field']}, "
+            "но им не меняется"
+        )
+
+
 def test_raising_a_policy_changes_the_verdict(client) -> None:
     """Главная проверка §4.5: настройка меняет решение, а не только поле."""
     before = client.post("/predict", json=transaction()).json()

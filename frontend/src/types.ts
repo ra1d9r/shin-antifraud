@@ -589,6 +589,112 @@ export interface CostState {
   curve_recomputable: boolean
 }
 
+/* ------------------- настройка на работающей системе (брифинг §4.5, §5.C) */
+
+/** Одна правка порогов — строка журнала. */
+export interface ThresholdChange {
+  at: string
+  approve_max: number
+  challenge_max: number
+  critical_min: number
+  rules_enabled: boolean
+  changed_by: string | null
+  reason: string | null
+}
+
+/**
+ * Действующие пороги Risk Engine и их происхождение.
+ *
+ * `writable` — задан ли на сервере `CONFIG_ADMIN_TOKEN`. Когда он false,
+ * запись выключена целиком, и форма обязана это показать, а не выяснять
+ * отказом после нажатия.
+ */
+export interface ThresholdsState {
+  approve_max: number
+  challenge_max: number
+  critical_min: number
+  rules_enabled: boolean
+  overridden: boolean
+  changed_at: string | null
+  writable: boolean
+  env_defaults: Record<string, number | boolean>
+  history: ThresholdChange[]
+}
+
+/** Что отправляем при смене порогов. Все четыре величины обязательны. */
+export interface ThresholdUpdate {
+  approve_max: number
+  challenge_max: number
+  critical_min: number
+  rules_enabled: boolean
+  changed_by?: string
+  reason?: string
+}
+
+/**
+ * Что изменилось и что из-за этого сброшено.
+ *
+ * Последствия приходят с сервера, а не выводятся здесь: какие панели
+ * смена порогов обнуляет, знает backend, и вторая версия этого знания
+ * на клиенте разошлась бы с первой (ТЗ §11).
+ */
+export interface ThresholdsApplied {
+  state: ThresholdsState
+  shadow_reset: boolean
+  analytics_marked_stale: boolean
+  drift_kept: boolean
+}
+
+/**
+ * Одна политика в форме настройки.
+ *
+ * `config_field` — имя поля, которым двигается её минимум. Приходит
+ * с сервера, потому что с `key` совпадает не всегда.
+ */
+export interface PolicyEntry {
+  key: string
+  title: string
+  min_score: number
+  config_field: string
+}
+
+export interface PolicyState {
+  policies: PolicyEntry[]
+  velocity_txn_per_hour: number
+  new_account_amount_ratio: number
+  rules_enabled: boolean
+  overridden: boolean
+  changed_at: string | null
+  writable: boolean
+}
+
+/**
+ * Правка политик: только изменённые величины.
+ *
+ * Незаданное остаётся как есть — поэтому тип открытый по ключу, а не
+ * перечисление полей: имена приходят в `config_field`, и повторять их
+ * здесь значило бы завести на клиенте вторую копию контракта.
+ */
+export type PolicyUpdate = Record<string, number | string>
+
+export interface PolicyApplied {
+  state: PolicyState
+  changed: Record<string, number>
+  shadow_reset: boolean
+  analytics_marked_stale: boolean
+}
+
+/** Правка весов бизнес-метрики: тоже только изменённые. */
+export type CostUpdate = Record<string, number | string>
+
+export interface CostApplied {
+  state: CostState
+  changed: Record<string, number>
+  curve_recomputed: boolean
+  optimal_threshold_before: number | null
+  optimal_threshold_after: number | null
+}
+
 /**
  * Одна обработанная операция в ленте аналитика.
  *

@@ -43,6 +43,16 @@ class Rule:
     # Описание для документации.
     description: str
     min_score: int
+    # Каким полем `POST /config/policies` меняется минимум этой политики.
+    #
+    # Хранится рядом с правилом, потому что с ключом совпадает не всегда:
+    # `velocity_burst` настраивается полем `velocity_min_score`, а
+    # `new_account_large_amount` — полем `new_account_amount_min_score`.
+    # Интерфейсу нужно знать это имя, и вывести его из ключа он не может;
+    # вывел бы по правилу «ключ плюс `_min_score`» — и две политики из
+    # шести молча не сохранялись бы, потому что лишнее поле Pydantic
+    # отбрасывает без жалобы.
+    config_field: str
     condition: Callable[[FeatureMap], bool]
 
     def applies_to(self, features: FeatureMap) -> bool:
@@ -92,6 +102,7 @@ def build_rules(settings: Settings) -> tuple[Rule, ...]:
                 "пользуются в двух местах одновременно."
             ),
             min_score=settings.rule_impossible_travel_min_score,
+            config_field="impossible_travel_min_score",
             condition=lambda f: _flag(f, "is_impossible_travel"),
         ),
         Rule(
@@ -106,6 +117,7 @@ def build_rules(settings: Settings) -> tuple[Rule, ...]:
                 "прозвона карты, когда злоумышленник проверяет её работоспособность."
             ),
             min_score=settings.rule_velocity_min_score,
+            config_field="velocity_min_score",
             condition=lambda f: (
                 f.get("txn_count_last_hour", 0.0) >= settings.rule_velocity_txn_per_hour
             ),
@@ -122,6 +134,7 @@ def build_rules(settings: Settings) -> tuple[Rule, ...]:
                 "злоупотребления, когда счёт открывают ради одной операции."
             ),
             min_score=settings.rule_new_account_amount_min_score,
+            config_field="new_account_amount_min_score",
             condition=lambda f: (
                 _flag(f, "is_new_account")
                 and f.get("amount_deviation_ratio", 0.0) >= settings.rule_new_account_amount_ratio
@@ -139,6 +152,7 @@ def build_rules(settings: Settings) -> tuple[Rule, ...]:
                 "В проде такой список приходит от провайдера риск-данных."
             ),
             min_score=settings.rule_high_risk_country_min_score,
+            config_field="high_risk_country_min_score",
             condition=lambda f: _flag(f, "is_high_risk_country"),
         ),
         Rule(
@@ -155,6 +169,7 @@ def build_rules(settings: Settings) -> tuple[Rule, ...]:
                 "вместе с неопознанным доступом — уже сигнатура захвата аккаунта."
             ),
             min_score=settings.rule_unusual_country_min_score,
+            config_field="unusual_country_min_score",
             condition=lambda f: (
                 _flag(f, "is_unusual_country")
                 and (_flag(f, "is_new_device") or _flag(f, "ip_subnet_changed"))
@@ -174,6 +189,7 @@ def build_rules(settings: Settings) -> tuple[Rule, ...]:
                 "оценивает такой случай низко совершенно справедливо."
             ),
             min_score=settings.rule_new_device_min_score,
+            config_field="new_device_min_score",
             condition=lambda f: _flag(f, "is_new_device") and _flag(f, "ip_subnet_changed"),
         ),
     )
