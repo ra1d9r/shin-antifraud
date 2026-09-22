@@ -149,3 +149,59 @@ def test_hand_testing_doc_covers_every_scenario() -> None:
         f"в docs/HAND_TESTING.md нет сценариев: {missing}. "
         "Выполните: python backend/scripts/export_hand_testing.py"
     )
+
+
+def test_hand_testing_generator_still_builds_a_document() -> None:
+    """Генератор обязан собирать документ, а не только существовать.
+
+    Проверка на готовый файл этого не ловит: он лежит на диске с прошлой
+    выгрузки и проходит любые проверки, пока скрипт под ним падает.
+    Ровно так и случилось — смена типа описаний сценариев на `Text`
+    сломала генератор, а тесты остались зелёными.
+
+    Поэтому вызывается именно сборка раздела: это те строки, которые
+    подставляют описание и ожидание в текст.
+    """
+    module = load_script("export_hand_testing.py")
+    payload = {
+        "risk_score": 55,
+        "model_score": 25,
+        "probability": 0.5,
+        "decision": "CHALLENGE",
+        "risk_level": "MEDIUM",
+        "raised_by_rules": True,
+        "triggered_rules": [],
+        "explanation": {
+            "method": "shap",
+            "units": "logit",
+            "reasons": ["New device detected"],
+            "factors": [
+                {
+                    "feature": "is_new_device",
+                    "display_value": "yes",
+                    "contribution": 1.5,
+                    "direction": "INCREASES_RISK",
+                }
+            ],
+        },
+    }
+
+    for index, scenario in enumerate(SCENARIOS, start=1):
+        section = module._format_scenario(index, scenario, payload)
+
+        assert scenario.description.ru in section
+        assert scenario.expectation.ru in section
+        # Объект вместо строки выглядел бы именно так.
+        assert "Text(" not in section, f"{scenario.key.value}: в документ попал объект"
+
+
+def test_hand_testing_doc_counts_scenarios_correctly() -> None:
+    """Число в тексте не должно спорить с таблицей под ним.
+
+    В шаблоне стояло «Все пять описывают одного клиента», а строк
+    в сводке было шесть.
+    """
+    document = (PROJECT_ROOT / "docs" / "HAND_TESTING.md").read_text(encoding="utf-8")
+    module = load_script("export_hand_testing.py")
+
+    assert f"Все {module._count_word(len(SCENARIOS))} описывают" in document

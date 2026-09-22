@@ -3,7 +3,7 @@
 Запуск:
     python backend/scripts/export_hand_testing.py
 
-Документ `docs/HAND_TESTING.md` генерируется прогоном пяти сценариев через
+Документ `docs/HAND_TESTING.md` генерируется прогоном всех сценариев через
 настоящее приложение. Числа в нём — фактические ответы системы, а не
 переписанные руками: рукописная таблица разошлась бы с кодом после первого
 же переобучения модели.
@@ -29,6 +29,25 @@ from app.main import create_app  # noqa: E402
 from app.services.scenarios import ESCALATION_ORDER, SCENARIOS  # noqa: E402
 
 enable_utf8_output()
+
+#: Числительные словом. Словарь, а не библиотека: сценариев тут от силы
+#: десяток, и зависимость ради одного слова обошлась бы дороже.
+_COUNT_WORDS = {
+    3: "три",
+    4: "четыре",
+    5: "пять",
+    6: "шесть",
+    7: "семь",
+    8: "восемь",
+    9: "девять",
+    10: "десять",
+}
+
+
+def _count_word(count: int) -> str:
+    """«шесть» вместо «6»: в связном тексте число читается словом."""
+    return _COUNT_WORDS.get(count, str(count))
+
 
 HEADER = """# Hand Testing — сценарии ТЗ §9
 
@@ -67,7 +86,7 @@ pytest backend/tests/test_scenarios.py -v
 
 ## Почему сценарии сравнимы между собой
 
-Все пять описывают **одного и того же клиента**: обычная сумма 100, дом —
+Все {count} описывают **одного и того же клиента**: обычная сумма 100, дом —
 Казахстан, два известных устройства, три операции в сутки, счёту 800 дней.
 Меняется ровно то, что заявлено в названии сценария.
 
@@ -111,9 +130,11 @@ def _format_scenario(index: int, scenario, payload: dict) -> str:
     lines = [
         f"## {index}. {scenario.title} — `{scenario.key.value}`",
         "",
-        scenario.description,
+        # Документ на русском — языке проекта. Переводы отдаёт API
+        # по `?language=`; вторая их копия здесь разошлась бы с первой.
+        scenario.description.ru,
         "",
-        f"**Ожидание по ТЗ:** {scenario.expectation}",
+        f"**Ожидание по ТЗ:** {scenario.expectation.ru}",
         "",
     ]
 
@@ -192,7 +213,7 @@ def main() -> int:
     for index, scenario in enumerate(SCENARIOS, start=1):
         payload = results[scenario.key.value]
         summary_rows.append(
-            f"| {index} | {scenario.title} | {scenario.expectation} "
+            f"| {index} | {scenario.title} | {scenario.expectation.ru} "
             f"| **{payload['risk_score']}** | `{payload['decision']}` "
             f"| `{payload['risk_level']}` |"
         )
@@ -201,6 +222,10 @@ def main() -> int:
         return "да" if value else "НЕТ"
 
     document = HEADER.format(
+        # Число словом берётся из самих сценариев, а не пишется руками:
+        # в шаблоне стояло «пять», когда их уже было шесть, и документ
+        # спорил сам с собой через десять строк — в сводке ниже шесть.
+        count=_count_word(len(SCENARIOS)),
         summary="\n".join(summary_rows),
         monotonic=yes_no(scores == sorted(scores)),
         first_approved=yes_no(scores[0] <= thresholds["approve_max"]),
