@@ -20,6 +20,7 @@ from fastapi.testclient import TestClient
 from app.api.routes.predict import REPLAY_HEADER
 from app.assistant import phrases
 from app.assistant.message import DecisionFacts, contradicts, fallback_text, written_in
+from app.features.definitions import FEATURE_SPECS
 from app.features.geo import COUNTRY_COORDINATES, COUNTRY_NAMES, country_name
 from app.i18n import LANGUAGES
 from app.main import create_app
@@ -232,10 +233,14 @@ def test_scenarios_follow_the_requested_language(client, language) -> None:
     russian = client.get("/scenarios?language=ru").json()["items"]
 
     assert [item["key"] for item in items] == [item["key"] for item in russian]
-    # Названия сценариев технические: по ним их ищут в документации.
-    assert [item["title"] for item in items] == [item["title"] for item in russian]
 
     if language != "ru":
+        # Название — подпись кнопки, оно переводится. Ключ не переводится
+        # никогда: по нему сценарий ищут в документации и в тестах,
+        # и перевод ключа порвал бы эту связь.
+        assert [item["title"] for item in items] != [
+            item["title"] for item in russian
+        ], "названия сценариев не переведены"
         assert [item["description"] for item in items] != [
             item["description"] for item in russian
         ], "язык выбран, а описания те же"
@@ -453,3 +458,62 @@ def test_kazakh_country_name_is_not_the_english_one() -> None:
     assert country_name("GB", "kk") != country_name("GB", "en")
     assert country_name("GB", "kk") != country_name("GB", "ru")
     assert written_in(country_name("GB", "kk"), "kk")
+
+
+# ------------------------- формулировки причин: английский не потерян
+
+
+def test_english_reasons_survive_the_translation() -> None:
+    """ТЗ §7 приводит примеры причин по-английски.
+
+    Перевод на русский и казахский не должен был их вытеснить: английский
+    стал `?language=en`, а не исчез. Два примера из ТЗ §7 закреплены
+    дословно — именно по ним сверяют соответствие.
+    """
+    by_name = {spec.name: spec for spec in FEATURE_SPECS}
+
+    assert by_name["is_new_device"].reason_high.en == "New device detected"
+    assert by_name["amount_deviation_ratio"].reason_high.en == (
+        "Transaction amount is {value}x the user's normal amount"
+    )
+
+
+@pytest.mark.parametrize("language", LANGUAGES)
+def test_every_reason_template_keeps_its_placeholder(language) -> None:
+    """Забытая `{value}` в одном переводе оставила бы клиенту скобки.
+
+    Проверяется в обе стороны: где подстановка есть в английском —
+    она обязана быть во всех, и наоборот, лишней взяться неоткуда.
+    """
+    for spec in FEATURE_SPECS:
+        for field in ("reason_high", "reason_low"):
+            template = getattr(spec, field)
+            if template is None:
+                continue
+            assert ("{value}" in template.en) == ("{value}" in template.get(language)), (
+                f"{spec.name}.{field}/{language}: подстановка потерялась или добавилась"
+            )
+
+
+@pytest.mark.parametrize("language", LANGUAGES)
+def test_reasons_in_predict_follow_the_language(client, language) -> None:
+    """Сквозная проверка: причины в ответе на запрошенном языке."""
+    payload = client.post(f"/predict?language={language}", json=transaction()).json()
+    reasons = payload["explanation"]["reasons"]
+
+    assert reasons, "решение ничем не объяснено"
+    russian = client.post("/predict?language=ru", json=transaction()).json()
+    if language != "ru":
+        assert reasons != russian["explanation"]["reasons"], "причины не переведены"
+
+
+def test_rule_keys_never_translate(client) -> None:
+    """Ключ политики — идентификатор, по нему её ищут в коде и в логах."""
+    keys = {}
+    for language in LANGUAGES:
+        payload = client.post(f"/predict?language={language}", json=transaction()).json()
+        keys[language] = [rule["key"] for rule in payload["triggered_rules"]]
+        titles = [rule["title"] for rule in payload["triggered_rules"]]
+        assert titles, "ни одной сработавшей политики — проверять нечего"
+
+    assert keys["ru"] == keys["kk"] == keys["en"]

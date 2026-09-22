@@ -26,9 +26,10 @@ router = APIRouter(tags=["scenarios"])
 def _to_out(scenario, language: Language) -> ScenarioOut:
     return ScenarioOut(
         key=scenario.key,
-        # Название сценария техническое и одинаково на всех языках:
-        # по нему сценарий ищут в документации и в тестах.
-        title=scenario.title,
+        # Название переводится: это подпись кнопки в симуляторе, то есть
+        # продуктовая поверхность. Искать сценарий в документации и в
+        # тестах всё равно по `key` — он и остаётся неизменным.
+        title=scenario.title.get(language),
         description=scenario.description.get(language),
         expectation=scenario.expectation.get(language),
         changed_from_normal=list(scenario.changed_from_normal),

@@ -60,7 +60,7 @@ def build_document() -> str:
             kind = "флаг" if spec.is_flag else "число"
             parts.append(
                 f"| {index} | `{spec.name}` | {kind} | {spec.description.ru} "
-                f"| {spec.reason_high} |"
+                f"| {spec.reason_high.ru} |"
             )
 
     return "\n".join(parts) + "\n"

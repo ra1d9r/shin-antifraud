@@ -50,6 +50,7 @@ from app.api.deps import (
 )
 from app.config.settings import Settings
 from app.core.exceptions import ShinError
+from app.i18n import DEFAULT_LANGUAGE, Language
 from app.risk_engine.engine import RiskThresholds
 from app.schemas.config import (
     AdaptiveThresholdsState,
@@ -237,11 +238,15 @@ def adaptive_thresholds(state: StateDep) -> AdaptiveThresholdsState:
 # ------------------------------------------- политики (брифинг §4.5)
 
 
-def _policy_state(state: StateDep, settings: Settings) -> PolicyState:
+def _policy_state(
+    state: StateDep,
+    settings: Settings,
+    language: Language = DEFAULT_LANGUAGE,
+) -> PolicyState:
     engine = state.risk_engine
     return PolicyState(
         policies=[
-            PolicyOut(key=rule.key, title=rule.title, min_score=rule.min_score)
+            PolicyOut(key=rule.key, title=rule.title.get(language), min_score=rule.min_score)
             for rule in (engine.rules if engine else ())
         ],
         velocity_txn_per_hour=settings.rule_velocity_txn_per_hour,
@@ -264,8 +269,12 @@ def _policy_state(state: StateDep, settings: Settings) -> PolicyState:
         "у каждой сработавшей политики."
     ),
 )
-def read_policies(state: StateDep, settings: SettingsDep) -> PolicyState:
-    return _policy_state(state, settings)
+def read_policies(
+    state: StateDep,
+    settings: SettingsDep,
+    language: Language = DEFAULT_LANGUAGE,
+) -> PolicyState:
+    return _policy_state(state, settings, language)
 
 
 @router.post(
@@ -309,7 +318,7 @@ def update_policies(
     )
 
     return PolicyApplied(
-        state=_policy_state(state, state.settings),
+        state=_policy_state(state, state.settings, DEFAULT_LANGUAGE),
         changed=updates,
         **effects,
     )

@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 from app.features.definitions import FeatureSpec, get_spec, has_spec
+from app.i18n import DEFAULT_LANGUAGE, Language, Text
 from app.schemas.enums import ImpactDirection
 
 # Вклад меньше этого считается шумом и в объяснение не попадает.
@@ -33,11 +34,17 @@ def direction_of(contribution: float) -> ImpactDirection:
     )
 
 
-def describe(feature: str, value: float, contribution: float) -> str:
+def describe(
+    feature: str,
+    value: float,
+    contribution: float,
+    language: Language = DEFAULT_LANGUAGE,
+) -> str:
     """Человекочитаемая причина для одного признака.
 
     Для неизвестного признака возвращается техническое имя со значением —
     это лучше, чем падение объяснения из-за рассинхронизации реестра.
+    Имя при этом не переводится: это ключ, а не текст.
     """
     if not has_spec(feature):
         return f"{feature} = {value:.2f}"
@@ -45,10 +52,10 @@ def describe(feature: str, value: float, contribution: float) -> str:
     spec = get_spec(feature)
     template = _pick_template(spec, contribution)
     formatted = spec.format_value(value)
-    return template.replace("{value}", formatted)
+    return template.get(language).replace("{value}", formatted)
 
 
-def _pick_template(spec: FeatureSpec, contribution: float) -> str:
+def _pick_template(spec: FeatureSpec, contribution: float) -> Text:
     """Выбрать шаблон по знаку вклада.
 
     Если для понижающего вклада шаблона нет, используется повышающий:

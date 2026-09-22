@@ -339,14 +339,32 @@ def test_explanation_is_deterministic(explainer: Explainer) -> None:
 
 
 def test_narrator_uses_direction_specific_wording() -> None:
-    increasing = describe("is_new_device", 1.0, contribution=0.5)
-    decreasing = describe("is_new_device", 0.0, contribution=-0.5)
+    """Формулировка зависит от знака вклада — и от языка.
+
+    Английский проверяется явно: ТЗ §7 приводит примеры по-английски,
+    и перевод остальных языков не должен был его вытеснить. Он стал
+    `?language=en`, а не исчез.
+    """
+    increasing = describe("is_new_device", 1.0, contribution=0.5, language="en")
+    decreasing = describe("is_new_device", 0.0, contribution=-0.5, language="en")
     assert increasing == "New device detected"
     assert decreasing == "Device is already known for this user"
 
+    assert describe("is_new_device", 1.0, contribution=0.5) == "Обнаружено новое устройство"
+    assert describe("is_new_device", 1.0, contribution=0.5, language="kk") == (
+        "Жаңа құрылғы анықталды"
+    )
 
-def test_narrator_substitutes_actual_value() -> None:
-    text = describe("amount_deviation_ratio", 12.4, contribution=0.9)
+
+@pytest.mark.parametrize("language", ["ru", "kk", "en"])
+def test_narrator_substitutes_actual_value(language) -> None:
+    """Подстановка обязана работать на всех трёх языках.
+
+    Забытая `{value}` в одном переводе оставила бы клиенту фигурные
+    скобки вместо числа — и заметить это можно было бы только глазами
+    и только на этом языке.
+    """
+    text = describe("amount_deviation_ratio", 12.4, contribution=0.9, language=language)
     assert "12.4" in text
     assert "{value}" not in text
 

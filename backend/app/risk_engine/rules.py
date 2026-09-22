@@ -26,6 +26,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 
 from app.config.settings import Settings
+from app.i18n import DEFAULT_LANGUAGE, Language, Text
 
 FeatureMap = Mapping[str, float]
 
@@ -35,8 +36,10 @@ class Rule:
     """Описание одной политики."""
 
     key: str
-    # Формулировка для интерфейса и объяснения (англ., как в примерах ТЗ §7).
-    title: str
+    # Формулировка для интерфейса и объяснения на трёх языках.
+    # ТЗ §7 приводит примеры по-английски — английский и остался,
+    # он стал `?language=en`, а не исчез.
+    title: Text
     # Описание для документации.
     description: str
     min_score: int
@@ -51,11 +54,17 @@ class TriggeredRule:
     """Сработавшее правило."""
 
     key: str
-    title: str
+    # Название на трёх языках: оно уходит клиенту в объяснении.
+    # Ключ рядом остаётся техническим и не переводится никогда.
+    title: Text
     min_score: int
 
-    def to_dict(self) -> dict:
-        return {"key": self.key, "title": self.title, "min_score": self.min_score}
+    def to_dict(self, language: Language = DEFAULT_LANGUAGE) -> dict:
+        return {
+            "key": self.key,
+            "title": self.title.get(language),
+            "min_score": self.min_score,
+        }
 
 
 def _flag(features: FeatureMap, name: str) -> bool:
@@ -72,7 +81,11 @@ def build_rules(settings: Settings) -> tuple[Rule, ...]:
     return (
         Rule(
             key="impossible_travel",
-            title="Impossible travel: location cannot be reached in the elapsed time",
+            title=Text(
+                ru="Невозможное перемещение: до точки не добраться за прошедшее время",
+                kk="Мүмкін емес орын ауыстыру: өткен уақытта жерге жету мүмкін емес",
+                en="Impossible travel: location cannot be reached in the elapsed time",
+            ),
             description=(
                 "Между соседними транзакциями требуется скорость перемещения выше "
                 "авиационной. Либо карта скомпрометирована, либо реквизитами "
@@ -83,7 +96,11 @@ def build_rules(settings: Settings) -> tuple[Rule, ...]:
         ),
         Rule(
             key="velocity_burst",
-            title="Abnormal transaction velocity",
+            title=Text(
+                ru="Аномальная частота операций",
+                kk="Операциялардың аномалды жиілігі",
+                en="Abnormal transaction velocity",
+            ),
             description=(
                 "Всплеск числа операций за час. Характерно для автоматического "
                 "прозвона карты, когда злоумышленник проверяет её работоспособность."
@@ -95,7 +112,11 @@ def build_rules(settings: Settings) -> tuple[Rule, ...]:
         ),
         Rule(
             key="new_account_large_amount",
-            title="Large transaction on a recently opened account",
+            title=Text(
+                ru="Крупная операция на недавно открытом счёте",
+                kk="Жақында ашылған шоттағы ірі операция",
+                en="Large transaction on a recently opened account",
+            ),
             description=(
                 "Крупная операция на недавно открытом счёте: типичная схема "
                 "злоупотребления, когда счёт открывают ради одной операции."
@@ -108,7 +129,11 @@ def build_rules(settings: Settings) -> tuple[Rule, ...]:
         ),
         Rule(
             key="high_risk_country",
-            title="Transaction from a high-risk country",
+            title=Text(
+                ru="Операция из страны повышенного риска",
+                kk="Жоғары тәуекелді елден жасалған операция",
+                en="Transaction from a high-risk country",
+            ),
             description=(
                 "Страна входит в список повышенного риска карточного фрода. "
                 "В проде такой список приходит от провайдера риск-данных."
@@ -118,7 +143,11 @@ def build_rules(settings: Settings) -> tuple[Rule, ...]:
         ),
         Rule(
             key="unusual_country",
-            title="Transaction from an unusual country on an unfamiliar connection",
+            title=Text(
+                ru="Операция из необычной страны с незнакомого подключения",
+                kk="Әдеттен тыс елден, бейтаныс қосылым арқылы жасалған операция",
+                en="Transaction from an unusual country on an unfamiliar connection",
+            ),
             description=(
                 "Операция вне домашней страны клиента И с незнакомого устройства "
                 "или из незнакомой сети. Условие составное намеренно: обычная "
@@ -133,7 +162,11 @@ def build_rules(settings: Settings) -> tuple[Rule, ...]:
         ),
         Rule(
             key="new_device",
-            title="Unrecognized device on an unrecognized network",
+            title=Text(
+                ru="Незнакомое устройство в незнакомой сети",
+                kk="Бейтаныс желідегі бейтаныс құрылғы",
+                en="Unrecognized device on an unrecognized network",
+            ),
             description=(
                 "Незнакомое устройство И незнакомая сеть — классическая сигнатура "
                 "входа злоумышленника. Новое устройство в домашней сети клиента "

@@ -53,7 +53,7 @@ def feature_registry(language: Language = DEFAULT_LANGUAGE) -> FeatureRegistry:
                 description=spec.description.get(language),
                 is_flag=spec.is_flag,
                 decimals=spec.decimals,
-                reason_high=spec.reason_high,
+                reason_high=spec.reason_high.get(language),
             )
         )
 

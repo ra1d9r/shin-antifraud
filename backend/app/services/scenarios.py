@@ -80,7 +80,7 @@ class Scenario:
     """Один сценарий ручного тестирования."""
 
     key: ScenarioKey
-    title: str
+    title: Text
     description: Text
     expectation: Text
     changed_from_normal: tuple[str, ...]
@@ -93,7 +93,11 @@ class Scenario:
 SCENARIOS: tuple[Scenario, ...] = (
     Scenario(
         key=ScenarioKey.NORMAL,
-        title="Normal transaction",
+        title=Text(
+            ru="Обычная операция",
+            kk="Әдеттегі операция",
+            en="Normal transaction",
+        ),
         description=Text(
             ru=(
                 "Обычная покупка в продуктовом: привычная сумма, знакомое устройство, "
@@ -118,7 +122,11 @@ SCENARIOS: tuple[Scenario, ...] = (
     ),
     Scenario(
         key=ScenarioKey.NEW_DEVICE,
-        title="New device",
+        title=Text(
+            ru="Новое устройство",
+            kk="Жаңа құрылғы",
+            en="New device",
+        ),
         description=Text(
             ru=(
                 "Та же покупка, но с незнакомого устройства и из незнакомой сети. Именно "
@@ -147,7 +155,11 @@ SCENARIOS: tuple[Scenario, ...] = (
     ),
     Scenario(
         key=ScenarioKey.UNUSUAL_COUNTRY,
-        title="Unusual country",
+        title=Text(
+            ru="Необычная страна",
+            kk="Әдеттен тыс ел",
+            en="Unusual country",
+        ),
         description=Text(
             ru=(
                 "Клиент обычно платит из Казахстана, а операция идёт из Нигерии. Прошло 20 "
@@ -182,7 +194,11 @@ SCENARIOS: tuple[Scenario, ...] = (
     ),
     Scenario(
         key=ScenarioKey.LARGE_AMOUNT,
-        title="Large amount",
+        title=Text(
+            ru="Крупная сумма",
+            kk="Ірі сома",
+            en="Large amount",
+        ),
         description=Text(
             ru=(
                 "Сумма в 25 раз выше обычной для клиента. Всё остальное привычно: своё "
@@ -207,7 +223,11 @@ SCENARIOS: tuple[Scenario, ...] = (
     ),
     Scenario(
         key=ScenarioKey.MULTIPLE_ANOMALIES,
-        title="Multiple anomalies",
+        title=Text(
+            ru="Несколько аномалий",
+            kk="Бірнеше ауытқу",
+            en="Multiple anomalies",
+        ),
         description=Text(
             ru=(
                 "Захват аккаунта ночью: крупная сумма, незнакомое устройство и сеть, чужая "
@@ -255,7 +275,11 @@ SCENARIOS: tuple[Scenario, ...] = (
     ),
     Scenario(
         key=ScenarioKey.HIGH_FREQUENCY,
-        title="High frequency",
+        title=Text(
+            ru="Всплеск частоты",
+            kk="Жиіліктің күрт өсуі",
+            en="High frequency",
+        ),
         description=Text(
             ru=(
                 "Всплеск числа операций при прочих привычных параметрах: та же сумма, своё "

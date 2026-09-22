@@ -27,9 +27,11 @@ class FeatureSpec:
     # забыть нельзя — поле обязательное.
     section: Text
     # Формулировка, когда признак ПОВЫШАЕТ риск. Может содержать {value}.
-    reason_high: str
+    # Три языка: ТЗ §7 приводит примеры по-английски, и английский
+    # остался — он стал `?language=en`, а не исчез.
+    reason_high: Text
     # Формулировка, когда признак ПОНИЖАЕТ риск. None — о таком не рассказываем.
-    reason_low: str | None = None
+    reason_low: Text | None = None
     # Бинарный признак: значение в текст не подставляется.
     is_flag: bool = False
     # Знаков после запятой при показе человеку. Число, а не строка формата:
@@ -106,7 +108,11 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
         ),
         # Значение в текст не подставляется: пользователю нечего делать
         # с логарифмом. Само число всё равно возвращается в поле value.
-        reason_high="Large transaction amount in absolute terms",
+        reason_high=Text(
+            ru="Крупная сумма операции в абсолютном выражении",
+            kk="Абсолютті мәнде ірі операция сомасы",
+            en="Large transaction amount in absolute terms",
+        ),
         decimals=2,
     ),
     FeatureSpec(
@@ -117,8 +123,16 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
             kk="Сома клиенттің әдеттегі сомасынан неше есе өзгеше",
             en="How many times the amount differs from the client's usual amount",
         ),
-        reason_high="Transaction amount is {value}x the user's normal amount",
-        reason_low="Amount is in line with the user's normal spending",
+        reason_high=Text(
+            ru="Сумма операции в {value} раз больше обычной для клиента",
+            kk="Операция сомасы клиенттің әдеттегісінен {value} есе көп",
+            en="Transaction amount is {value}x the user's normal amount",
+        ),
+        reason_low=Text(
+            ru="Сумма в пределах обычных трат клиента",
+            kk="Сома клиенттің әдеттегі шығындары шегінде",
+            en="Amount is in line with the user's normal spending",
+        ),
         decimals=1,
     ),
     FeatureSpec(
@@ -129,7 +143,11 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
             kk="Соманың әдеттегіден ауытқуы, клиенттің стандартты ауытқуымен",
             en="Deviation of the amount from the usual, in the client's standard deviations",
         ),
-        reason_high="Amount deviates {value} standard deviations from the user's usual spending",
+        reason_high=Text(
+            ru="Сумма отклоняется на {value} стандартных отклонений от обычной для клиента",
+            kk="Сома клиенттің әдеттегісінен {value} стандартты ауытқуға ауытқыған",
+            en="Amount deviates {value} standard deviations from the user's usual spending",
+        ),
         decimals=1,
     ),
     FeatureSpec(
@@ -140,7 +158,11 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
             kk="Соманың алдыңғы транзакция сомасына қатынасы",
             en="Ratio of the amount to the previous transaction's amount",
         ),
-        reason_high="Amount is {value}x the user's previous transaction",
+        reason_high=Text(
+            ru="Сумма в {value} раз больше предыдущей операции клиента",
+            kk="Сома клиенттің алдыңғы операциясынан {value} есе көп",
+            en="Amount is {value}x the user's previous transaction",
+        ),
         decimals=1,
     ),
     FeatureSpec(
@@ -151,7 +173,11 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
             kk="Дөңгелек сома — қаражат шығару әрекеттеріне тән",
             en="Round amount — typical of cash-out attempts",
         ),
-        reason_high="Round-number amount, typical of cash-out attempts",
+        reason_high=Text(
+            ru="Круглая сумма — характерна для попыток вывода средств",
+            kk="Дөңгелек сома — қаражат шығару әрекеттеріне тән",
+            en="Round-number amount, typical of cash-out attempts",
+        ),
         is_flag=True,
     ),
     FeatureSpec(
@@ -162,7 +188,11 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
             kk="Әдеттен тыс шағын сома — картаны тексеруге тән",
             en="Unusually small amount — typical of card testing",
         ),
-        reason_high="Unusually small amount, typical of card-testing probes",
+        reason_high=Text(
+            ru="Необычно мелкая сумма — характерна для прозвона карты",
+            kk="Әдеттен тыс шағын сома — картаны тексеруге тән",
+            en="Unusually small amount, typical of card-testing probes",
+        ),
         is_flag=True,
     ),
     # ------------------------------------------------ страна (ТЗ §4.2)
@@ -174,8 +204,16 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
             kk="Транзакция клиенттің үй елінен тыс",
             en="Transaction outside the client's home country",
         ),
-        reason_high="Unusual country: transaction outside the user's home country",
-        reason_low="Transaction from the user's home country",
+        reason_high=Text(
+            ru="Необычная страна: операция вне домашней страны клиента",
+            kk="Әдеттен тыс ел: операция клиенттің үй елінен тыс",
+            en="Unusual country: transaction outside the user's home country",
+        ),
+        reason_low=Text(
+            ru="Операция из домашней страны клиента",
+            kk="Операция клиенттің үй елінен",
+            en="Transaction from the user's home country",
+        ),
         is_flag=True,
     ),
     FeatureSpec(
@@ -186,7 +224,11 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
             kk="Ел алдыңғы транзакциямен салыстырғанда өзгерді",
             en="The country changed from the previous transaction",
         ),
-        reason_high="Country changed since the previous transaction",
+        reason_high=Text(
+            ru="Страна изменилась с предыдущей операции",
+            kk="Алдыңғы операциядан бері ел өзгерді",
+            en="Country changed since the previous transaction",
+        ),
         is_flag=True,
     ),
     FeatureSpec(
@@ -197,7 +239,11 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
             kk="Ел жоғары тәуекел тізімінде",
             en="The country is on the high-risk list",
         ),
-        reason_high="Transaction from a high-risk country",
+        reason_high=Text(
+            ru="Операция из страны повышенного риска",
+            kk="Жоғары тәуекелді елден жасалған операция",
+            en="Transaction from a high-risk country",
+        ),
         is_flag=True,
     ),
     # ------------------------------------------------ устройство (ТЗ §4.3)
@@ -209,8 +255,16 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
             kk="Құрылғы бұл клиентте бұрын кездеспеген",
             en="The device has not been seen for this client before",
         ),
-        reason_high="New device detected",
-        reason_low="Device is already known for this user",
+        reason_high=Text(
+            ru="Обнаружено новое устройство",
+            kk="Жаңа құрылғы анықталды",
+            en="New device detected",
+        ),
+        reason_low=Text(
+            ru="Устройство уже известно для этого клиента",
+            kk="Құрылғы бұл клиентке бұрыннан таныс",
+            en="Device is already known for this user",
+        ),
         is_flag=True,
     ),
     FeatureSpec(
@@ -221,7 +275,11 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
             kk="Клиент үшін қанша құрылғы белгілі",
             en="How many devices are known for the client",
         ),
-        reason_high="User has {value} known devices",
+        reason_high=Text(
+            ru="У клиента {value} известных устройств",
+            kk="Клиентте {value} белгілі құрылғы бар",
+            en="User has {value} known devices",
+        ),
         decimals=0,
     ),
     # ------------------------------------------------ IP (ТЗ §4.4)
@@ -233,7 +291,11 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
             kk="IP-мекенжай алдыңғысынан өзгеше",
             en="The IP address differs from the previous one",
         ),
-        reason_high="IP address changed since the previous transaction",
+        reason_high=Text(
+            ru="IP-адрес изменился с предыдущей операции",
+            kk="Алдыңғы операциядан бері IP-мекенжай өзгерді",
+            en="IP address changed since the previous transaction",
+        ),
         is_flag=True,
     ),
     FeatureSpec(
@@ -244,8 +306,16 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
             kk="/24 ішкі желісі ауысты — басқа провайдер немесе желі",
             en="The /24 subnet changed — a different provider or network",
         ),
-        reason_high="Network changed: different IP subnet than the previous transaction",
-        reason_low="Same network as the previous transaction",
+        reason_high=Text(
+            ru="Сеть изменилась: другая подсеть, чем у предыдущей операции",
+            kk="Желі өзгерді: алдыңғы операциядан басқа ішкі желі",
+            en="Network changed: different IP subnet than the previous transaction",
+        ),
+        reason_low=Text(
+            ru="Та же сеть, что и у предыдущей операции",
+            kk="Алдыңғы операциямен бірдей желі",
+            en="Same network as the previous transaction",
+        ),
         is_flag=True,
     ),
     FeatureSpec(
@@ -260,8 +330,16 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
         # и просто из осторожности. Поэтому формулировка говорит о том,
         # что видно, а не о том, что за этим стоит, а вес признаку
         # назначает модель, а не список.
-        reason_high="Connection from a VPN, proxy or datacenter address",
-        reason_low="Connection from a regular consumer network",
+        reason_high=Text(
+            ru="Подключение с адреса VPN, прокси или дата-центра",
+            kk="VPN, прокси немесе дата-орталық мекенжайынан қосылу",
+            en="Connection from a VPN, proxy or datacenter address",
+        ),
+        reason_low=Text(
+            ru="Подключение из обычной пользовательской сети",
+            kk="Кәдімгі тұтынушы желісінен қосылу",
+            en="Connection from a regular consumer network",
+        ),
         is_flag=True,
     ),
     # ------------------------------------------------ частота (ТЗ §4.5, §4.8)
@@ -273,7 +351,11 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
             kk="Соңғы 24 сағаттағы клиент транзакцияларының саны",
             en="Number of the client's transactions in the last 24 hours",
         ),
-        reason_high="{value} transactions in the last 24 hours",
+        reason_high=Text(
+            ru="{value} операций за последние 24 часа",
+            kk="Соңғы 24 сағатта {value} операция",
+            en="{value} transactions in the last 24 hours",
+        ),
         decimals=0,
     ),
     FeatureSpec(
@@ -284,8 +366,16 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
             kk="Ағымдағы жиілік клиенттің әдеттегісінен неше есе жоғары",
             en="How many times the current frequency exceeds the client's usual",
         ),
-        reason_high="Transaction frequency is {value}x the user's normal rate",
-        reason_low="Transaction frequency is normal for this user",
+        reason_high=Text(
+            ru="Частота операций в {value} раз выше обычной для клиента",
+            kk="Операция жиілігі клиенттің әдеттегісінен {value} есе жоғары",
+            en="Transaction frequency is {value}x the user's normal rate",
+        ),
+        reason_low=Text(
+            ru="Частота операций обычная для этого клиента",
+            kk="Операция жиілігі бұл клиент үшін қалыпты",
+            en="Transaction frequency is normal for this user",
+        ),
         decimals=1,
     ),
     FeatureSpec(
@@ -296,7 +386,11 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
             kk="Соңғы сағаттағы транзакциялар саны",
             en="Number of transactions in the last hour",
         ),
-        reason_high="{value} transactions in the last hour",
+        reason_high=Text(
+            ru="{value} операций за последний час",
+            kk="Соңғы сағатта {value} операция",
+            en="{value} transactions in the last hour",
+        ),
         decimals=0,
     ),
     FeatureSpec(
@@ -307,7 +401,11 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
             kk="Транзакция жиілігі әдеттегіден едәуір жоғары",
             en="Transaction frequency is substantially above the usual",
         ),
-        reason_high="High transaction frequency for this user",
+        reason_high=Text(
+            ru="Высокая частота операций для этого клиента",
+            kk="Бұл клиент үшін операция жиілігі жоғары",
+            en="High transaction frequency for this user",
+        ),
         is_flag=True,
     ),
     # ------------------------------------------------ геолокация (ТЗ §4.6)
@@ -319,7 +417,11 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
             kk="Алдыңғы транзакция орнына дейінгі қашықтық, км",
             en="Distance to the previous transaction's location, km",
         ),
-        reason_high="Transaction {value} km away from the previous one",
+        reason_high=Text(
+            ru="Операция в {value} км от предыдущей",
+            kk="Операция алдыңғысынан {value} км қашықтықта",
+            en="Transaction {value} km away from the previous one",
+        ),
         decimals=0,
     ),
     FeatureSpec(
@@ -330,7 +432,11 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
             kk="Алдыңғы транзакциядан бері өткен сағат",
             en="Hours elapsed since the previous transaction",
         ),
-        reason_high="Only {value} hours since the previous transaction",
+        reason_high=Text(
+            ru="Всего {value} часов с предыдущей операции",
+            kk="Алдыңғы операциядан бері небәрі {value} сағат",
+            en="Only {value} hours since the previous transaction",
+        ),
         decimals=2,
     ),
     FeatureSpec(
@@ -341,7 +447,11 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
             kk="Транзакциялар арасындағы қажетті жылдамдық, км/сағ",
             en="Required travel speed between transactions, km/h",
         ),
-        reason_high="Implied travel speed of {value} km/h between transactions",
+        reason_high=Text(
+            ru="Требуемая скорость перемещения между операциями — {value} км/ч",
+            kk="Операциялар арасындағы қажетті жылдамдық — {value} км/сағ",
+            en="Implied travel speed of {value} km/h between transactions",
+        ),
         decimals=0,
     ),
     FeatureSpec(
@@ -352,7 +462,11 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
             kk="Өткен уақытта мұндай орын ауыстыру физикалық мүмкін емес",
             en="The travel is physically impossible in the elapsed time",
         ),
-        reason_high="Impossible travel: this location cannot be reached in the elapsed time",
+        reason_high=Text(
+            ru="Невозможное перемещение: до этой точки не добраться за прошедшее время",
+            kk="Мүмкін емес орын ауыстыру: өткен уақытта бұл жерге жету мүмкін емес",
+            en="Impossible travel: this location cannot be reached in the elapsed time",
+        ),
         is_flag=True,
     ),
     # ------------------------------------------------ время (ТЗ §4.7)
@@ -364,7 +478,11 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
             kk="Тәулік сағаты",
             en="Hour of the day",
         ),
-        reason_high="Transaction at {value}:00",
+        reason_high=Text(
+            ru="Операция в {value}:00",
+            kk="Операция сағат {value}:00-де",
+            en="Transaction at {value}:00",
+        ),
         decimals=0,
     ),
     FeatureSpec(
@@ -375,8 +493,16 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
             kk="Түнгі уақыт (00:00–05:59)",
             en="Night time (00:00–05:59)",
         ),
-        reason_high="Night-time transaction",
-        reason_low="Transaction during normal daytime hours",
+        reason_high=Text(
+            ru="Операция в ночное время",
+            kk="Түнгі уақыттағы операция",
+            en="Night-time transaction",
+        ),
+        reason_low=Text(
+            ru="Операция в обычное дневное время",
+            kk="Күндізгі қалыпты уақыттағы операция",
+            en="Transaction during normal daytime hours",
+        ),
         is_flag=True,
     ),
     FeatureSpec(
@@ -387,7 +513,11 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
             kk="Демалыс күні",
             en="Weekend",
         ),
-        reason_high="Weekend transaction",
+        reason_high=Text(
+            ru="Операция в выходной день",
+            kk="Демалыс күнгі операция",
+            en="Weekend transaction",
+        ),
         is_flag=True,
     ),
     # ------------------------------------------------ счёт и мерчант
@@ -399,8 +529,16 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
             kk="Шот жасы, күнмен",
             en="Account age in days",
         ),
-        reason_high="Account age is {value} days",
-        reason_low="Long-standing account",
+        reason_high=Text(
+            ru="Возраст счёта — {value} дней",
+            kk="Шот жасы — {value} күн",
+            en="Account age is {value} days",
+        ),
+        reason_low=Text(
+            ru="Давно открытый счёт",
+            kk="Бұрыннан ашылған шот",
+            en="Long-standing account",
+        ),
         decimals=0,
     ),
     FeatureSpec(
@@ -411,7 +549,11 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
             kk="Шот жақында ашылған (60 күннен жас)",
             en="The account was opened recently (less than 60 days old)",
         ),
-        reason_high="Recently opened account",
+        reason_high=Text(
+            ru="Недавно открытый счёт",
+            kk="Жақында ашылған шот",
+            en="Recently opened account",
+        ),
         is_flag=True,
     ),
     FeatureSpec(
@@ -422,7 +564,11 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
             kk="Жоғары тәуекелді мерчант санаты (crypto, gambling, аударымдар, ATM)",
             en="High-risk merchant category (crypto, gambling, transfers, ATM)",
         ),
-        reason_high="High-risk merchant category (crypto, gambling, transfers or ATM)",
+        reason_high=Text(
+            ru="Категория мерчанта повышенного риска (crypto, gambling, переводы, ATM)",
+            kk="Жоғары тәуекелді мерчант санаты (crypto, gambling, аударымдар, ATM)",
+            en="High-risk merchant category (crypto, gambling, transfers or ATM)",
+        ),
         is_flag=True,
     ),
 )
