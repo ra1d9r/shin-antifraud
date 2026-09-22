@@ -230,6 +230,15 @@ class PolicyOut(BaseModel):
     key: str
     title: str
     min_score: int = Field(description="Ниже этой оценки политика не поднимает риск")
+    config_field: str = Field(
+        description=(
+            "Каким полем этой формы меняется минимум политики. Отдаётся "
+            "потому, что с `key` совпадает не всегда: `velocity_burst` "
+            "настраивается полем `velocity_min_score`. Выводить имя поля "
+            "из ключа на клиенте нельзя — две политики из шести молча "
+            "перестали бы сохраняться."
+        )
+    )
 
 
 class PolicyState(BaseModel):

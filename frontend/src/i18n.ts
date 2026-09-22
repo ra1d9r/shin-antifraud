@@ -200,6 +200,148 @@ export const DICTIONARY = {
   'stream.averageScore': entry('Средний Risk Score', 'Орташа Risk Score', 'Average Risk Score'),
   'stream.failed': entry('Не удалось прогнать поток', 'Ағынды өткізу мүмкін болмады', 'Could not run the stream'),
 
+  // --- настройка на работающей системе (брифинг §4.5, §5.C) ---
+  'config.title': entry(
+    'Настройка на работающей системе',
+    'Жұмыс істеп тұрған жүйені баптау',
+    'Runtime configuration',
+  ),
+  'config.failed': entry(
+    'Не удалось прочитать настройки',
+    'Баптауларды оқу мүмкін болмады',
+    'Could not read the configuration',
+  ),
+  'config.locked': entry('Запись выключена', 'Жазу өшірілген', 'Writing is disabled'),
+  'config.lockedWhy': entry(
+    'На сервере не задан CONFIG_ADMIN_TOKEN. Значения ниже действуют, но сменить их отсюда нельзя: тем же адресом ставится approve_max = 100, а это отключает блокировку любого мошенничества.',
+    'Серверде CONFIG_ADMIN_TOKEN берілмеген. Төмендегі мәндер қолданыста, бірақ оларды осы жерден өзгерту мүмкін емес: сол мекенжаймен approve_max = 100 қойылады, ал бұл кез келген алаяқтықтың бұғатталуын өшіреді.',
+    'CONFIG_ADMIN_TOKEN is not set on the server. The values below are in effect but cannot be changed here: the same endpoint sets approve_max = 100, which switches off blocking for any fraud.',
+  ),
+  'config.token': entry('Пароль настройки', 'Баптау паролі', 'Configuration password'),
+  'config.tokenHint': entry(
+    'Значение CONFIG_ADMIN_TOKEN. Живёт в памяти вкладки и никуда не сохраняется.',
+    'CONFIG_ADMIN_TOKEN мәні. Қойынды жадында ғана болады, еш жерге сақталмайды.',
+    'The CONFIG_ADMIN_TOKEN value. Kept in the tab memory and stored nowhere.',
+  ),
+  'config.needToken': entry(
+    'Введите пароль настройки',
+    'Баптау паролін енгізіңіз',
+    'Enter the configuration password',
+  ),
+  'config.thresholds': entry(
+    'Пороги Risk Engine',
+    'Risk Engine шектері',
+    'Risk Engine thresholds',
+  ),
+  'config.approveMax': entry('Пропускать до', 'Дейін өткізу', 'Approve up to'),
+  'config.challengeMax': entry('Проверять до', 'Дейін тексеру', 'Challenge up to'),
+  'config.criticalMin': entry('Критический с', 'Сыни деңгей', 'Critical from'),
+  'config.rulesEnabled': entry(
+    'Применять политики поверх модели',
+    'Саясаттарды модельден кейін қолдану',
+    'Apply policies on top of the model',
+  ),
+  'config.policies': entry('Веса рисков', 'Тәуекел салмақтары', 'Risk weights'),
+  'config.policyColumn': entry('Политика', 'Саясат', 'Policy'),
+  'config.minScore': entry('Минимум', 'Ең төмен балл', 'Minimum score'),
+  'config.velocityPerHour': entry(
+    'Всплеск: операций в час',
+    'Шапшаңдық: сағатына операция',
+    'Velocity: transactions per hour',
+  ),
+  'config.amountRatio': entry(
+    'Крупная сумма: во сколько раз выше обычной',
+    'Ірі сома: әдеттегіден неше есе жоғары',
+    'Large amount: times above usual',
+  ),
+  'config.cost': entry('Бизнес-метрика', 'Бизнес көрсеткіші', 'Business metric'),
+  'config.fraudLossRatio': entry(
+    'Доля суммы, теряемой на пропущенном фроде',
+    'Өткізілген алаяқтықта жоғалатын сома үлесі',
+    'Share of the amount lost on missed fraud',
+  ),
+  'config.fraudFixed': entry(
+    'Издержки на один пропущенный фрод',
+    'Бір өткізілген алаяқтыққа шығын',
+    'Fixed cost per missed fraud',
+  ),
+  'config.falseBlock': entry(
+    'Цена зря заблокированного клиента',
+    'Бекер бұғатталған клиенттің құны',
+    'Cost of a wrongly blocked customer',
+  ),
+  'config.falseChallenge': entry(
+    'Цена лишней проверки',
+    'Артық тексерудің құны',
+    'Cost of an unnecessary check',
+  ),
+  'config.reason': entry('Зачем', 'Не үшін', 'Reason'),
+  'config.reasonPlaceholder': entry(
+    'номер обращения, гипотеза',
+    'өтініш нөмірі, болжам',
+    'ticket number, hypothesis',
+  ),
+  'config.apply': entry('Применить', 'Қолдану', 'Apply'),
+  'config.applying': entry('Применяю…', 'Қолданылуда…', 'Applying…'),
+  'config.revert': entry('Вернуть действующие', 'Қолданыстағыға қайтару', 'Reset to current'),
+  'config.nothingToChange': entry(
+    'Ничего не изменено',
+    'Ештеңе өзгертілген жоқ',
+    'Nothing changed',
+  ),
+  'config.overridden': entry(
+    'изменено в рантайме',
+    'жұмыс кезінде өзгертілген',
+    'changed at runtime',
+  ),
+  'config.fromEnv': entry(
+    'действуют значения из .env',
+    '.env мәндері қолданыста',
+    'values from .env are in effect',
+  ),
+  'config.restartNote': entry(
+    'Перезапуск вернёт значения из .env',
+    'Қайта іске қосу .env мәндерін қайтарады',
+    'A restart brings back the .env values',
+  ),
+  'config.changedAt': entry('Последняя правка', 'Соңғы өзгеріс', 'Last change'),
+  'config.applied': entry('Применено', 'Қолданылды', 'Applied'),
+  'config.shadowReset': entry(
+    'теневое сравнение обнулено',
+    'көлеңкелі салыстыру нөлденді',
+    'shadow comparison reset',
+  ),
+  'config.analyticsStale': entry(
+    'аналитика помечена устаревшей',
+    'аналитика ескірген деп белгіленді',
+    'analytics marked stale',
+  ),
+  'config.driftKept': entry(
+    'наблюдение за дрейфом сохранено',
+    'дрейфті бақылау сақталды',
+    'drift monitoring kept',
+  ),
+  'config.curveRecomputed': entry(
+    'кривая компромисса пересчитана',
+    'ымыра қисығы қайта есептелді',
+    'trade-off curve recomputed',
+  ),
+  'config.curveNotRecomputed': entry(
+    'кривая не пересчитана: отчёт выгружен без сумм',
+    'қисық қайта есептелмеді: есеп сомаларсыз жүктелген',
+    'curve not recomputed: the report was exported without amounts',
+  ),
+  'config.optimumMoved': entry(
+    'оптимальный порог: {before} → {after}',
+    'оңтайлы шек: {before} → {after}',
+    'optimal threshold: {before} → {after}',
+  ),
+  'config.reloadHint': entry(
+    'Обновите страницу, чтобы панели выше пересчитались',
+    'Жоғарыдағы панельдер қайта есептелуі үшін бетті жаңартыңыз',
+    'Reload the page so the panels above recompute',
+  ),
+
   // --- симулятор ---
   'sim.scenarios': entry('Сценарии', 'Сценарийлер', 'Scenarios'),
   'sim.transaction': entry('Транзакция', 'Транзакция', 'Transaction'),

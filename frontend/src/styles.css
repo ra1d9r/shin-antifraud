@@ -966,3 +966,71 @@ table.feed tr.row-flagged td:first-child {
   line-height: 1.35;
   max-width: 42ch;
 }
+
+/* --- настройка на работающей системе (брифинг §4.5, §5.C) --- */
+
+.config-block {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.config-block:first-of-type {
+  border-top: none;
+}
+
+/* Флажок и следующая сетка полей шли вплотную к предыдущим полям
+   и читались как их продолжение. */
+.config-block .checkbox,
+.config-block .grid + .grid,
+.config-block .grid {
+  margin-top: 12px;
+}
+
+/* Поле «зачем» длиннее числовых и занимает всю ширину сетки. */
+.config-wide {
+  grid-column: 1 / -1;
+}
+
+.config-wide input {
+  background: #0e1117;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 7px 9px;
+  font-size: 13px;
+}
+
+.config-wide input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Таблица политик: поле ввода вместо числа. */
+.table input[type='number'] {
+  width: 84px;
+  background: #0e1117;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 5px 7px;
+  font-size: 13px;
+}
+
+.table input[type='number']:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.config-applied {
+  margin-top: 12px;
+  color: var(--approve);
+  font-size: 13px;
+}
+
+/* Причина, по которой запись выключена, видна на всех языках:
+   без неё пустая форма выглядела бы сломанной, а не закрытой. */
+.config-locked {
+  border-left: 2px solid var(--challenge);
+  padding-left: 12px;
+}

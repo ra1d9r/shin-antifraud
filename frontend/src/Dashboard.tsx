@@ -15,6 +15,7 @@ import { useMemo, useState } from 'react'
 import type { MouseEvent } from 'react'
 
 import AdaptivePanel from './AdaptivePanel'
+import ConfigPanel from './ConfigPanel'
 import DriftPanel from './DriftPanel'
 import { readoutX, thresholdAtPointer } from './chart'
 import { fetchCostWeights } from './api'
@@ -370,6 +371,11 @@ export default function Dashboard({
       <MapPanel data={data} />
 
       <AdaptivePanel />
+
+      {/* Форма настройки стоит сразу под порогами: она меняет те самые
+          величины, которые показаны выше. Ключ перемонтирует панели
+          наблюдения — смена порогов обнуляет тень. */}
+      <ConfigPanel onApplied={() => setStreamRuns((runs) => runs + 1)} />
 
       <StreamPanel onFinished={() => setStreamRuns((runs) => runs + 1)} />
 
