@@ -7,7 +7,7 @@
 > python backend/scripts/export_features.py
 > ```
 
-Всего признаков: **27**. Порядок ниже — это порядок колонок вектора,
+Всего признаков: **28**. Порядок ниже — это порядок колонок вектора,
 который сохраняется вместе с моделью.
 
 
@@ -43,37 +43,38 @@
 |---|---|---|---|---|
 | 11 | `ip_changed` | флаг | IP-адрес отличается от предыдущего | IP address changed since the previous transaction |
 | 12 | `ip_subnet_changed` | флаг | Сменилась подсеть /24 — другой провайдер или сеть | Network changed: different IP subnet than the previous transaction |
+| 13 | `is_vpn_ip` | флаг | Адрес похож на VPN, прокси или дата-центр | Connection from a VPN, proxy or datacenter address |
 
 ## §4.5 / §4.8 Частота и количество за период
 
 | # | Признак | Тип | Описание | Формулировка для XAI |
 |---|---|---|---|---|
-| 13 | `transaction_frequency` | число | Количество транзакций клиента за последние 24 часа | {value} transactions in the last 24 hours |
-| 14 | `frequency_ratio` | число | Во сколько раз текущая частота выше обычной для клиента | Transaction frequency is {value}x the user's normal rate |
-| 15 | `txn_count_last_hour` | число | Количество транзакций за последний час | {value} transactions in the last hour |
-| 16 | `is_high_frequency` | флаг | Частота транзакций существенно выше обычной | High transaction frequency for this user |
+| 14 | `transaction_frequency` | число | Количество транзакций клиента за последние 24 часа | {value} transactions in the last 24 hours |
+| 15 | `frequency_ratio` | число | Во сколько раз текущая частота выше обычной для клиента | Transaction frequency is {value}x the user's normal rate |
+| 16 | `txn_count_last_hour` | число | Количество транзакций за последний час | {value} transactions in the last hour |
+| 17 | `is_high_frequency` | флаг | Частота транзакций существенно выше обычной | High transaction frequency for this user |
 
 ## §4.6 Резкое изменение геолокации
 
 | # | Признак | Тип | Описание | Формулировка для XAI |
 |---|---|---|---|---|
-| 17 | `geo_distance_km` | число | Расстояние до места предыдущей транзакции, км | Transaction {value} km away from the previous one |
-| 18 | `hours_since_previous` | число | Часов прошло с предыдущей транзакции | Only {value} hours since the previous transaction |
-| 19 | `travel_speed_kmh` | число | Требуемая скорость перемещения между транзакциями, км/ч | Implied travel speed of {value} km/h between transactions |
-| 20 | `is_impossible_travel` | флаг | Перемещение физически невозможно за прошедшее время | Impossible travel: this location cannot be reached in the elapsed time |
+| 18 | `geo_distance_km` | число | Расстояние до места предыдущей транзакции, км | Transaction {value} km away from the previous one |
+| 19 | `hours_since_previous` | число | Часов прошло с предыдущей транзакции | Only {value} hours since the previous transaction |
+| 20 | `travel_speed_kmh` | число | Требуемая скорость перемещения между транзакциями, км/ч | Implied travel speed of {value} km/h between transactions |
+| 21 | `is_impossible_travel` | флаг | Перемещение физически невозможно за прошедшее время | Impossible travel: this location cannot be reached in the elapsed time |
 
 ## §4.7 Время транзакции
 
 | # | Признак | Тип | Описание | Формулировка для XAI |
 |---|---|---|---|---|
-| 21 | `hour_of_day` | число | Час суток | Transaction at {value}:00 |
-| 22 | `is_night` | флаг | Ночное время (00:00–05:59) | Night-time transaction |
-| 23 | `is_weekend` | флаг | Выходной день | Weekend transaction |
+| 22 | `hour_of_day` | число | Час суток | Transaction at {value}:00 |
+| 23 | `is_night` | флаг | Ночное время (00:00–05:59) | Night-time transaction |
+| 24 | `is_weekend` | флаг | Выходной день | Weekend transaction |
 
 ## §4.9 Прочее поведение
 
 | # | Признак | Тип | Описание | Формулировка для XAI |
 |---|---|---|---|---|
-| 24 | `account_age_days` | число | Возраст счёта в днях | Account age is {value} days |
-| 25 | `is_new_account` | флаг | Счёт открыт недавно (моложе 60 дней) | Recently opened account |
-| 26 | `is_high_risk_merchant` | флаг | Категория мерчанта повышенного риска (crypto, gambling, переводы, ATM) | High-risk merchant category (crypto, gambling, transfers or ATM) |
+| 25 | `account_age_days` | число | Возраст счёта в днях | Account age is {value} days |
+| 26 | `is_new_account` | флаг | Счёт открыт недавно (моложе 60 дней) | Recently opened account |
+| 27 | `is_high_risk_merchant` | флаг | Категория мерчанта повышенного риска (crypto, gambling, переводы, ATM) | High-risk merchant category (crypto, gambling, transfers or ATM) |

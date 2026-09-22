@@ -208,23 +208,37 @@ def test_free_fraud_stops_the_system_from_checking(client) -> None:
     """Крайний случай, где ответ известен заранее.
 
     Если пропущенный фрод не стоит ничего, любая проверка — чистый
-    убыток, и дешевле всего не проверять никого.
+    убыток, и дешевле всего почти никого не проверять.
+
+    Порог сравнивается с исходным, а не с числом: прибитое гвоздём
+    значение откалибровано на конкретной модели и падает при первом же
+    переобучении, ничего при этом не проверив. Здесь проверяется
+    направление — метрика сказала «проверки дороги», порог обязан
+    уехать вверх.
     """
+    before = optimum(client)
+
     client.post(
         "/config/cost",
         json={"fraud_loss_ratio": 0.0, "fraud_fixed": 0.0},
         headers=HEADERS,
     )
 
-    assert optimum(client) >= 95
+    after = optimum(client)
+    assert after > before, "даровой фрод не сдвинул порог вверх"
+    assert after >= 80, f"порог {after}: система всё ещё проверяет слишком многих"
 
 
 def test_expensive_fraud_makes_the_system_check_everyone(client) -> None:
     """Обратный крайний случай — иначе тест выше прошёл бы и на заглушке,
     которая всегда возвращает большое число."""
+    before = optimum(client)
+
     client.post("/config/cost", json={"fraud_loss_ratio": 5.0}, headers=HEADERS)
 
-    assert optimum(client) <= 5
+    after = optimum(client)
+    assert after <= before, "дорогой фрод не сдвинул порог вниз"
+    assert after <= 10, f"порог {after}: система всё ещё пропускает слишком многих"
 
 
 def test_recomputed_analytics_is_not_marked_stale(client) -> None:

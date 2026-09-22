@@ -189,3 +189,46 @@ def is_impossible_travel(distance_km: float, hours_elapsed: float) -> bool:
     if distance_km < 50.0:
         return False
     return travel_speed_kmh(distance_km, hours_elapsed) > MAX_PLAUSIBLE_SPEED_KMH
+
+
+# Диапазоны, которые прототип считает VPN, прокси или дата-центром.
+#
+# Это эвристика прототипа, а не база данных. Настоящие списки платные
+# (MaxMind, IPQualityScore) и обновляются ежедневно — в проде признак
+# приходит оттуда. Здесь же список тот же, которым пользуется генератор
+# датасета: иначе признак был бы всегда нулевым, модель бы его не
+# выучила, а на демонстрации он вечно показывал бы «нет».
+#
+# Хранится первыми двумя октетами: /16 достаточно грубо, чтобы
+# не притворяться точностью, которой нет.
+#
+# Тот же приём и та же оговорка, что у `HIGH_RISK_COUNTRY_LIST`.
+DATACENTER_PREFIXES: tuple[str, ...] = (
+    "203.0",   # TEST-NET-3, в примерах документации изображает чужую сеть
+    "198.51",  # TEST-NET-2
+    "192.0",   # TEST-NET-1
+    "45.87",
+    "185.220",
+    "104.244",
+    "167.99",
+    "159.89",
+    "46.166",
+    "91.219",
+)
+
+DATACENTER_PREFIX_SET: frozenset[str] = frozenset(DATACENTER_PREFIXES)
+
+
+def is_datacenter_ip(ip_address: str | None) -> bool:
+    """Похож ли адрес на VPN, прокси или хостинг.
+
+    Отдельной функцией, а не выражением по месту: то же определение
+    нужно и генератору датасета, и признаку, и вторая копия однажды
+    разошлась бы с первой — как это уже случилось с подсетью /24.
+    """
+    if not ip_address:
+        return False
+    parts = ip_address.split(".")
+    if len(parts) < 2:
+        return False
+    return ".".join(parts[:2]) in DATACENTER_PREFIX_SET

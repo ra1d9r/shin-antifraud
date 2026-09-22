@@ -30,6 +30,7 @@ from app.features.builder import NEW_ACCOUNT_THRESHOLD_DAYS
 from app.features.geo import (
     COMMON_TRAVEL_COUNTRIES,
     COUNTRY_COORDINATES,
+    DATACENTER_PREFIXES,
     HIGH_RISK_COUNTRY_LIST,
     country_coordinates,
     haversine_km,
@@ -148,6 +149,21 @@ def _weighted_choice(rng: random.Random, weights: dict) -> object:
     values = [weights[key] for key in keys]
     return rng.choices(keys, weights=values, k=1)[0]
 
+
+def _datacenter_prefix(rng: random.Random) -> str:
+    """Три октета внутри диапазона, который прототип считает VPN/хостингом."""
+    return f"{rng.choice(DATACENTER_PREFIXES)}.{rng.randint(0, 255)}"
+
+
+#: Доля мошеннических эпизодов, идущих через VPN, прокси или хостинг.
+#: Не единица намеренно: идеальный разделитель в обучении даёт модель,
+#: которая на настоящих данных разваливается о первого честного клиента
+#: с корпоративным VPN.
+ATTACKER_VPN_SHARE = 0.55
+
+#: Доля обычных операций из тех же диапазонов. Меньше, чем у атак,
+#: но заметно больше нуля — иначе признак стал бы меткой «это фрод».
+LEGIT_VPN_SHARE = 0.03
 
 def _random_ip_prefix(rng: random.Random) -> str:
     """Первые три октета IP — условная подсеть провайдера клиента."""
@@ -430,6 +446,11 @@ def _legit_transaction(
     # изредка — смена провайдера или мобильный интернет
     if state.trip_ip_prefix is not None:
         ip_address = _ip_in_prefix(rng, state.trip_ip_prefix)
+    elif rng.random() < LEGIT_VPN_SHARE:
+        # Честные клиенты тоже пользуются VPN: корпоративный доступ,
+        # осторожность, обход блокировок в поездке. Без них признак
+        # оказался бы идеальным разделителем, которого в жизни нет.
+        ip_address = _ip_in_prefix(rng, _datacenter_prefix(rng))
     elif rng.random() < 0.04:
         ip_address = _ip_in_prefix(rng, _random_ip_prefix(rng))
     else:
@@ -503,7 +524,14 @@ def _fraud_episode(
 
     # Атакующий почти всегда работает со своего устройства и своей сети.
     attacker_device = f"dev_attacker_{rng.randint(10000, 99999)}"
-    attacker_ip_prefix = _random_ip_prefix(rng)
+    # Атакующий прячется за VPN чаще обычного человека, но не всегда:
+    # бывает и взломанный домашний роутер, и мобильный интернет.
+    # Доля намеренно не единица — иначе признак стал бы безошибочной
+    # меткой фрода, модель оперлась бы на него одного, а на настоящих
+    # данных, где VPN есть и у честных клиентов, это развалилось бы.
+    attacker_ip_prefix = (
+        _datacenter_prefix(rng) if rng.random() < ATTACKER_VPN_SHARE else _random_ip_prefix(rng)
+    )
 
     for step in range(episode_length):
         if scenario is FraudScenario.ACCOUNT_TAKEOVER:

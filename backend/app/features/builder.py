@@ -18,7 +18,13 @@ from datetime import UTC, datetime
 
 from app.core.exceptions import FeatureBuildError
 from app.features.definitions import FEATURE_NAMES
-from app.features.geo import haversine_km, is_high_risk_country, is_impossible_travel, travel_speed_kmh
+from app.features.geo import (
+    haversine_km,
+    is_datacenter_ip,
+    is_high_risk_country,
+    is_impossible_travel,
+    travel_speed_kmh,
+)
 from app.features.merchants import is_high_risk_category, merchant_category
 
 # Пороговые значения признаков вынесены в константы, чтобы они не были
@@ -194,6 +200,8 @@ def build_features(transaction: TransactionInput) -> dict[str, float]:
     previous_ip = transaction.previous_ip_address
     ip_changed = bool(previous_ip) and transaction.ip_address != previous_ip
     ip_subnet_changed = bool(previous_ip) and ip_subnet(transaction.ip_address) != ip_subnet(previous_ip)
+    # VPN/прокси/дата-центр. Список — эвристика прототипа, см. `geo.py`.
+    is_vpn = is_datacenter_ip(transaction.ip_address)
 
     # ---------------------------------------------------- частота (ТЗ §4.5, §4.8)
     frequency = float(max(transaction.transaction_frequency, MIN_TRANSACTION_COUNT))
@@ -249,6 +257,7 @@ def build_features(transaction: TransactionInput) -> dict[str, float]:
 
         "ip_changed": float(ip_changed),
         "ip_subnet_changed": float(ip_subnet_changed),
+        "is_vpn_ip": float(is_vpn),
 
         "transaction_frequency": frequency,
         "frequency_ratio": frequency_ratio,

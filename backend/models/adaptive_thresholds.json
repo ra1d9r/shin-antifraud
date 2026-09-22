@@ -1,120 +1,120 @@
 {
   "format_version": "1",
-  "generated_at": "2026-09-21T17:43:07+00:00",
+  "generated_at": "2026-09-22T13:33:16+00:00",
   "rows": 99360,
   "min_fraud_per_segment": 30,
-  "fallback_approve_max": 4,
+  "fallback_approve_max": 6,
   "segments": [
     {
       "segment": "atm",
-      "approve_max": 55,
-      "rows": 7329,
-      "fraud_rows": 105,
+      "approve_max": 60,
+      "rows": 7107,
+      "fraud_rows": 99,
       "fitted": true
     },
     {
       "segment": "crypto",
-      "approve_max": 24,
-      "rows": 3063,
-      "fraud_rows": 141,
+      "approve_max": 29,
+      "rows": 2997,
+      "fraud_rows": 144,
       "fitted": true
     },
     {
       "segment": "electronics",
-      "approve_max": 61,
-      "rows": 11380,
-      "fraud_rows": 115,
+      "approve_max": 42,
+      "rows": 11336,
+      "fraud_rows": 131,
       "fitted": true
     },
     {
       "segment": "fashion",
-      "approve_max": 13,
-      "rows": 6901,
-      "fraud_rows": 75,
+      "approve_max": 75,
+      "rows": 6965,
+      "fraud_rows": 70,
       "fitted": true
     },
     {
       "segment": "gambling",
-      "approve_max": 12,
-      "rows": 3151,
-      "fraud_rows": 139,
+      "approve_max": 20,
+      "rows": 3211,
+      "fraud_rows": 172,
       "fitted": true
     },
     {
       "segment": "gaming",
-      "approve_max": 9,
-      "rows": 6798,
-      "fraud_rows": 345,
+      "approve_max": 2,
+      "rows": 6738,
+      "fraud_rows": 288,
       "fitted": true
     },
     {
       "segment": "grocery",
       "approve_max": 11,
-      "rows": 11115,
-      "fraud_rows": 117,
+      "rows": 10965,
+      "fraud_rows": 96,
       "fitted": true
     },
     {
       "segment": "money_transfer",
       "approve_max": 40,
-      "rows": 3150,
-      "fraud_rows": 151,
+      "rows": 3181,
+      "fraud_rows": 121,
       "fitted": true
     },
     {
       "segment": "pharmacy",
-      "approve_max": 40,
-      "rows": 3244,
-      "fraud_rows": 35,
+      "approve_max": 10,
+      "rows": 3288,
+      "fraud_rows": 39,
       "fitted": true
     },
     {
       "segment": "restaurant",
-      "approve_max": 55,
-      "rows": 13669,
-      "fraud_rows": 94,
+      "approve_max": 4,
+      "rows": 13709,
+      "fraud_rows": 100,
       "fitted": true
     },
     {
       "segment": "streaming",
-      "approve_max": 6,
-      "rows": 9690,
-      "fraud_rows": 299,
+      "approve_max": 4,
+      "rows": 9851,
+      "fraud_rows": 390,
       "fitted": true
     },
     {
       "segment": "transport",
-      "approve_max": 3,
-      "rows": 9181,
-      "fraud_rows": 72,
+      "approve_max": 55,
+      "rows": 9258,
+      "fraud_rows": 65,
       "fitted": true
     },
     {
       "segment": "travel",
-      "approve_max": 41,
-      "rows": 10689,
-      "fraud_rows": 248,
+      "approve_max": 6,
+      "rows": 10754,
+      "fraud_rows": 201,
       "fitted": true
     }
   ],
   "validation": {
     "folds": 5,
     "gain_per_fold": [
-      -900.08,
-      1938.65,
-      268.53,
-      379.77,
-      1385.23
+      -3104.41,
+      977.99,
+      -2961.74,
+      -1373.83,
+      738.46
     ],
-    "mean_gain": 614.42,
-    "worst_gain": -900.08,
-    "positive_folds": 4,
+    "mean_gain": -1144.71,
+    "worst_gain": -3104.41,
+    "positive_folds": 2,
     "configured_approve_max": 30,
-    "configured_cost": 53412.39,
-    "adaptive_cost": 52334.22,
-    "configured_friction": 2011,
-    "adaptive_friction": 1295,
-    "configured_fraud_stopped": 1849,
-    "adaptive_fraud_stopped": 1835
+    "configured_cost": 67188.17,
+    "adaptive_cost": 61625.53,
+    "configured_friction": 2153,
+    "adaptive_friction": 1854,
+    "configured_fraud_stopped": 1824,
+    "adaptive_fraud_stopped": 1826
   }
 }
