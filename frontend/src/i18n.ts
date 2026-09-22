@@ -218,7 +218,15 @@ export const DICTIONARY = {
   'sim.raisedTo': entry('политики подняли до', 'саясаттар көтерді', 'policies raised it to'),
   'sim.probability': entry('вероятность', 'ықтималдық', 'probability'),
   'sim.thresholds': entry('пороги', 'шектер', 'thresholds'),
-  'sim.reasons': entry('Причины', 'Себептер', 'Reasons'),
+  // Не «Причины»: список собран из признаков, толкавших оценку ВВЕРХ,
+  // и под вердиктом APPROVE «Причины: крупная сумма» читается как
+  // противоречие самому себе. Заголовок теперь говорит, что это за
+  // список, и одинаково честен для всех трёх решений.
+  'sim.reasons': entry(
+    'Что повышало оценку',
+    'Бағаны не көтерді',
+    'What raised the score',
+  ),
   'sim.policiesFired': entry('Сработавшие политики', 'Іске қосылған саясаттар', 'Policies triggered'),
   'sim.topFactors': entry('Основные факторы риска', 'Негізгі тәуекел факторлары', 'Main risk factors'),
   'sim.noFactors': entry(
