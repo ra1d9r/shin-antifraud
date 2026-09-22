@@ -103,6 +103,7 @@ class TransactionStore:
         self,
         *,
         decision: Decision | None = None,
+        flagged: bool | None = None,
         risk_level: RiskLevel | None = None,
         country: str | None = None,
         min_risk_score: int | None = None,
@@ -115,6 +116,11 @@ class TransactionStore:
 
         Возвращает общее число подошедших записей и запрошенную страницу.
         Порядок — от новых к старым: в таблице сверху должно быть свежее.
+
+        `flagged=True` — всё, что система не пропустила: и CHALLENGE,
+        и BLOCK. Отдельным флагом, а не двумя запросами, потому что
+        аналитику нужны обе категории разом: его вопрос — «с чем система
+        что-то сделала», а не «что именно она сделала».
         """
         records = self.all()
         records.reverse()
@@ -122,6 +128,10 @@ class TransactionStore:
         def matches(record: TransactionRecord) -> bool:
             if decision is not None and record.decision is not decision:
                 return False
+            if flagged is not None:
+                held = record.decision is not Decision.APPROVE
+                if held is not flagged:
+                    return False
             if risk_level is not None and record.risk_level is not risk_level:
                 return False
             if country is not None and record.country != country.upper():

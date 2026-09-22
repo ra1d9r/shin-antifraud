@@ -31,6 +31,10 @@ def list_transactions(
     transactions: TransactionsDep,
     feedback: FeedbackDep,
     decision: Annotated[Decision | None, Query(description="Фильтр по решению")] = None,
+    flagged: Annotated[
+        bool | None,
+        Query(description="true — только задержанные: CHALLENGE и BLOCK вместе"),
+    ] = None,
     risk_level: Annotated[RiskLevel | None, Query(description="Фильтр по уровню риска")] = None,
     country: Annotated[str | None, Query(min_length=2, max_length=2)] = None,
     min_risk_score: Annotated[int | None, Query(ge=0, le=100)] = None,
@@ -41,6 +45,7 @@ def list_transactions(
 ) -> TransactionListResponse:
     total, records = transactions.query(
         decision=decision,
+        flagged=flagged,
         risk_level=risk_level,
         country=country,
         min_risk_score=min_risk_score,

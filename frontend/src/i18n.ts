@@ -445,6 +445,29 @@ export const DICTIONARY = {
   // Подписи двух графиков в одной панели. Без них они читались как один
   // график с пятью линиями: между ними было восемь пикселей и ничего,
   // что говорило бы, где кончается один и начинается другой.
+  // --- лента операций для аналитика ---
+  'feed.title': entry(
+    'Лента операций',
+    'Операциялар лентасы',
+    'Operations feed',
+  ),
+  'feed.time': entry('Время', 'Уақыт', 'Time'),
+  'feed.amount': entry('Сумма', 'Сома', 'Amount'),
+  'feed.merchant': entry('Получатель', 'Алушы', 'Merchant'),
+  'feed.score': entry('Оценка', 'Баға', 'Score'),
+  'feed.decision': entry('Решение', 'Шешім', 'Decision'),
+  'feed.signals': entry('Что сработало', 'Не істеді', 'What fired'),
+  'feed.empty': entry(
+    'Операций пока нет. Запустите поток выше или проанализируйте одну в симуляторе.',
+    'Әзірге операция жоқ. Жоғарыдағы ағынды іске қосыңыз немесе симуляторда біреуін талдаңыз.',
+    'No operations yet. Run the stream above or analyse one in the simulator.',
+  ),
+  'feed.showAll': entry('Все', 'Барлығы', 'All'),
+  'feed.showFlagged': entry('Только задержанные', 'Тек ұсталғандар', 'Flagged only'),
+  'feed.ofTotal': entry('из {total} обработанных', '{total} өңделгеннен', 'of {total} processed'),
+  'feed.labelled': entry('размечено', 'белгіленген', 'labelled'),
+  'feed.noSignals': entry('ничего', 'ештеңе', 'nothing'),
+
   'curve.costTitle': entry(
     'Во что обходятся ошибки',
     'Қателер неге түседі',
