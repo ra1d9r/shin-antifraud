@@ -879,3 +879,35 @@ summary {
   padding-left: 10px;
   margin-bottom: 12px;
 }
+
+/* Два графика в одной панели: общая ось порога, но разные величины.
+   Раньше их разделяли восемь пикселей и ничего больше — вместе они
+   читались как один график с пятью линиями. Подпись и тонкая рамка
+   говорят, где кончается один и начинается другой. */
+.chart-block {
+  margin: 0 0 18px;
+  padding: 10px 10px 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-soft, transparent);
+}
+
+.chart-block:last-of-type {
+  margin-bottom: 8px;
+}
+
+.chart-caption {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.01em;
+}
+
+/* Строки подсказки на графике качества повторяют цвет своей линии —
+   иначе две доли подряд неразличимы. Значения те же, что у линий
+   и легенды выше: держать их в одном месте было бы лучше, но
+   переменных для них в теме нет, а заводить их ради двух строк
+   значило бы трогать всю палитру за день до сдачи. */
+.readout-row.precision { fill: #7c5cff; }
+.readout-row.recall { fill: #2ea86a; }
