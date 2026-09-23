@@ -22,6 +22,7 @@ from app.analytics.report import cheapest_threshold, load_report, reprice_curve
 from app.config.settings import Settings, get_settings
 from app.core.exceptions import ModelNotLoadedError, ShadowUnavailableError, ShinError
 from app.core.logging import get_logger
+from app.i18n import DEFAULT_LANGUAGE, Text
 from app.ml.pipeline import TrainedModel, load_model
 from app.monitoring.drift import BaselineNotFoundError, DriftMonitor, load_baseline
 from app.monitoring.shadow import ShadowRunner
@@ -63,7 +64,10 @@ class AppState:
     # Артефакт посчитан на другой модели, чем загружена сейчас. Отчёт при
     # этом отдаётся — но с пометкой, иначе дашборд врал бы молча.
     evaluation_stale: bool = False
-    evaluation_stale_reason: str | None = None
+    #: Причина несвежести — на трёх языках, а не готовой строкой.
+    #: Она показывается крупным шрифтом в баннере дашборда, и строка
+    #: застыла бы на языке, который действовал в момент запуска.
+    evaluation_stale_reason: Text | None = None
     # Наблюдение за сдвигом распределения. Без эталона приложение
     # работает как раньше — просто не видит дрейф и говорит об этом.
     drift: DriftMonitor | None = None
@@ -244,19 +248,49 @@ def _load_evaluation(state: AppState) -> None:
         return
 
     state.evaluation_stale = True
-    state.evaluation_stale_reason = (
-        f"Аналитика посчитана на модели от {stamp or 'неизвестно когда'}, "
-        f"а загружена модель от {state.model.trained_at}. "
-        "Выгрузите заново: python backend/scripts/export_evaluation.py"
+    state.evaluation_stale_reason = Text(
+        ru=(
+            f"Аналитика посчитана на модели от {stamp or 'неизвестно когда'}, "
+            f"а загружена модель от {state.model.trained_at}. "
+            "Выгрузите заново: python backend/scripts/export_evaluation.py"
+        ),
+        kk=(
+            f"Аналитика {stamp or 'белгісіз'} моделінде есептелген, "
+            f"ал жүктелгені — {state.model.trained_at}. "
+            "Қайта жүктеңіз: python backend/scripts/export_evaluation.py"
+        ),
+        en=(
+            f"The analytics was computed on the model from {stamp or 'an unknown date'}, "
+            f"but the loaded model is from {state.model.trained_at}. "
+            "Re-export it: python backend/scripts/export_evaluation.py"
+        ),
     )
-    logger.warning("%s", state.evaluation_stale_reason)
+    logger.warning("%s", state.evaluation_stale_reason.get(DEFAULT_LANGUAGE))
 
 
-def analytics_drift(state: AppState) -> str | None:
+#: Что делать с расхождением. Одинаково для всех его причин, поэтому
+#: дописывается в одном месте, а не повторяется в каждой ветке сверки.
+_REEXPORT = Text(
+    ru="Выгрузите заново: python backend/scripts/export_evaluation.py",
+    kk="Қайта жүктеңіз: python backend/scripts/export_evaluation.py",
+    en="Re-export it: python backend/scripts/export_evaluation.py",
+)
+
+
+def _drift_text(*, ru: str, kk: str, en: str) -> Text:
+    """Причина расхождения вместе с указанием, чем её закрыть."""
+    return Text(
+        ru=f"{ru} {_REEXPORT.ru}",
+        kk=f"{kk} {_REEXPORT.kk}",
+        en=f"{en} {_REEXPORT.en}",
+    )
+
+
+def analytics_drift(state: AppState) -> Text | None:
     """Разошёлся ли отчёт с настройками, которые действуют сейчас.
 
-    Возвращает причину расхождения или `None`, если отчёт посчитан ровно
-    на том, что работает.
+    Возвращает причину расхождения на трёх языках или `None`, если отчёт
+    посчитан ровно на том, что работает.
 
     ## Почему сверка, а не флаг
 
@@ -294,26 +328,53 @@ def analytics_drift(state: AppState) -> str | None:
         ("critical_min", live.critical_min),
     ):
         if name in recorded and recorded[name] != value:
-            return (
-                f"Порог {name} изменён на работающей системе: в отчёте "
-                f"{recorded[name]}, сейчас {value}. Выгрузите заново: "
-                "python backend/scripts/export_evaluation.py"
+            return _drift_text(
+                ru=(
+                    f"Порог {name} изменён на работающей системе: в отчёте "
+                    f"{recorded[name]}, сейчас {value}."
+                ),
+                kk=(
+                    f"{name} шегі жұмыс кезінде өзгертілген: есепте "
+                    f"{recorded[name]}, қазір {value}."
+                ),
+                en=(
+                    f"Threshold {name} was changed at runtime: the report has "
+                    f"{recorded[name]}, now it is {value}."
+                ),
             )
 
     if "rules_enabled" in report and bool(report["rules_enabled"]) != engine.rules_enabled:
-        return (
-            "Применение политик переключено на работающей системе, "
-            "а отчёт посчитан на прежней настройке. Выгрузите заново: "
-            "python backend/scripts/export_evaluation.py"
+        return _drift_text(
+            ru=(
+                "Применение политик переключено на работающей системе, "
+                "а отчёт посчитан на прежней настройке."
+            ),
+            kk=(
+                "Саясаттарды қолдану жұмыс кезінде ауыстырылған, "
+                "ал есеп бұрынғы баптауда есептелген."
+            ),
+            en=(
+                "Policy application was switched at runtime, "
+                "but the report was computed on the previous setting."
+            ),
         )
 
     recorded_rules = {row["key"]: row["min_score"] for row in report.get("rules", [])}
     for rule in engine.rules:
         if rule.key in recorded_rules and recorded_rules[rule.key] != rule.min_score:
-            return (
-                f"Минимум политики {rule.key} изменён на работающей системе: "
-                f"в отчёте {recorded_rules[rule.key]}, сейчас {rule.min_score}. "
-                "Выгрузите заново: python backend/scripts/export_evaluation.py"
+            return _drift_text(
+                ru=(
+                    f"Минимум политики {rule.key} изменён на работающей системе: "
+                    f"в отчёте {recorded_rules[rule.key]}, сейчас {rule.min_score}."
+                ),
+                kk=(
+                    f"{rule.key} саясатының минимумы жұмыс кезінде өзгертілген: "
+                    f"есепте {recorded_rules[rule.key]}, қазір {rule.min_score}."
+                ),
+                en=(
+                    f"The minimum of policy {rule.key} was changed at runtime: "
+                    f"the report has {recorded_rules[rule.key]}, now it is {rule.min_score}."
+                ),
             )
 
     recorded_params = report.get("rule_params") or {}
@@ -323,10 +384,19 @@ def analytics_drift(state: AppState) -> str | None:
     }
     for name, value in live_params.items():
         if name in recorded_params and float(recorded_params[name]) != value:
-            return (
-                f"Параметр политик {name} изменён на работающей системе: "
-                f"в отчёте {recorded_params[name]}, сейчас {value}. "
-                "Выгрузите заново: python backend/scripts/export_evaluation.py"
+            return _drift_text(
+                ru=(
+                    f"Параметр политик {name} изменён на работающей системе: "
+                    f"в отчёте {recorded_params[name]}, сейчас {value}."
+                ),
+                kk=(
+                    f"{name} саясат параметрі жұмыс кезінде өзгертілген: "
+                    f"есепте {recorded_params[name]}, қазір {value}."
+                ),
+                en=(
+                    f"Policy parameter {name} was changed at runtime: "
+                    f"the report has {recorded_params[name]}, now it is {value}."
+                ),
             )
 
     return None

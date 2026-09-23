@@ -38,7 +38,7 @@ interface AnalyticsFailure {
 }
 
 export default function App() {
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
   const [view, setView] = useState<View>('dashboard')
   const [health, setHealth] = useState<HealthResponse | null>(null)
   const [analytics, setAnalytics] = useState<AnalyticsOverview | null>(null)
@@ -64,7 +64,7 @@ export default function App() {
       const [healthResult, modelResult, analyticsResult] = await Promise.allSettled([
         fetchHealth(),
         fetchModel(),
-        fetchAnalytics(),
+        fetchAnalytics(language),
       ])
       if (cancelled) return
 
@@ -98,7 +98,10 @@ export default function App() {
     return () => {
       cancelled = true
     }
-  }, [])
+  // Язык в зависимостях: причина устаревания отчёта и названия политик
+  // приходят с backend уже переведёнными, и без перезапроса они
+  // остались бы на прежнем языке до перезагрузки страницы.
+  }, [language])
 
   return (
     <main className="page">

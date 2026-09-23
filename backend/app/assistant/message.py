@@ -46,7 +46,7 @@ from dataclasses import dataclass
 
 from app.assistant import phrases
 from app.features.geo import country_name
-from app.i18n import DEFAULT_LANGUAGE, Language
+from app.i18n import DEFAULT_LANGUAGE, Language, Text
 from app.schemas.enums import Decision
 from app.schemas.prediction import PredictionResponse
 from app.schemas.transaction import TransactionRequest
@@ -55,6 +55,35 @@ from app.schemas.transaction import TransactionRequest
 #: факторов, клиенту столько не нужно: за тремя пунктами он перестаёт
 #: читать.
 MAX_REASONS = 3
+
+#: Подписи блока фактов на трёх языках.
+#:
+#: Блок уходит в двух направлениях сразу: в запрос к языковой модели
+#: и на экран, в раздел «что уходит наружу». Оба читает человек —
+#: первый через ответ модели, второй напрямую, — и русские подписи
+#: при казахских значениях выглядели одинаково плохо в обоих.
+#:
+#: Модели перевод тоже на пользу: её просят ответить на нужном языке,
+#: и факты на нём же избавляют её от перевода по ходу.
+FACT_LABELS: dict[str, Text] = {
+    "decision": Text(ru="Решение системы", kk="Жүйенің шешімі", en="System decision"),
+    "score": Text(ru="Оценка риска", kk="Тәуекел бағасы", en="Risk score"),
+    "outOf": Text(ru="из 100", kk="/ 100", en="of 100"),
+    "amount": Text(ru="Сумма", kk="Сома", en="Amount"),
+    "merchant": Text(ru="Получатель", kk="Алушы", en="Recipient"),
+    "country": Text(ru="страна операции", kk="операция елі", en="transaction country"),
+    "unusual": Text(
+        ru="Что показалось системе необычным:",
+        kk="Жүйеге не әдеттен тыс көрінді:",
+        en="What looked unusual to the system:",
+    ),
+    "policies": Text(
+        ru="Сработавшие политики безопасности:",
+        kk="Іске қосылған қауіпсіздік саясаттары:",
+        en="Security policies that fired:",
+    ),
+}
+
 
 @dataclass(frozen=True, slots=True)
 class DecisionFacts:
@@ -71,6 +100,9 @@ class DecisionFacts:
     country: str
     reasons: tuple[str, ...]
     policies: tuple[str, ...]
+    #: Язык блока. Значения (страна, смысл решения, причины) уже
+    #: переведены в `build_facts`; подписям нужен он же.
+    language: Language = DEFAULT_LANGUAGE
 
     def as_prompt_block(self) -> str:
         """Факты одним блоком — то, что уходит в запрос.
@@ -80,17 +112,20 @@ class DecisionFacts:
         ни номера операции, ни IP там нет — языковой модели они не нужны,
         а уезжают они на чужой сервер.
         """
+        def label(key: str) -> str:
+            return FACT_LABELS[key].get(self.language)
+
         lines = [
-            f"Решение системы: {self.decision.value} ({self.decision_meaning})",
-            f"Оценка риска: {self.risk_score} из 100",
-            f"Сумма: {self.amount:.2f}",
-            f"Получатель: {self.merchant}, страна операции: {self.country}",
+            f"{label('decision')}: {self.decision.value} ({self.decision_meaning})",
+            f"{label('score')}: {self.risk_score} {label('outOf')}",
+            f"{label('amount')}: {self.amount:.2f}",
+            f"{label('merchant')}: {self.merchant}, {label('country')}: {self.country}",
         ]
         if self.reasons:
-            lines.append("Что показалось системе необычным:")
+            lines.append(label("unusual"))
             lines += [f"- {reason}" for reason in self.reasons]
         if self.policies:
-            lines.append("Сработавшие политики безопасности:")
+            lines.append(label("policies"))
             lines += [f"- {policy}" for policy in self.policies]
         return "\n".join(lines)
 
@@ -117,6 +152,7 @@ def build_facts(
         country=country_name(request.country, language),
         reasons=reasons,
         policies=policies,
+        language=language,
     )
 
 

@@ -19,11 +19,18 @@ from fastapi.testclient import TestClient
 
 from app.api.routes.predict import REPLAY_HEADER
 from app.assistant import phrases
-from app.assistant.message import DecisionFacts, contradicts, fallback_text, written_in
+from app.assistant.message import (
+    FACT_LABELS,
+    DecisionFacts,
+    contradicts,
+    fallback_text,
+    written_in,
+)
 from app.features.definitions import FEATURE_SPECS
 from app.features.geo import COUNTRY_COORDINATES, COUNTRY_NAMES, country_name
 from app.i18n import LANGUAGES
 from app.main import create_app
+from app.risk_engine.engine import RiskEngine, RiskThresholds
 from app.schemas.enums import Decision
 
 
@@ -443,7 +450,10 @@ def test_facts_carry_the_country_name_not_the_code(client, language) -> None:
     инструкция запрещает сообщать факты, которых нет во входных данных.
     """
     payload = client.post(f"/explain/client?language={language}", json=transaction()).json()
-    line = next(item for item in payload["facts"] if "страна операции" in item)
+    # Строка ищется по подписи на том же языке: подписи блока тоже
+    # переводятся, и поиск по русской нашёл бы её только в русском.
+    label = FACT_LABELS["country"].get(language)
+    line = next(item for item in payload["facts"] if label in item)
 
     assert "NG" not in line, "код страны дошёл до запроса"
     assert country_name("NG", language) in line
@@ -568,3 +578,68 @@ def test_feed_reason_follows_the_language(client) -> None:
     assert len(set(texts.values())) == len(LANGUAGES), (
         f"причина не меняется с языком — похоже, снова застыла строкой: {texts}"
     )
+
+
+# --------------------------- аналитика говорит на языке запроса
+
+
+def test_policy_titles_in_analytics_follow_the_language(client) -> None:
+    """Название политики в отчёте переводится, хотя в артефакте оно одно.
+
+    Артефакт хранит название той политики, что действовала при выгрузке,
+    одной строкой — на языке, который был по умолчанию тогда. Показывается
+    оно в подсказке к таблице политик, и на английском виде подсказка
+    была русской.
+
+    Перевод берётся из действующего набора правил по ключу, а не из
+    артефакта: ключ технический и не переводится, а название у правила
+    лежит сразу на трёх языках.
+    """
+    titles: dict[str, list[str]] = {}
+    for language in LANGUAGES:
+        payload = client.get(f"/analytics/overview?language={language}").json()
+        rules = payload.get("rules") or []
+        assert rules, "в отчёте нет политик — проверять нечего"
+        titles[language] = [rule["title"] for rule in rules]
+
+    # Ключи и порядок одинаковы, а тексты обязаны отличаться.
+    assert len({tuple(value) for value in titles.values()}) == len(LANGUAGES), (
+        f"названия политик не меняются с языком: {titles}"
+    )
+
+
+def test_stale_reason_follows_the_language(client) -> None:
+    """Причина устаревания показывается крупно, и язык у неё свой.
+
+    Проверяется через настоящую правку порогов: причина складывается
+    из действующих чисел, и подсунуть её в состояние значило бы
+    проверить заглушку вместо того, что увидит человек.
+    """
+    state = client.app.state.shin
+    if state.evaluation is None:
+        pytest.skip("аналитика не выгружена")
+
+    engine = state.risk_engine
+    before = engine.thresholds
+    state.risk_engine = RiskEngine(
+        thresholds=RiskThresholds(
+            approve_max=before.approve_max + 5,
+            challenge_max=before.challenge_max,
+            critical_min=before.critical_min,
+        ),
+        rules=engine.rules,
+        rules_enabled=engine.rules_enabled,
+    )
+    try:
+        reasons = {}
+        for language in LANGUAGES:
+            payload = client.get(f"/analytics/overview?language={language}").json()
+            assert payload["stale"] is True, "правка порогов не отмечена расхождением"
+            reasons[language] = payload["stale_reason"]
+
+        assert all(reasons.values()), reasons
+        assert len(set(reasons.values())) == len(LANGUAGES), (
+            f"причина не меняется с языком: {reasons}"
+        )
+    finally:
+        state.risk_engine = engine
