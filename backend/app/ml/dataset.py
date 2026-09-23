@@ -165,6 +165,34 @@ ATTACKER_VPN_SHARE = 0.55
 #: но заметно больше нуля — иначе признак стал бы меткой «это фрод».
 LEGIT_VPN_SHARE = 0.03
 
+#: Доля эпизодов фрода, приходящихся на кольца — счета под одним
+#: оператором, работающие с одного устройства и из одной сети.
+#:
+#: Раньше каждый эпизод получал своё устройство, и на 99 360 строк
+#: приходилось ровно два общих устройства — оба случайные совпадения
+#: номеров. Граф связей, построенный ровно под этот паттерн, находить
+#: ему было нечего, и панель показывала нули при любом размере потока.
+#:
+#: Десятая часть — не догадка о рынке, а замер. Поток берёт случайные
+#: пятьсот строк из десяти тысяч, и кольцо видно, только если в выборку
+#: попали двое из него. При этой доле кольцо находилось в 20 прогонах
+#: из 20; при вдвое меньшей плотности — ни в одном. Меньшинством кольца
+#: при этом остаются: большинство карточного фрода по-прежнему одиночное.
+RING_EPISODE_SHARE = 0.10
+
+#: Сколько счетов в одном кольце. Двух мало — пара клиентов на одном
+#: устройстве бывает и по-честному (семья, один телефон на двоих),
+#: и граф такую связь объясняет слишком легко. От трёх уже нет.
+RING_SIZE_RANGE = (3, 5)
+
+
+@dataclass(frozen=True, slots=True)
+class AttackerIdentity:
+    """Устройство и сеть, общие для нескольких эпизодов одного кольца."""
+
+    device: str
+    ip_prefix: str
+
 def _random_ip_prefix(rng: random.Random) -> str:
     """Первые три октета IP — условная подсеть провайдера клиента."""
     return f"{rng.randint(37, 212)}.{rng.randint(0, 255)}.{rng.randint(0, 255)}"
@@ -382,6 +410,7 @@ def _legit_transaction(
     *,
     transaction_index: int,
     timestamp: datetime,
+    ring: AttackerIdentity | None = None,
 ) -> dict:
     """Легальная транзакция — с намеренными обманками-аномалиями."""
     # --- поездка: держится несколько транзакций подряд.
@@ -456,6 +485,23 @@ def _legit_transaction(
     else:
         ip_address = _ip_in_prefix(rng, profile.ip_prefix)
 
+    # --- счёт из кольца работает с устройства и из сети оператора
+    #
+    # Не только в эпизоде атаки, а в обычном трафике тоже: это счета,
+    # которыми управляет один человек, а не жертвы, которых взломали
+    # на один вечер. Поодиночке их операции безупречны — обычная сумма,
+    # родная страна, знакомое устройство, — и ни одна политика на них
+    # не срабатывает. Связь видна только на графе, и ради этого случая
+    # граф и построен.
+    #
+    # Подмена, а не отдельный розыгрыш: последний октет берётся уже
+    # разыгранный, и поток случайных чисел не сдвигается. В пересозданном
+    # датасете меняются ровно строки колец — правку можно проверить
+    # разностью файлов, а не доверием.
+    if ring is not None:
+        device_id = ring.device
+        ip_address = f"{ring.ip_prefix}.{ip_address.rsplit('.', 1)[1]}"
+
     # --- сумма и мерчант
     roll = rng.random()
     if roll < 0.03:
@@ -517,6 +563,7 @@ def _fraud_episode(
     episode_length: int,
     start_index: int,
     start_time: datetime,
+    ring: AttackerIdentity | None = None,
 ) -> tuple[list[dict], datetime]:
     """Сгенерировать эпизод фрода. Возвращает строки и время последней из них."""
     rows: list[dict] = []
@@ -532,6 +579,17 @@ def _fraud_episode(
     attacker_ip_prefix = (
         _datacenter_prefix(rng) if rng.random() < ATTACKER_VPN_SHARE else _random_ip_prefix(rng)
     )
+
+    # Кольцо подменяет разыгранные значения, а не заменяет сам розыгрыш.
+    #
+    # Выглядит лишней работой, но именно это делает правку проверяемой:
+    # поток случайных чисел не сдвигается, и в пересозданном датасете
+    # меняются ровно те строки, которые вошли в кольца. Пропусти мы
+    # два вызова rng — сдвинулось бы всё до конца ленты, и отличить
+    # «появились кольца» от «данные другие» стало бы нечем.
+    if ring is not None:
+        attacker_device = ring.device
+        attacker_ip_prefix = ring.ip_prefix
 
     for step in range(episode_length):
         if scenario is FraudScenario.ACCOUNT_TAKEOVER:
@@ -724,6 +782,7 @@ def _generate_user_timeline(
     fraud_scenario: FraudScenario,
     window_days: float,
     end_date: datetime,
+    ring: AttackerIdentity | None = None,
 ) -> list[dict]:
     """Хронологическая лента транзакций одного клиента."""
     # Окно ограничено и возрастом счёта: у вчерашнего клиента нет годовой истории.
@@ -786,6 +845,7 @@ def _generate_user_timeline(
                 episode_length=min(fraud_count, transaction_count - index),
                 start_index=index,
                 start_time=episode_start,
+                ring=ring,
             )
             rows.extend(episode_rows)
             index += len(episode_rows)
@@ -795,7 +855,12 @@ def _generate_user_timeline(
         timestamp = max(timestamps[index], last_timestamp + timedelta(seconds=30))
         rows.append(
             _legit_transaction(
-                profile, state, rng, transaction_index=index, timestamp=timestamp
+                profile,
+                state,
+                rng,
+                transaction_index=index,
+                timestamp=timestamp,
+                ring=ring,
             )
         )
         last_timestamp = timestamp
@@ -805,6 +870,58 @@ def _generate_user_timeline(
 
 
 # ------------------------------------------------------------------- public
+
+
+def _plan_rings(
+    fraud_plan: list[tuple[FraudScenario, int]],
+    *,
+    seed: int,
+) -> list[AttackerIdentity | None]:
+    """Раздать части эпизодов общее устройство и общую сеть.
+
+    Кольцо — это несколько жертв, обработанных с одного устройства
+    и из одной сети: дроповая сеть, скупленные учётки, один человек
+    с базой украденных реквизитов. По одной операции такая связь
+    не видна вовсе — видна она только на графе, и ради неё граф
+    и существует.
+
+    Свой генератор случайных чисел, а не общий, намеренно: этот
+    розыгрыш добавлен позже остальных, и общий поток от него сдвинулся
+    бы целиком. Зерно производное от основного — воспроизводимость
+    сохраняется.
+    """
+    planner = random.Random(seed ^ 0x5249_4E47)  # 'RING'
+    victims = [index for index, (_, length) in enumerate(fraud_plan) if length > 0]
+    planner.shuffle(victims)
+
+    rings: list[AttackerIdentity | None] = [None] * len(fraud_plan)
+    in_rings = int(len(victims) * RING_EPISODE_SHARE)
+
+    position = 0
+    while position < in_rings:
+        size = planner.randint(*RING_SIZE_RANGE)
+        members = victims[position : position + size]
+        # Кольцо из одного участника — не кольцо: хвост оставляем одиночкам.
+        if len(members) < RING_SIZE_RANGE[0]:
+            break
+        identity = AttackerIdentity(
+            device=f"dev_ring_{planner.randint(10000, 99999)}",
+            # Сеть обычная, не дата-центр — в отличие от одиночной атаки.
+            #
+            # Кольцо живёт не набегом, а годами, и прячется не за VPN,
+            # а за обыкновенностью: телефон, домашний или мобильный
+            # интернет, привычные суммы. Дата-центровый адрес подсветил
+            # бы весь его трафик признаком `is_vpn_ip` — и группа,
+            # которую поодиночке не видно, стала бы видна по одной
+            # операции. Тогда граф был бы не нужен, а сеть, которую
+            # ловят по адресу, в жизни меняет адрес.
+            ip_prefix=_random_ip_prefix(planner),
+        )
+        for index in members:
+            rings[index] = identity
+        position += len(members)
+
+    return rings
 
 
 def generate_dataset(
@@ -872,9 +989,14 @@ def generate_dataset(
         fraud_plan[user_index] = (scenario, episode_length)
         allocated += episode_length
 
+    # --- часть эпизодов объединяем в кольца
+    ring_plan = _plan_rings(fraud_plan, seed=seed)
+
     # --- генерация лент
     all_rows: list[dict] = []
-    for profile, count, (scenario, fraud_count) in zip(profiles, counts, fraud_plan, strict=True):
+    for profile, count, (scenario, fraud_count), ring in zip(
+        profiles, counts, fraud_plan, ring_plan, strict=True
+    ):
         all_rows.extend(
             _generate_user_timeline(
                 profile,
@@ -884,6 +1006,7 @@ def generate_dataset(
                 fraud_scenario=scenario,
                 window_days=window_days,
                 end_date=end_date,
+                ring=ring,
             )
         )
 

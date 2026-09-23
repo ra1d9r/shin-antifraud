@@ -176,3 +176,64 @@ def test_rejects_invalid_parameters() -> None:
         generate_dataset(rows=0)
     with pytest.raises(ValueError):
         generate_dataset(fraud_rate=0.9)
+
+
+# --------------------------------------------- кольца счетов (граф связей)
+
+
+@pytest.fixture(scope="module")
+def stream_pool() -> pd.DataFrame:
+    """Тот самый пул, из которого берёт выборку `POST /predict/stream`.
+
+    Параметры импортируются, а не переписываются: проверяемое свойство
+    зависит от размера пула, и разойдись они — тест продолжил бы
+    проходить на данных, которых в системе нет.
+    """
+    from app.api.routes.batch import POOL_ROWS, POOL_SEED, POOL_USERS
+
+    return generate_dataset(rows=POOL_ROWS, users=POOL_USERS, seed=POOL_SEED)
+
+
+def test_generator_builds_rings_of_accounts_on_one_device(stream_pool: pd.DataFrame) -> None:
+    """В данных есть счета, связанные общим устройством.
+
+    До появления колец на 99 360 строк приходилось ровно два общих
+    устройства, и оба были случайным совпадением номеров. Граф связей,
+    построенный ровно под этот паттерн, искать ему было нечего.
+    """
+    from app.ml.dataset import RING_SIZE_RANGE
+
+    per_device = stream_pool.groupby("device_id").user_id.nunique()
+    rings = per_device[per_device > 1]
+
+    assert len(rings) >= 1, "в пуле нет ни одного устройства с несколькими счетами"
+    assert rings.max() >= RING_SIZE_RANGE[0], (
+        f"крупнейшая группа — {rings.max()} счёта; пара клиентов на одном "
+        "устройстве объясняется и без фрода, связью это считать рано"
+    )
+
+
+def test_ring_survives_the_sampling_the_stream_does(stream_pool: pd.DataFrame) -> None:
+    """Кольцо должно попадать в выборку, а не просто существовать в пуле.
+
+    Это и есть свойство, которое ломалось. Кольца можно завести и не
+    получить ничего: поток берёт случайные пятьсот строк из десяти тысяч,
+    и группа видна, только если в эти пять процентов попали двое из неё.
+    При первой версии — кольцо жило лишь внутри эпизода атаки — в пуле
+    было три группы на одиннадцать строк, и ни один из двадцати прогонов
+    не показывал ничего. Помогло не увеличение доли, а то, что счета
+    кольца работают с общего устройства и в обычном трафике тоже.
+
+    Порог намеренно ниже измеренного: тест сторожит «панель наполняется»,
+    а не конкретное число, и не должен падать от смены зерна.
+    """
+    found = sum(
+        1
+        for seed in range(10)
+        if (stream_pool.sample(500, random_state=seed).groupby("device_id").user_id.nunique() > 1).any()
+    )
+
+    assert found >= 8, (
+        f"группа нашлась лишь в {found} прогонах из 10 — панель связей "
+        "будет пустой на демонстрации"
+    )
