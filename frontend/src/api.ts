@@ -323,8 +323,10 @@ export function fetchHealth(): Promise<HealthResponse> {
  * за время работы, а здесь — весь датасет, где известна разметка. Поэтому
  * только тут есть пропущенный фрод и ложные срабатывания.
  */
-export function fetchAnalytics(): Promise<AnalyticsOverview> {
-  return request<AnalyticsOverview>('/analytics/overview')
+export function fetchAnalytics(language: Language): Promise<AnalyticsOverview> {
+  // Язык нужен ради двух вещей, которые читает человек: причины
+  // устаревания отчёта и названий политик. Остальное здесь — числа.
+  return request<AnalyticsOverview>(`/analytics/overview?language=${language}`)
 }
 
 /**

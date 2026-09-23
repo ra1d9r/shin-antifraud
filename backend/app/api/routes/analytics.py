@@ -6,9 +6,38 @@ from fastapi import APIRouter
 
 from app.analytics.report import EvaluationNotFoundError
 from app.api.deps import StateDep, analytics_drift
+from app.i18n import DEFAULT_LANGUAGE, Language
 from app.schemas.analytics import AnalyticsOverview
 
 router = APIRouter(tags=["analytics"])
+
+
+def _translated(state: StateDep, language: Language) -> dict:
+    """Отчёт с названиями политик на запрошенном языке.
+
+    Артефакт хранит название той политики, что действовала при выгрузке,
+    и хранит его одной строкой — на языке, который был по умолчанию
+    в момент выгрузки. Показывается оно в подсказке к таблице политик,
+    и на английском виде подсказка была русской.
+
+    Перевод берётся не из артефакта, а из действующего набора правил
+    по ключу: ключ технический и не переводится никогда, а название
+    у правила лежит сразу на трёх языках. Если правило из набора убрали,
+    остаётся то, что записано в артефакте, — оно описывает числа рядом,
+    и подменять его нечем.
+    """
+    report = dict(state.evaluation or {})
+    rows = report.get("rules")
+    if not rows:
+        return report
+
+    engine = state.risk_engine
+    titles = {rule.key: rule.title for rule in engine.rules} if engine else {}
+    report["rules"] = [
+        {**row, "title": titles[row["key"]].get(language)} if row.get("key") in titles else row
+        for row in rows
+    ]
+    return report
 
 
 @router.get(
@@ -28,7 +57,10 @@ router = APIRouter(tags=["analytics"])
     ),
     responses={503: {"description": "Аналитика не выгружена"}},
 )
-def analytics_overview(state: StateDep) -> AnalyticsOverview:
+def analytics_overview(
+    state: StateDep,
+    language: Language = DEFAULT_LANGUAGE,
+) -> AnalyticsOverview:
     if state.evaluation is None:
         raise EvaluationNotFoundError(
             state.evaluation_error
@@ -46,7 +78,7 @@ def analytics_overview(state: StateDep) -> AnalyticsOverview:
     # до последнего числа, числился устаревшим до перезапуска.
     reason = state.evaluation_stale_reason or analytics_drift(state)
     return AnalyticsOverview(
-        **state.evaluation,
+        **_translated(state, language),
         stale=reason is not None,
-        stale_reason=reason,
+        stale_reason=reason.get(language) if reason else None,
     )
