@@ -247,6 +247,15 @@ class DatasetReport:
     total_amount: float
     thresholds: dict[str, int]
     rules_enabled: bool
+    #: Параметры срабатывания политик — не их минимальные оценки, а условия:
+    #: со скольких операций в час считать всплеском и во сколько раз выше
+    #: обычной сумма должна быть, чтобы считаться крупной.
+    #:
+    #: Записываются, потому что `POST /config/policies` их меняет, а от них
+    #: зависит, на скольких операциях политика вообще сработала. Без них
+    #: сверка «отчёт посчитан на этих настройках» пропустила бы их правку
+    #: и отчёт молча считался бы свежим.
+    rule_params: dict[str, float]
 
     decisions: tuple[DecisionRow, ...]
     fraud_blocked: int
@@ -350,6 +359,7 @@ class DatasetReport:
             "total_amount": round(self.total_amount, 2),
             "thresholds": self.thresholds,
             "rules_enabled": self.rules_enabled,
+            "rule_params": self.rule_params,
             "decisions": [row.to_dict() for row in self.decisions],
             "fraud_blocked": self.fraud_blocked,
             "fraud_stopped": self.fraud_stopped,
@@ -752,6 +762,10 @@ def build_report(
         total_amount=sum(amounts),
         thresholds=thresholds.to_dict(),
         rules_enabled=rules_enabled,
+        rule_params={
+            "velocity_txn_per_hour": float(settings.rule_velocity_txn_per_hour),
+            "new_account_amount_ratio": float(settings.rule_new_account_amount_ratio),
+        },
         decisions=_decision_breakdown(assessments, is_fraud),
         fraud_blocked=fraud_blocked,
         fraud_stopped=fraud_stopped,

@@ -251,7 +251,11 @@ def test_analytics_is_marked_stale(client) -> None:
     assert applied["analytics_marked_stale"] is True
     overview = client.get("/analytics/overview").json()
     assert overview["stale"] is True
-    assert "Пороги изменены" in overview["stale_reason"]
+    # Причина называет, какой именно порог разошёлся и на что:
+    # «пороги изменены» не подсказывает, что выгружать заново и почему.
+    reason = overview["stale_reason"]
+    assert "approve_max" in reason
+    assert "4" in reason, reason
 
 
 def test_drift_is_deliberately_kept(client) -> None:
