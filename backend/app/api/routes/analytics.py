@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from app.analytics.report import EvaluationNotFoundError
-from app.api.deps import StateDep
+from app.api.deps import StateDep, analytics_drift
 from app.schemas.analytics import AnalyticsOverview
 
 router = APIRouter(tags=["analytics"])
@@ -37,10 +37,16 @@ def analytics_overview(state: StateDep) -> AnalyticsOverview:
                 "python backend/scripts/export_evaluation.py"
             )
         )
-    # Пометка о несвежести живёт в состоянии, а не в артефакте: сам отчёт
-    # не знает, какая модель загружена сейчас.
+    # Свежесть считается при каждом чтении, а не хранится флагом.
+    #
+    # Несовпадение с моделью выясняется один раз на старте: модель
+    # в рантайме не меняется. А настройки меняются, и меняются в обе
+    # стороны — поэтому они сверяются здесь. Пока это был флаг, правку
+    # нельзя было отменить: отчёт, снова совпадающий с настройками
+    # до последнего числа, числился устаревшим до перезапуска.
+    reason = state.evaluation_stale_reason or analytics_drift(state)
     return AnalyticsOverview(
         **state.evaluation,
-        stale=state.evaluation_stale,
-        stale_reason=state.evaluation_stale_reason,
+        stale=reason is not None,
+        stale_reason=reason,
     )

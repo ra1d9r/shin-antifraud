@@ -252,6 +252,86 @@ def _load_evaluation(state: AppState) -> None:
     logger.warning("%s", state.evaluation_stale_reason)
 
 
+def analytics_drift(state: AppState) -> str | None:
+    """Разошёлся ли отчёт с настройками, которые действуют сейчас.
+
+    Возвращает причину расхождения или `None`, если отчёт посчитан ровно
+    на том, что работает.
+
+    ## Почему сверка, а не флаг
+
+    Раньше это был флаг: любая правка порогов поднимала его навсегда.
+    Вернуть значения обратно было нельзя — отчёт, снова совпадающий
+    с настройками до последнего числа, продолжал числиться устаревшим
+    до перезапуска. На публичном стенде это означало, что достаточно
+    один раз подвигать ползунок, и дашборд до конца дня встречает
+    посетителя красным предупреждением, которое уже неправда.
+
+    Сверка отвечает на честный вопрос: посчитан ли отчёт на том, что
+    действует сейчас. Подвигали и вернули — расхождения нет.
+
+    ## Что сравнивается
+
+    Всё, чем `POST /config/*` может изменить решения: три порога Risk
+    Engine, признак «применять политики», минимальные оценки каждой
+    политики и параметры их срабатывания. Веса бизнес-метрики сюда
+    не входят намеренно — они не меняют ни одного решения, а кривую
+    стоимости пересчитывают на месте.
+
+    Старый артефакт, не знающий про `rule_params`, по ним и не
+    сверяется: расхождением считается несовпадение, а не отсутствие.
+    """
+    report = state.evaluation
+    engine = state.risk_engine
+    if report is None or engine is None:
+        return None
+
+    recorded = report.get("thresholds") or {}
+    live = engine.thresholds
+    for name, value in (
+        ("approve_max", live.approve_max),
+        ("challenge_max", live.challenge_max),
+        ("critical_min", live.critical_min),
+    ):
+        if name in recorded and recorded[name] != value:
+            return (
+                f"Порог {name} изменён на работающей системе: в отчёте "
+                f"{recorded[name]}, сейчас {value}. Выгрузите заново: "
+                "python backend/scripts/export_evaluation.py"
+            )
+
+    if "rules_enabled" in report and bool(report["rules_enabled"]) != engine.rules_enabled:
+        return (
+            "Применение политик переключено на работающей системе, "
+            "а отчёт посчитан на прежней настройке. Выгрузите заново: "
+            "python backend/scripts/export_evaluation.py"
+        )
+
+    recorded_rules = {row["key"]: row["min_score"] for row in report.get("rules", [])}
+    for rule in engine.rules:
+        if rule.key in recorded_rules and recorded_rules[rule.key] != rule.min_score:
+            return (
+                f"Минимум политики {rule.key} изменён на работающей системе: "
+                f"в отчёте {recorded_rules[rule.key]}, сейчас {rule.min_score}. "
+                "Выгрузите заново: python backend/scripts/export_evaluation.py"
+            )
+
+    recorded_params = report.get("rule_params") or {}
+    live_params = {
+        "velocity_txn_per_hour": float(state.settings.rule_velocity_txn_per_hour),
+        "new_account_amount_ratio": float(state.settings.rule_new_account_amount_ratio),
+    }
+    for name, value in live_params.items():
+        if name in recorded_params and float(recorded_params[name]) != value:
+            return (
+                f"Параметр политик {name} изменён на работающей системе: "
+                f"в отчёте {recorded_params[name]}, сейчас {value}. "
+                "Выгрузите заново: python backend/scripts/export_evaluation.py"
+            )
+
+    return None
+
+
 def _load_drift_baseline(state: AppState) -> None:
     """Прочитать эталон распределения и завести наблюдение.
 
@@ -372,16 +452,10 @@ def apply_thresholds(
             state.service.replace_shadow(state.shadow)
         shadow_reset = True
 
-    marked_stale = False
-    if state.evaluation is not None and not state.evaluation_stale:
-        state.evaluation_stale = True
-        state.evaluation_stale_reason = (
-            f"Пороги изменены на работающей системе "
-            f"(APPROVE <= {thresholds.approve_max} < CHALLENGE <= "
-            f"{thresholds.challenge_max}), а отчёт посчитан на прежних. "
-            "Выгрузите заново: python backend/scripts/export_evaluation.py"
-        )
-        marked_stale = True
+    # Отчёт не помечается, а сверяется — уже с новыми порогами.
+    # Если ими вернули то, что было, расхождения нет, и ответ скажет
+    # честное «нет», а не «пометил навсегда».
+    marked_stale = analytics_drift(state) is not None
 
     state.threshold_changes.appendleft(
         {
@@ -541,15 +615,7 @@ def apply_policies(
             state.service.replace_shadow(state.shadow)
         shadow_reset = True
 
-    marked_stale = False
-    if state.evaluation is not None and not state.evaluation_stale:
-        state.evaluation_stale = True
-        state.evaluation_stale_reason = (
-            "Пороги политик изменены на работающей системе, а отчёт посчитан "
-            "на прежних. Выгрузите заново: "
-            "python backend/scripts/export_evaluation.py"
-        )
-        marked_stale = True
+    marked_stale = analytics_drift(state) is not None
 
     state.policy_changed_at = datetime.now(UTC).replace(tzinfo=None)
     logger.warning(

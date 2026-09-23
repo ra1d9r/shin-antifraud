@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-23T03:08:44+00:00",
+  "generated_at": "2026-09-23T03:48:02+00:00",
   "model_trained_at": "2026-09-23T08:07:44",
   "model_algorithm": "lightgbm",
   "rows": 99360,
@@ -13,6 +13,10 @@
     "critical_min": 90
   },
   "rules_enabled": true,
+  "rule_params": {
+    "velocity_txn_per_hour": 6.0,
+    "new_account_amount_ratio": 4.0
+  },
   "decisions": [
     {
       "decision": "APPROVE",

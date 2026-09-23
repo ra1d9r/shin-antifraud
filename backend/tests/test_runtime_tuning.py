@@ -364,3 +364,92 @@ def test_negative_cost_is_refused(client) -> None:
     response = client.post("/config/cost", json={"false_challenge": -1.0}, headers=HEADERS)
 
     assert response.status_code == 422
+
+
+# ------------------------------- свежесть отчёта сверяется, а не помечается
+
+
+def test_returning_the_threshold_back_clears_the_stale_mark(client) -> None:
+    """Правку настроек можно отменить, и отчёт снова считается свежим.
+
+    Пока это был флаг, отменить было нельзя: он поднимался навсегда,
+    и отчёт, снова совпадающий с настройками до последнего числа,
+    числился устаревшим до перезапуска. На публичном стенде достаточно
+    было один раз подвигать порог, чтобы дашборд до конца дня встречал
+    посетителя предупреждением, которое уже неправда.
+    """
+    before = client.get("/analytics/overview").json()
+    assert before["stale"] is False, "отчёт устарел ещё до правки — тест ничего не проверит"
+
+    original = client.get("/config/thresholds").json()
+    body = {
+        "approve_max": original["approve_max"],
+        "challenge_max": original["challenge_max"],
+        "critical_min": original["critical_min"],
+        "rules_enabled": original["rules_enabled"],
+    }
+
+    moved = client.post(
+        "/config/thresholds",
+        json={**body, "approve_max": original["approve_max"] + 5},
+        headers=HEADERS,
+    )
+    assert moved.status_code == 200
+    assert moved.json()["analytics_marked_stale"] is True
+    assert client.get("/analytics/overview").json()["stale"] is True
+
+    back = client.post("/config/thresholds", json=body, headers=HEADERS)
+    assert back.status_code == 200
+    assert back.json()["analytics_marked_stale"] is False, "возврат всё ещё считается правкой"
+
+    after = client.get("/analytics/overview").json()
+    assert after["stale"] is False, after["stale_reason"]
+    assert after["stale_reason"] is None
+
+
+def test_returning_a_policy_back_clears_the_stale_mark(client) -> None:
+    """То же для политик: их правка тоже обратима."""
+    policies = client.get("/config/policies").json()["policies"]
+    target = policies[0]
+
+    client.post(
+        "/config/policies",
+        json={target["config_field"]: target["min_score"] + 7},
+        headers=HEADERS,
+    )
+    assert client.get("/analytics/overview").json()["stale"] is True
+
+    client.post(
+        "/config/policies",
+        json={target["config_field"]: target["min_score"]},
+        headers=HEADERS,
+    )
+    assert client.get("/analytics/overview").json()["stale"] is False
+
+
+def test_rule_parameters_are_compared_too(client) -> None:
+    """Параметр срабатывания меняет отчёт не меньше, чем минимальная оценка.
+
+    От `velocity_txn_per_hour` зависит, на скольких операциях политика
+    вообще сработала. Сверяйся мы только по минимальным оценкам, его
+    правка прошла бы молча и отчёт остался бы «свежим», описывая другую
+    систему.
+    """
+    state = client.get("/config/policies").json()
+    original = state["velocity_txn_per_hour"]
+
+    client.post(
+        "/config/policies",
+        json={"velocity_txn_per_hour": original + 3},
+        headers=HEADERS,
+    )
+    overview = client.get("/analytics/overview").json()
+    assert overview["stale"] is True
+    assert "velocity_txn_per_hour" in (overview["stale_reason"] or "")
+
+    client.post(
+        "/config/policies",
+        json={"velocity_txn_per_hour": original},
+        headers=HEADERS,
+    )
+    assert client.get("/analytics/overview").json()["stale"] is False
