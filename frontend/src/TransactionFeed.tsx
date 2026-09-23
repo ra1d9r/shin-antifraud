@@ -45,14 +45,20 @@ const DECISION_CLASS: Record<Decision, string> = {
 }
 
 export default function TransactionFeed() {
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
   const { formatCount, formatMoney, formatDateTime } = useFormat()
   const [flaggedOnly, setFlaggedOnly] = useState(false)
 
   // Фильтр — часть запроса, а не отбор на клиенте: иначе «только
   // задержанные» показывало бы те из двадцати пяти последних, что
   // задержаны, а не двадцать пять последних задержанных.
-  const load = useCallback(() => fetchTransactions(LIMIT, flaggedOnly), [flaggedOnly])
+  // Язык в зависимостях: причины приходят с backend уже на нужном
+  // языке, и смена языка обязана перечитать ленту — иначе она
+  // осталась бы на прежнем до следующего прогона потока.
+  const load = useCallback(
+    () => fetchTransactions(LIMIT, language, flaggedOnly),
+    [flaggedOnly, language],
+  )
   const { data, failure } = usePanelData(load)
 
   if (failure !== null) {

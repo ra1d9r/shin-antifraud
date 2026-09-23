@@ -517,3 +517,54 @@ def test_rule_keys_never_translate(client) -> None:
         assert titles, "ни одной сработавшей политики — проверять нечего"
 
     assert keys["ru"] == keys["kk"] == keys["en"]
+
+
+# ------------------------------- лента операций говорит на языке запроса
+
+
+def test_feed_reason_follows_the_language(client) -> None:
+    """Причина в ленте собирается при чтении, а не при обработке.
+
+    Ломалось тихо и заметно: `TransactionRecord` хранил готовую строку,
+    сложенную в момент обработки операции. Лента переживает запрос,
+    и на английском виде все двадцать пять строк говорили по-русски —
+    поймать это можно было только глазами и только переключив язык.
+
+    Проверяется не «поле непустое», а что три языка дают три разных
+    текста: одинаковый ответ означал бы, что строка снова застыла.
+    """
+    body = {
+        "user_id": "u_feed_language",
+        "transaction_id": "txn_feed_language",
+        "amount": 100.0,
+        "timestamp": "2026-09-01T14:30:00",
+        "merchant": "Magnum",
+        "country": "KZ",
+        "device_id": "dev_unknown_77",
+        "ip_address": "203.0.113.7",
+        "latitude": 51.16,
+        "longitude": 71.44,
+        "transaction_frequency": 3,
+        "previous_transaction_amount": 95.0,
+        "previous_transaction_country": "KZ",
+        "account_age_days": 800,
+        "user_avg_amount": 100.0,
+        "user_home_country": "KZ",
+        "known_device_ids": ["dev_known_1"],
+        "previous_ip_address": "85.132.10.55",
+    }
+    assert client.post("/predict", json=body).status_code == 200
+
+    def reason(language: str) -> str | None:
+        payload = client.get(f"/transactions?limit=50&language={language}").json()
+        for item in payload["items"]:
+            if item["transaction_id"] == "txn_feed_language":
+                return item["top_reason"]
+        raise AssertionError("операция не попала в ленту")
+
+    texts = {language: reason(language) for language in LANGUAGES}
+
+    assert all(texts.values()), f"без причины: {texts}"
+    assert len(set(texts.values())) == len(LANGUAGES), (
+        f"причина не меняется с языком — похоже, снова застыла строкой: {texts}"
+    )

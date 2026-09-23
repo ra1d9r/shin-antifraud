@@ -95,6 +95,26 @@ class Explanation:
         )
 
     @property
+    def top_model_factor(self) -> RiskFactor | None:
+        """Первый фактор из списка причин — объектом, а не строкой.
+
+        Нужен истории операций: она переживает запрос, и строка, собранная
+        сейчас, застыла бы на сегодняшнем языке. Сам факт — признак,
+        его значение и вклад — языка не имеет, и по нему формулировку
+        можно собрать заново на любом.
+
+        Условие отбора то же, что в `model_reasons`, и взято оттуда же:
+        вторая его копия разошлась бы с первой, и в ленте оказалась бы
+        причина, которой нет в объяснении.
+        """
+        for factor in self.factors:
+            if factor.direction is ImpactDirection.INCREASES_RISK and narrator.is_meaningful(
+                factor.contribution, self.base_value
+            ):
+                return factor
+        return None
+
+    @property
     def reasons(self) -> tuple[str, ...]:
         """Плоский список причин: сначала политики, затем факторы модели.
 

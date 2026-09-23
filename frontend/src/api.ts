@@ -541,9 +541,13 @@ export function updateCostWeights(update: CostUpdate, token: string): Promise<Co
  */
 export function fetchTransactions(
   limit: number,
+  language: Language,
   flagged?: boolean,
 ): Promise<TransactionList> {
-  const query = new URLSearchParams({ limit: String(limit) })
+  // Язык нужен ради причины: она собирается на backend при чтении,
+  // а не хранится готовой строкой. Хранилась бы — лента говорила бы
+  // на языке того запроса, которым операцию обработали.
+  const query = new URLSearchParams({ limit: String(limit), language })
   if (flagged) query.set('flagged', 'true')
   return request<TransactionList>(`/transactions?${query.toString()}`)
 }
