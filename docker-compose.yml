@@ -1,0 +1,62 @@
+# Shin Anti-Fraud System — запуск одной командой (ТЗ §13).
+#
+#   docker compose up --build
+#
+# После старта:
+#   http://localhost:3000       Test Web Interface
+#   http://localhost:8000/docs  Swagger
+#   http://localhost:8000       Backend API
+#
+# Первая сборка занимает несколько минут: внутри образа backend
+# генерируется датасет на 100 000 транзакций и обучается модель.
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    image: shin-backend:latest
+    container_name: shin-backend
+    ports:
+      - "8000:8000"
+    environment:
+      # Пороги решений и политик можно менять здесь, не пересобирая образ.
+      RISK_APPROVE_MAX: "30"
+      RISK_CHALLENGE_MAX: "70"
+      RULES_ENABLED: "true"
+      LOG_LEVEL: "INFO"
+      ENVIRONMENT: "docker"
+      # Интерфейс ходит через nginx того же origin, поэтому CORS в этой
+      # схеме не нужен. Список оставлен для случая, когда frontend
+      # запускают отдельно в режиме разработки.
+      CORS_ORIGINS: "http://localhost:3000,http://localhost:5173"
+    healthcheck:
+      # Адрес 127.0.0.1, а не localhost: uvicorn слушает только IPv4.
+      # curl умеет откатываться с ::1, но повторять здесь ловушку, на которой
+      # уже спотыкался healthcheck фронтенда, незачем.
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/health | grep -q '\"model_loaded\":true'"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+      args:
+        # Относительный путь: браузер не видит внутреннюю сеть Docker,
+        # поэтому запросы идут на тот же origin, а nginx проксирует их
+        # на backend. Подробности — в docker/nginx.conf.
+        VITE_API_URL: /api
+    image: shin-frontend:latest
+    container_name: shin-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        # Ждём именно готовности: интерфейс запрашивает сценарии сразу
+        # при загрузке, и стартовать раньше модели ему незачем.
+        condition: service_healthy
+    restart: unless-stopped

@@ -1,0 +1,9 @@
+# Единые переводы строк в репозитории независимо от ОС разработчика.
+* text=auto eol=lf
+
+# Бинарные артефакты
+*.joblib binary
+*.pkl binary
+*.png binary
+*.jpg binary
+*.ico binary

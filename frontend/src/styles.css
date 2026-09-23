@@ -1,0 +1,1036 @@
+/* Минимальный стиль тестового интерфейса.
+   Без UI-фреймворков и анимаций — задача в читаемости, а не в красоте. */
+
+:root {
+  --bg: #0f1115;
+  --panel: #171a21;
+  --border: #272c36;
+  --text: #e6e8ec;
+  --muted: #8b93a3;
+  --accent: #4c8dff;
+  --approve: #2ea86a;
+  --challenge: #d69e2e;
+  --block: #e04b4b;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.5 -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+code,
+pre {
+  font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+  font-size: 12px;
+}
+
+.page {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.header h1 {
+  margin-bottom: 4px;
+}
+
+h1 {
+  font-size: 20px;
+  margin: 0;
+}
+
+h2 {
+  font-size: 15px;
+  margin: 0 0 12px;
+}
+
+h2.inline {
+  display: inline;
+  font-size: 15px;
+}
+
+h3 {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 16px 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.status {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+.status.ok {
+  color: var(--approve);
+  border-color: var(--approve);
+}
+
+.status.bad {
+  color: var(--block);
+  border-color: var(--block);
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 8px 0;
+}
+
+/* --- сценарии --- */
+
+.scenario-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  background: #1e2330;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 12px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.chip:hover {
+  border-color: var(--accent);
+}
+
+.chip.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* --- форма --- */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 10px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.field span {
+  color: var(--muted);
+  font-size: 12px;
+  font-family: "Cascadia Mono", Consolas, monospace;
+}
+
+.field input {
+  background: #0e1117;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 7px 9px;
+  font-size: 13px;
+}
+
+.field input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.context {
+  margin-top: 16px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.context summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.primary {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+/* --- результат --- */
+
+.verdict {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  border-left: 4px solid var(--border);
+}
+
+.verdict.approve {
+  border-left-color: var(--approve);
+}
+
+.verdict.challenge {
+  border-left-color: var(--challenge);
+}
+
+.verdict.block {
+  border-left-color: var(--block);
+}
+
+.score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 110px;
+}
+
+.score-value {
+  font-size: 46px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.score-caption {
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 4px;
+}
+
+.decision {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.verdict.approve .decision {
+  color: var(--approve);
+}
+
+.verdict.challenge .decision {
+  color: var(--challenge);
+}
+
+.verdict.block .decision {
+  color: var(--block);
+}
+
+/* Что решение означает для клиента: подпись под самим решением. */
+.decision-meaning {
+  font-size: 13px;
+  margin-top: 2px;
+}
+
+.level {
+  margin: 2px 0 6px;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* --- вклады признаков --- */
+
+.contributions {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.contributions th {
+  text-align: left;
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--border);
+  padding: 6px 8px;
+}
+
+.contributions td {
+  padding: 7px 8px;
+  border-bottom: 1px solid #1f232c;
+  vertical-align: middle;
+}
+
+.bar-cell {
+  position: relative;
+  min-width: 170px;
+}
+
+.bar {
+  display: inline-block;
+  height: 10px;
+  border-radius: 2px;
+  vertical-align: middle;
+}
+
+.bar.up {
+  background: var(--block);
+}
+
+.bar.down {
+  background: var(--approve);
+}
+
+.bar-label {
+  margin-left: 8px;
+  font-family: "Cascadia Mono", Consolas, monospace;
+  font-size: 12px;
+}
+
+.up-text {
+  color: var(--block);
+}
+
+.down-text {
+  color: var(--approve);
+}
+
+/* Тон сообщения, а не направление вклада: `up-text` и `down-text`
+   означают «повышает риск» и «понижает», и для предупреждения об
+   отказавшем диске такое имя читалось бы неверно. */
+.warn-text {
+  color: var(--challenge);
+}
+
+.error-text {
+  color: var(--block);
+}
+
+/* --- ошибки и JSON --- */
+
+.alert {
+  border-color: var(--block);
+}
+
+.alert strong {
+  color: var(--block);
+}
+
+.json {
+  background: #0e1117;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+  max-height: 460px;
+  overflow: auto;
+  white-space: pre;
+}
+
+pre {
+  overflow-x: auto;
+}
+
+ul {
+  margin: 6px 0;
+  padding-left: 20px;
+}
+
+li {
+  margin: 3px 0;
+}
+
+summary {
+  cursor: pointer;
+}
+
+/* --- навигация между дашбордом и симулятором --- */
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.tab {
+  background: transparent;
+  color: var(--muted);
+  border: 0;
+  border-radius: 6px;
+  padding: 7px 16px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tab.active {
+  background: #1e2330;
+  color: var(--accent);
+}
+
+/* --- плитки со сводными числами --- */
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: #1a1e27;
+  border: 1px solid var(--border);
+  border-left-width: 3px;
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.tile.good { border-left-color: var(--approve); }
+.tile.warn { border-left-color: var(--challenge); }
+.tile.bad  { border-left-color: var(--block); }
+
+.tile-label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.tile-value {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.tile-note {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* --- таблицы дашборда --- */
+
+/* Таблица политик шире телефона. Без обёртки она распирала панель
+   и тянула горизонтальный скролл всей страницы — прокручиваться должна
+   таблица, а не документ. */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table {
+  min-width: 480px;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.table th {
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+/* --- график компромисса --- */
+
+.chart {
+  width: 100%;
+  height: auto;
+  display: block;
+  margin: 8px 0;
+}
+
+.chart-grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.chart-tick {
+  fill: var(--muted);
+  font-size: 10px;
+}
+
+.chart-line {
+  fill: none;
+  stroke-width: 2;
+}
+
+.chart-line.fraud { stroke: var(--block); }
+.chart-line.friction { stroke: var(--challenge); }
+.chart-line.total { stroke: var(--accent); }
+
+/* График качества: цвета не повторяют денежный, иначе на двух графиках
+   подряд одна линия читалась бы как продолжение другой. */
+.chart-line.precision { stroke: #7c5cff; }
+.chart-line.recall { stroke: #2ea86a; }
+
+.legend { font-size: 11px; }
+.legend.precision { fill: #7c5cff; }
+.legend.recall { fill: #2ea86a; }
+.legend.fraud { fill: var(--block); }
+.legend.friction { fill: var(--challenge); }
+.legend.total { fill: var(--accent); }
+
+/* --- ползунок порога --- */
+
+.slider {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin: 8px 0 4px;
+}
+
+.slider label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 320px;
+  font-size: 13px;
+}
+
+.slider input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.slider-marks {
+  display: flex;
+  gap: 8px;
+}
+
+/* --- сдвиг распределения --- */
+
+/* Строка таблицы выбирает признак для сравнения ниже. */
+.row-selected {
+  background: #1e2330;
+}
+
+.table tbody tr:hover {
+  background: #1b202b;
+  cursor: pointer;
+}
+
+/* Столбики двух распределений рядом. Рисуются на CSS, а не библиотекой:
+   десяток пар прямоугольников не стоят зависимости, а в бандле
+   тестового интерфейса она была бы заметна — как и с кривой в SVG. */
+.bins {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 12px 0 0;
+}
+
+.bin {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 54px;
+  flex: 1 1 0;
+}
+
+.bin-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 110px;
+  width: 100%;
+  justify-content: center;
+}
+
+.bin-bar {
+  width: 40%;
+  min-height: 1px;
+  border-radius: 2px 2px 0 0;
+}
+
+.bin-bar.expected {
+  background: var(--muted);
+}
+
+.bin-bar.observed {
+  background: var(--accent);
+}
+
+.bin-label {
+  font-size: 10px;
+  color: var(--muted);
+  text-align: center;
+  word-break: break-word;
+}
+
+.bin-share {
+  font-size: 11px;
+  color: var(--text);
+}
+
+.legend-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-right: 4px;
+  vertical-align: baseline;
+}
+
+.legend-swatch.expected {
+  background: var(--muted);
+}
+
+.legend-swatch.observed {
+  background: var(--accent);
+}
+
+/* --- теневая конфигурация --- */
+
+.configs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.config {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+/* Пунктир, а не цвет: теневая конфигурация ничего не решает,
+   и выглядеть равноправной с работающей она не должна. */
+.config.shadow {
+  border-style: dashed;
+}
+
+/* Отчёт выровнен пробелами, поэтому перенос строк его ломает:
+   таблица вкладов расползлась бы. Скролл по горизонтали честнее. */
+.report {
+  white-space: pre;
+  overflow-x: auto;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+/* --- числа под курсором на графике --- */
+
+.chart rect[fill="transparent"] {
+  cursor: crosshair;
+}
+
+.readout-rule {
+  stroke: var(--text);
+  stroke-width: 1;
+  opacity: 0.45;
+}
+
+.readout-dot.fraud { fill: var(--block); }
+.readout-dot.friction { fill: var(--challenge); }
+.readout-dot.total { fill: var(--accent); }
+
+/* Почти непрозрачная подложка: под ней проходят три ломаных,
+   и на просвет числа читались бы поверх линий. */
+.readout-box {
+  fill: #0e1117;
+  fill-opacity: 0.94;
+  stroke: var(--border);
+}
+
+.readout-title {
+  fill: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.readout-row {
+  font-size: 11px;
+}
+
+.readout-row.fraud { fill: var(--block); }
+.readout-row.friction { fill: var(--challenge); }
+.readout-row.total { fill: var(--accent); }
+
+/* Метрики качества — приглушённо: у них своя шкала, и к точкам
+   на линиях они не относятся. */
+.readout-row.muted-row { fill: var(--muted); }
+
+/* Текст, который отправят клиенту: читается как письмо, а не как данные. */
+.client-message {
+  background: #1b2130;
+  border-left: 3px solid var(--challenge);
+  border-radius: 4px;
+  padding: 12px 14px;
+  margin: 12px 0 8px;
+  line-height: 1.55;
+}
+
+/* --- языки интерфейса (брифинг §6) --- */
+
+/*
+  Подробные пояснения к панелям написаны по-русски и на другие языки
+  не переведены: их пятьдесят пять блоков примерно на полторы тысячи
+  слов, и это объяснение читателю, а не текст продукта.
+
+  В казахском и английском режимах они убираются одним правилом здесь,
+  а не полусотней правок по компонентам. Переключатель над
+  дашбордом возвращает их обратно: скрыть — не значит выбросить.
+
+  `.always-visible` — исключение для самой заметки об этом: она
+  объясняет, куда делись пояснения, и прятать её вместе с ними
+  было бы шуткой.
+*/
+:root[data-lang='kk']:not([data-commentary='on']) .hint:not(.always-visible),
+:root[data-lang='en']:not([data-commentary='on']) .hint:not(.always-visible) {
+  display: none;
+}
+
+.commentary-note {
+  border-left: 3px solid var(--accent);
+}
+
+.inline-checkbox {
+  display: inline-flex;
+  margin-left: 8px;
+}
+
+/* --- карта аномалий (брифинг §6) --- */
+
+.anomaly-map {
+  width: 100%;
+  min-width: 620px;
+  height: auto;
+  display: block;
+}
+
+.map-bg {
+  fill: #0e1117;
+  stroke: var(--border);
+}
+
+.map-grid {
+  stroke: #1f242e;
+  stroke-width: 1;
+}
+
+.map-axis {
+  fill: var(--muted);
+  font-size: 9px;
+}
+
+.map-label {
+  fill: var(--text);
+  font-size: 10px;
+  font-family: "Cascadia Mono", Consolas, monospace;
+  pointer-events: none;
+}
+
+.map-point {
+  cursor: pointer;
+}
+
+/* Полупрозрачность намеренная: точки соседних стран накладываются,
+   и без неё мелкая страна исчезала бы под крупной совсем. */
+.map-dot {
+  fill-opacity: 0.55;
+  stroke-width: 1;
+}
+
+.map-dot.low {
+  fill: var(--approve);
+  stroke: var(--approve);
+}
+
+.map-dot.medium {
+  fill: var(--challenge);
+  stroke: var(--challenge);
+}
+
+.map-dot.high {
+  fill: var(--block);
+  stroke: var(--block);
+}
+
+.map-dot.high-risk {
+  stroke: var(--text);
+  stroke-width: 2;
+  stroke-dasharray: 3 2;
+}
+
+.map-point:hover .map-dot {
+  fill-opacity: 0.85;
+}
+
+.map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 10px;
+}
+
+.map-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Кружок легенды — тот же класс, что на карте, но вне SVG:
+   `fill` там не работает, поэтому цвет задаётся фоном. */
+.map-legend i {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.map-legend i.low {
+  background: var(--approve);
+}
+
+.map-legend i.medium {
+  background: var(--challenge);
+}
+
+.map-legend i.high {
+  background: var(--block);
+}
+
+.map-legend i.high-risk {
+  border: 2px dashed var(--text);
+}
+
+/* Панель, которая не смогла загрузиться, занимает одну строку:
+   место обозначено, работе не мешает, причина названа. */
+.panel-unavailable {
+  border-left: 3px solid var(--challenge);
+  opacity: 0.85;
+}
+
+/* Метрика, по которой посчитана кривая компромисса (брифинг §5.C).
+   Отделена от графика тонкой линией: это подпись к нему, а не
+   очередной абзац пояснений. */
+.metric-line {
+  border-left: 2px solid var(--border);
+  padding-left: 10px;
+  margin-bottom: 12px;
+}
+
+/* Два графика в одной панели: общая ось порога, но разные величины.
+   Раньше их разделяли восемь пикселей и ничего больше — вместе они
+   читались как один график с пятью линиями. Подпись и тонкая рамка
+   говорят, где кончается один и начинается другой. */
+.chart-block {
+  margin: 0 0 18px;
+  padding: 10px 10px 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-soft, transparent);
+}
+
+.chart-block:last-of-type {
+  margin-bottom: 8px;
+}
+
+.chart-caption {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.01em;
+}
+
+/* Строки подсказки на графике качества повторяют цвет своей линии —
+   иначе две доли подряд неразличимы. Значения те же, что у линий
+   и легенды выше: держать их в одном месте было бы лучше, но
+   переменных для них в теме нет, а заводить их ради двух строк
+   значило бы трогать всю палитру за день до сдачи. */
+.readout-row.precision { fill: #7c5cff; }
+.readout-row.recall { fill: #2ea86a; }
+
+/* Лента операций для аналитика.
+
+   Задержанные строки подсвечены слева: в потоке девять из десяти
+   операций одобрены, и без отметки глаз ищет нужные три построчно. */
+.feed-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.feed-controls .hint {
+  margin: 0;
+}
+
+table.feed {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+table.feed th,
+table.feed td {
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border);
+}
+
+table.feed tr.row-flagged td:first-child {
+  box-shadow: inset 2px 0 0 var(--challenge);
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+/* Сработавшие политики — метками: их бывает пять, и списком они
+   растянули бы строку на пол-экрана. */
+.signals .signal {
+  display: inline-block;
+  margin: 0 4px 3px 0;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--border);
+  font-size: 11px;
+}
+
+.signals .top-reason {
+  font-size: 11px;
+  line-height: 1.35;
+  max-width: 42ch;
+}
+
+/* --- настройка на работающей системе (брифинг §4.5, §5.C) --- */
+
+.config-block {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.config-block:first-of-type {
+  border-top: none;
+}
+
+/* Флажок и следующая сетка полей шли вплотную к предыдущим полям
+   и читались как их продолжение. */
+.config-block .checkbox,
+.config-block .grid + .grid,
+.config-block .grid {
+  margin-top: 12px;
+}
+
+/* Поле «зачем» длиннее числовых и занимает всю ширину сетки. */
+.config-wide {
+  grid-column: 1 / -1;
+}
+
+.config-wide input {
+  background: #0e1117;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 7px 9px;
+  font-size: 13px;
+}
+
+.config-wide input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Таблица политик: поле ввода вместо числа. */
+.table input[type='number'] {
+  width: 84px;
+  background: #0e1117;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 5px 7px;
+  font-size: 13px;
+}
+
+.table input[type='number']:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.config-applied {
+  margin-top: 12px;
+  color: var(--approve);
+  font-size: 13px;
+}
+
+/* Причина, по которой запись выключена, видна на всех языках:
+   без неё пустая форма выглядела бы сломанной, а не закрытой. */
+.config-locked {
+  border-left: 2px solid var(--challenge);
+  padding-left: 12px;
+}
