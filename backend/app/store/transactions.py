@@ -43,7 +43,7 @@ class TransactionRecord:
 class TransactionStore:
     """Последние обработанные транзакции и статистика по ним."""
 
-    def __init__(self, capacity: int = 5_000) -> None:
+    def __init__(self, capacity: int = 10_000) -> None:
         if capacity <= 0:
             raise ValueError("capacity должен быть положительным")
         self._records: deque[TransactionRecord] = deque(maxlen=capacity)
