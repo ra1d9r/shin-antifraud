@@ -19,6 +19,25 @@ from app.schemas.enums import Decision, RiskLevel
 
 
 @dataclass(frozen=True, slots=True)
+class TopReason:
+    """Главная причина решения — в виде, пригодном для любого языка.
+
+    Хранится разложенной, а не готовой строкой. Строка собиралась бы
+    один раз — в момент обработки — и оставалась бы на языке того
+    запроса: лента операций переживает запрос, и на английском виде
+    все двадцать пять строк говорили бы по-русски. Ровно так и было.
+
+    Либо сработавшая политика (её ключ), либо признак модели с его
+    значением и вкладом. Ни то ни другое языка не имеет.
+    """
+
+    rule_key: str | None = None
+    feature: str | None = None
+    value: float = 0.0
+    contribution: float = 0.0
+
+
+@dataclass(frozen=True, slots=True)
 class TransactionRecord:
     """Обработанная транзакция — то, что видит Dashboard."""
 
@@ -34,7 +53,7 @@ class TransactionRecord:
     decision: Decision
     risk_level: RiskLevel
     triggered_rules: tuple[str, ...]
-    top_reason: str | None
+    top_reason: TopReason | None
     # Подсеть /24, а не полный адрес: графу связей нужна только она,
     # а хранить меньше персональных данных — лучше по умолчанию.
     ip_subnet: str | None = None

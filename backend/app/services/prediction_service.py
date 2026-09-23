@@ -42,7 +42,7 @@ from app.schemas.prediction import (
 )
 from app.schemas.transaction import TransactionRequest
 from app.store.profiles import UserProfile, UserProfileStore
-from app.store.transactions import TransactionRecord, TransactionStore
+from app.store.transactions import TopReason, TransactionRecord, TransactionStore
 from app.xai.explainer import Explainer
 
 logger = get_logger("shin.services.prediction")
@@ -51,6 +51,25 @@ logger = get_logger("shin.services.prediction")
 def _utc_now() -> datetime:
     """Текущее время как наивный UTC — в этом виде живут все метки системы."""
     return datetime.now(UTC).replace(tzinfo=None)
+
+
+def _top_reason(assessment, explanation) -> TopReason | None:
+    """Главная причина решения — разложенной, а не строкой.
+
+    Порядок тот же, что в `Explanation.reasons`: политики идут первыми,
+    потому что они детерминированы и обычно и определяют решение.
+    """
+    if assessment.triggered_rules:
+        return TopReason(rule_key=assessment.triggered_rules[0].key)
+
+    factor = explanation.top_model_factor
+    if factor is None:
+        return None
+    return TopReason(
+        feature=factor.feature,
+        value=factor.value,
+        contribution=factor.contribution,
+    )
 
 
 class PredictionService:
@@ -178,7 +197,7 @@ class PredictionService:
                     decision=assessment.decision,
                     risk_level=assessment.risk_level,
                     triggered_rules=tuple(rule.key for rule in assessment.triggered_rules),
-                    top_reason=explanation.reasons[0] if explanation.reasons else None,
+                    top_reason=_top_reason(assessment, explanation),
                     ip_subnet=ip_subnet(request.ip_address),
                 )
             )
