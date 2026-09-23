@@ -35,7 +35,7 @@
 | 13 | Business Cost: кривая Fraud Loss против Customer Inconvenience | `DONE` | [stage-12](stages/stage-12-dashboard.md) |
 | 14 | Docker | `DONE` | [stage-14](stages/stage-14-docker.md) |
 | 15 | README | `DONE` | [stage-15](stages/stage-15-readme.md) |
-| 16 | Финальная проверка сценариев | `TODO` | — |
+| 16 | Финальная проверка сценариев | `DONE` | [stage-30](stages/stage-30-final-stretch.md) |
 | 17 | Обратная связь аналитика | `DONE` | [stage-17](stages/stage-17-analyst-feedback.md) |
 | 18 | Наблюдение за дрейфом данных | `DONE` | [stage-18](stages/stage-18-data-drift.md) |
 | 19 | Теневой режим | `DONE` | [stage-19](stages/stage-19-shadow-mode.md) |
@@ -54,6 +54,13 @@
 | 32 | LLM-ассистент: объяснение клиенту | `DONE` | [stage-27](stages/stage-27-llm-assistant.md) |
 | 33 | Три языка интерфейса | `DONE` | [stage-28](stages/stage-28-languages.md) |
 | 34 | Карта аномалий | `DONE` | [stage-29](stages/stage-29-anomaly-map.md) |
+| 35 | Лента обработанных операций | `DONE` | [stage-30](stages/stage-30-final-stretch.md) |
+| 36 | Признак «адрес похож на VPN или дата-центр» | `DONE` | [stage-30](stages/stage-30-final-stretch.md) |
+| 37 | Формулировки причин и политик на трёх языках | `DONE` | [stage-30](stages/stage-30-final-stretch.md) |
+| 38 | Настройка порогов и весов рисков в интерфейсе | `DONE` | [stage-30](stages/stage-30-final-stretch.md) |
+| 39 | Кольца счетов в данных — графу связей есть что находить | `DONE` | [stage-30](stages/stage-30-final-stretch.md) |
+| 40 | Свежесть аналитики сверяется, а не помечается флагом | `DONE` | [stage-30](stages/stage-30-final-stretch.md) |
+| 41 | История на 10 000 операций | `DONE` | [stage-30](stages/stage-30-final-stretch.md) |
 
 ---
 
@@ -513,6 +520,8 @@ python backend/scripts/check_docs.py
 **DoD.**
 1. Смена действует немедленно и меняет решение по той же операции.
 2. Тень обнуляется и пересобирается, наследуя от новой основной.
-3. Аналитика помечается устаревшей, дрейф не трогается.
+3. Аналитика сверяется с действующими настройками, дрейф не трогается.
+   Возврат прежних значений снимает пометку: отчёт, снова совпадающий
+   с настройками, устаревшим не считается (этап 40).
 4. Перезапуск возвращает к `.env`.
 5. Без `CONFIG_ADMIN_TOKEN` запись выключена.
